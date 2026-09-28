@@ -45,6 +45,9 @@ const BottomBar = ({
   counts,
   polityCount = 0,
   clipboardCount = 0,
+  // Set while a suggestion is being reviewed (SuggestionReviewPanel.jsx): the
+  // changes still waiting for a decision. null hides the chip.
+  suggestionCount = null,
   basemap,
   hasCustomBackground,
   onOpenBasemaps,
@@ -75,6 +78,9 @@ const BottomBar = ({
       }}
     >
       {search}
+      {suggestionCount !== null && (
+        <Chip icon="list" label={`Suggested changes: ${suggestionCount}`} active={openPanel === "suggestions"} onClick={() => onOpenPanel("suggestions")} />
+      )}
       <Chip icon="list" label={`Regions: ${counts.regions}`} active={openPanel === "regions"} onClick={() => onOpenPanel("regions")} />
       <Chip icon="list" label={`Countries: ${polityCount}`} active={openPanel === "polities"} onClick={() => onOpenPanel("polities")} />
       <Chip icon="layers" label="Topology" active={openPanel === "topology"} onClick={() => onOpenPanel("topology")} />
