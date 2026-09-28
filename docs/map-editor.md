@@ -447,6 +447,7 @@ The `null`-means-clear contract is why hydration (§20) must reload the scenario
 
 When the editor opens from a scenario, `onOpenMapEditor` (`libraryBar.jsx:2511`) fetches the scenario's `regionsGeojson`, `citiesGeojson`, `colors`, `flags`, `tags`, and (if any) `backgroundData`, assembling `mapEditorSeed` = `{ name, author, ownershipOverrides, regions, cities, colors, flags, tags, background, basemap }`. `MapEditor`'s hydrate effect (`:339`, runs once) builds the base document, restores flags/tags/background/basemap, maps cities → features, then:
 - `api.loadRegions(initialMap.regions)` if the scenario has custom geometry, **else** `api.reseedWorldWithOwners(initialMap.ownershipOverrides)` (stock world + overrides = its tier-1 map).
+- Cities come back with their authored size (`tier`, 1 town, 2 city, 3 major). Before, both loading sites dropped it, and the next save wrote every city at the size its population gives.
 
 `scenarioMode` forces `seedKind="deferred"` so `OlMap` doesn't auto-seed the default world under the scenario's map.
 

@@ -288,6 +288,9 @@ const MapEditor = ({ onClose, scenarioName, onApplyToScenario, initialMap, revie
             regionId: null,
             population: f.properties?.population || 0,
             tags: f.properties?.capital === "primary" ? ["city", "capital"] : ["city"],
+            // Its authored size comes back too: a round trip lost it, and the save
+            // then wrote every city at the size its population gives.
+            ...(Number(f.properties?.tier) >= 1 && Number(f.properties?.tier) <= 3 ? { tier: Math.round(Number(f.properties.tier)) } : {}),
           }))
           .filter((f) => Array.isArray(f.coord)),
       );
@@ -637,6 +640,9 @@ const MapEditor = ({ onClose, scenarioName, onApplyToScenario, initialMap, revie
         regionId: null,
         population: f.properties?.population || 0,
         tags: f.properties?.capital === "primary" ? ["city", "capital"] : ["city"],
+        // Its authored size comes back too: a round trip lost it, and the save
+        // then wrote every city at the size its population gives.
+        ...(Number(f.properties?.tier) >= 1 && Number(f.properties?.tier) <= 3 ? { tier: Math.round(Number(f.properties.tier)) } : {}),
       }))
       .filter((f) => Array.isArray(f.coord));
     // The scenario's starting units come back into the Workshop too, so a
