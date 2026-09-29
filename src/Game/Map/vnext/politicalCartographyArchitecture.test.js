@@ -282,19 +282,19 @@ test("switching custom-map geometry invalidates old derived cartography before t
 test("political fill opacity expressions keep zoom at MapLibre top level", () => {
   assert.match(
     nations,
-    /const buildPaxPoliticalFillOpacity = \(hiddenExpression = null\) => \[\s*"interpolate", \["linear"\], \["zoom"\]/,
+    /const buildPoliticalFillOpacity = \(hiddenExpression = null\) => \[\s*"interpolate", \["linear"\], \["zoom"\]/,
   );
-  assert.match(nations, /const PAX_POLITICAL_FILL_OPACITY = buildPaxPoliticalFillOpacity\(\)/);
+  assert.match(nations, /const POLITICAL_FILL_OPACITY = buildPoliticalFillOpacity\(\)/);
   assert.match(
     nations,
-    /const transitionAwareFillOpacity = useMemo\([\s\S]*?buildPaxPoliticalFillOpacity\(\[\s*"boolean",[\s\S]*?"ownershipTransitionHidden"/,
+    /const transitionAwareFillOpacity = useMemo\([\s\S]*?buildPoliticalFillOpacity\(\[\s*"boolean",[\s\S]*?"ownershipTransitionHidden"/,
   );
   assert.doesNotMatch(
     nations,
-    /const transitionAwareFillOpacity = useMemo\([\s\S]*?\[\s*"case",[\s\S]*?PAX_POLITICAL_FILL_OPACITY/,
+    /const transitionAwareFillOpacity = useMemo\([\s\S]*?\[\s*"case",[\s\S]*?POLITICAL_FILL_OPACITY/,
   );
-  assert.match(nations, /const DISPUTED_TILE_FILL_OPACITY = PAX_POLITICAL_FILL_OPACITY/);
-  assert.doesNotMatch(nations, /\["\*", PAX_POLITICAL_FILL_OPACITY,/);
+  assert.match(nations, /const DISPUTED_TILE_FILL_OPACITY = POLITICAL_FILL_OPACITY/);
+  assert.doesNotMatch(nations, /\["\*", POLITICAL_FILL_OPACITY,/);
   assert.doesNotMatch(nations, /\["\*", TILE_FILL_FADE,/);
   assert.doesNotMatch(nations, /\["-", 1, TILE_FILL_FADE\]/);
 });
