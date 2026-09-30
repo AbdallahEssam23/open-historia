@@ -115,3 +115,13 @@ test("world direction switched off is nothing to enforce", () => {
   assert.equal(worldDirectionOf(null), null);
   assert.equal(worldDirectionOf({}), null);
 });
+
+test("the scripted-events setting is long enough for impacts and names its builder", () => {
+  const definition = FEATURE_DEFINITIONS.find((entry) => entry.key === "worldDirection");
+  const scripted = definition.settings.find((setting) => setting.key === "scriptedEvents");
+  assert.equal(scripted.maxLength, 20000);
+  assert.equal(scripted.editor, "scriptedEvents");
+  for (const setting of definition.settings) {
+    if (setting.key !== "scriptedEvents") assert.equal(setting.editor, undefined, setting.key);
+  }
+});

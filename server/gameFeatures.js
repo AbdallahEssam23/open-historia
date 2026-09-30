@@ -76,10 +76,11 @@ export const FEATURE_DEFINITIONS = Object.freeze([
         key: "scriptedEvents",
         type: "text",
         label: "Scripted events",
-        maxLength: 8000,
+        maxLength: 20000,
         rows: 8,
+        editor: "scriptedEvents",
         defaultValue: "",
-        description: "History that happens on its date whatever else the players do: one event per line, the date first (YYYY-MM-DD, a year before AD 1 with a leading minus), then what happens in your own words. The time skip that covers the date is asked to write it; if it does not, the engine writes it for you. \"1914-06-28 Archduke Franz Ferdinand is assassinated in Sarajevo.\"",
+        description: "History that happens on its date whatever else the players do: one event per line, the date first (YYYY-MM-DD, a year before AD 1 with a leading minus), then what happens in your own words. The time skip that covers the date is asked to write it; if it does not, the engine writes it for you, with the impacts you declare. \"1914-06-28 Archduke Franz Ferdinand is assassinated in Sarajevo.\" Indent an impact line under an event to change the world with it: \"  transfer Sarajevo -> Austria-Hungary\".",
       }),
       Object.freeze({
         key: "territoryTempo",
