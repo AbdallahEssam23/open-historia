@@ -89,7 +89,8 @@ const ensureTimelineStyles = () => {
 
     .timeline-markdown ul,
     .timeline-markdown ol {
-        margin: 0.35rem 0 0.45rem 1.1rem;
+        margin-block: 0.35rem 0.45rem;
+        margin-inline-start: 1.1rem;
         padding: 0;
     }
 
@@ -98,10 +99,10 @@ const ensureTimelineStyles = () => {
     }
 
     .timeline-markdown blockquote {
-        border-left: 2px solid rgba(96,165,250,0.55);
+        border-inline-start: 2px solid rgba(96,165,250,0.55);
         color: rgba(229,229,232,0.68);
         margin: 0.55rem 0;
-        padding-left: 0.8rem;
+        padding-inline-start: 0.8rem;
     }
 
     .timeline-markdown code {
@@ -180,7 +181,7 @@ const panelSurface = {
     borderRadius: "18px",
     boxShadow: "var(--oh-hud-shadow)",
     color: "white",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
     overflow: "hidden",
     position: "fixed",
     width: PANEL_WIDTH,
@@ -196,7 +197,7 @@ const widgetSurface = {
     boxShadow: "var(--oh-hud-shadow-soft)",
     color: "white",
     display: "flex",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
     gap: "0.25rem",
     height: "3.5rem",
     justifyContent: "center",
@@ -677,7 +678,7 @@ const buildLiveTurnRecord = ({ events, fromDate, toDate, round, lookups }) => {
     return record;
 };
 
-const MetricPill = ({ children, icon = null, tone = "default", onClick = null, active = false }) => {
+const MetricPill = ({ children, icon = null, tone = "default", onClick = null, active = false, title = "" }) => {
     const toneMap = {
         default: {
             background: "rgba(148,163,184,0.12)",
@@ -694,6 +695,13 @@ const MetricPill = ({ children, icon = null, tone = "default", onClick = null, a
             border: "1px solid rgba(255,255,255,0.1)",
             color: "#f4f4f5",
         },
+        // A warning, not an accent: the fallback badge says a turn changed
+        // nothing, and it must not read as just another blue info chip.
+        warn: {
+            background: "rgba(251,191,36,0.12)",
+            border: "1px solid rgba(251,191,36,0.34)",
+            color: "#fde68a",
+        },
     };
 
     const resolved = toneMap[tone] || toneMap.default;
@@ -705,6 +713,7 @@ const MetricPill = ({ children, icon = null, tone = "default", onClick = null, a
         type={onClick ? "button" : undefined}
         className={onClick ? "oh-tap-row" : undefined}
         onClick={onClick ?? undefined}
+        title={title || undefined}
         style={{
             alignItems: "center",
             background: active ? "rgba(0,0,0,0.42)" : resolved.background,
@@ -801,7 +810,7 @@ const EventDocument = ({ report }) => {
         type="button"
         className="oh-tap-row"
         onClick={() => setOpen((value) => !value)}
-        style={{ alignItems: "center", background: "none", border: "none", color: "rgba(254,243,199,0.92)", cursor: "pointer", display: "flex", font: "inherit", fontSize: "0.74rem", fontWeight: 700, gap: "0.45rem", padding: "0.5rem 0.7rem", textAlign: "left", width: "100%" }}
+        style={{ alignItems: "center", background: "none", border: "none", color: "rgba(254,243,199,0.92)", cursor: "pointer", display: "flex", font: "inherit", fontSize: "0.74rem", fontWeight: 700, gap: "0.45rem", padding: "0.5rem 0.7rem", textAlign: "start", width: "100%" }}
         >
         <span aria-hidden="true">📄</span>
         <span style={{ flex: 1, minWidth: 0 }}>{report.title}</span>
@@ -863,24 +872,23 @@ const EventCard = ({ event, footer = null, lookups, openMapChanges = null, onTog
             background: "rgba(255,255,255,0.02)",
             borderBottom: "1px solid rgba(255,255,255,0.05)",
             display: "flex",
+            flexWrap: "wrap",
             gap: "0.45rem",
             justifyContent: "space-between",
             padding: "0.85rem 1rem 0.7rem",
         }}
         >
-        <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
         <MetricPill icon={<CalendarIcon />} tone="default">
         {formatDate(event.date)}
         </MetricPill>
-        {mapChangeCount > 0 && (
-            <MetricPill icon={<MapIcon />} tone="accent" active={showMapChanges} onClick={toggleMapChanges}>
-            {mapChangeCount} map change{mapChangeCount === 1 ? "" : "s"}{showMapChanges ? " ▴" : " ▾"}
+        {isFallback && (
+            <MetricPill
+            tone="warn"
+            title="This turn came back without the AI's structured output: narrative only, nothing changed on the map."
+            >
+            ⚠ Fallback · narrative only
             </MetricPill>
         )}
-        {event.source === "fallback" && (
-            <MetricPill tone="accent">Fallback</MetricPill>
-        )}
-        </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem", padding: "0.95rem 1rem 1rem" }}>
@@ -919,6 +927,27 @@ const EventCard = ({ event, footer = null, lookups, openMapChanges = null, onTog
         {documents.length > 0 && (
             <div style={{ display: "grid", gap: "0.35rem" }}>
             {documents.map((report) => <EventDocument key={report.id} report={report} />)}
+            </div>
+        )}
+
+        {/* The card's verdict, after the prose: what this event moved, or that
+            it moved nothing. With detail lines to show it is the disclosure's
+            own handle (the map-changes list above). */}
+        {impactSummary.total > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+            <MetricPill
+            icon={<MapIcon />}
+            tone="accent"
+            active={canOpenMapChanges && showMapChanges}
+            onClick={canOpenMapChanges ? toggleMapChanges : null}
+            title={canOpenMapChanges ? "What changed on the map" : "What this event moved"}
+            >
+            {impactText}{canOpenMapChanges ? (showMapChanges ? " ▴" : " ▾") : ""}
+            </MetricPill>
+            </div>
+        ) : isFallback ? null : (
+            <div style={{ alignSelf: "flex-start", border: "1px dashed rgba(255,255,255,0.14)", borderRadius: "999px", color: "rgba(229,229,232,0.46)", fontSize: "0.66rem", fontStyle: "italic", letterSpacing: "0.02em", padding: "0.22rem 0.6rem" }}>
+            No direct map impact
             </div>
         )}
 
@@ -1185,7 +1214,7 @@ const SkipProgressRow = ({ label, onCancel }) => (
             cursor: "pointer",
             fontSize: "0.74rem",
             fontWeight: 600,
-            marginLeft: "0.2rem",
+            marginInlineStart: "0.2rem",
             padding: "0.28rem 0.7rem",
         }}
         >
@@ -1847,7 +1876,7 @@ const TimelineHistoryPanel = ({
                     color: report.done ? "#86efac" : "#fde68a",
                     cursor: report.busy ? "default" : "pointer",
                     display: "flex",
-                    fontFamily: "sans-serif",
+                    fontFamily: "var(--oh-font-ui)",
                     fontSize: "0.72rem",
                     fontWeight: 600,
                     gap: "0.35rem",
@@ -1878,7 +1907,7 @@ const TimelineHistoryPanel = ({
                     color: "#fcd9a8",
                     cursor: rollbackState === "working" ? "default" : "pointer",
                     display: "flex",
-                    fontFamily: "sans-serif",
+                    fontFamily: "var(--oh-font-ui)",
                     fontSize: "0.72rem",
                     fontWeight: 600,
                     gap: "0.35rem",

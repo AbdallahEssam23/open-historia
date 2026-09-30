@@ -34,7 +34,7 @@ const panelStyle = {
     color: "white",
     display: "flex",
     flexDirection: "column",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
     // Inside the backdrop's padding, which keeps clear of a notch and a home
     // indicator (the insets are 0 everywhere else).
     maxHeight: `min(46rem, calc(${APP_HEIGHT} - 2rem - ${SAFE_TOP} - ${SAFE_BOTTOM}))`,
@@ -74,7 +74,7 @@ const choiceButton = (disabled) => ({
     fontSize: "0.82rem",
     lineHeight: 1.4,
     padding: "0.6rem 0.8rem",
-    textAlign: "left",
+    textAlign: "start",
     width: "100%",
 });
 const inputStyle = {
@@ -179,7 +179,7 @@ export const InteractivePanel = ({ open = true, onClose, onOpenTimeline }) => {
                         <div style={{ background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: "10px", fontSize: "0.8rem", lineHeight: 1.5, padding: "0.7rem 0.85rem" }}>
                             The scene is over and written into the record{finished.title ? <>: <span data-no-translate style={{ fontWeight: 800 }}>{finished.title}</span></> : null}.
                             {typeof onOpenTimeline === "function" && (
-                                <button type="button" className="oh-tap-row" onClick={onOpenTimeline} style={{ ...quietButton(false), marginLeft: "0.6rem", padding: "0.3rem 0.6rem" }}>See it on the timeline</button>
+                                <button type="button" className="oh-tap-row" onClick={onOpenTimeline} style={{ ...quietButton(false), marginInlineStart: "0.6rem", padding: "0.3rem 0.6rem" }}>See it on the timeline</button>
                             )}
                         </div>
                     )}

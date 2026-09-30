@@ -17,6 +17,7 @@ import TileLayer from "ol/layer/Tile";
 import OSM from "ol/source/OSM";
 import XYZ from "ol/source/XYZ";
 import { editorBasemapById, esriXyzUrl } from "./basemaps.js";
+import { UI_FONT_STACK } from "../runtime/fontStacks.js";
 import { useBrowserOnline } from "../runtime/networkStatus.js";
 import VectorLayer from "ol/layer/Vector";
 import VectorImageLayer from "ol/layer/VectorImage";
@@ -285,7 +286,7 @@ const cityStyle = (size, name) => {
       text: name
         ? new Text({
             text: name,
-            font: "600 11px sans-serif",
+            font: `600 11px ${UI_FONT_STACK}`,
             offsetY: -11,
             fill: new Fill({ color: "#fff" }),
             stroke: new Stroke({ color: "rgba(0,0,0,0.85)", width: 3 }),
@@ -313,7 +314,7 @@ const selectedCityStyle = (size, name) => {
       text: name
         ? new Text({
             text: name,
-            font: "700 11px sans-serif",
+            font: `700 11px ${UI_FONT_STACK}`,
             offsetY: -13,
             fill: new Fill({ color: "#fef3c7" }),
             stroke: new Stroke({ color: "rgba(0,0,0,0.9)", width: 3 }),
@@ -346,7 +347,7 @@ const unitStyle = (feature, zoom, rgb) => {
       }),
       text: new Text({
         text: name ? `${UNIT_GLYPH[type] || "?"} ${name}` : UNIT_GLYPH[type] || "?",
-        font: "700 10.5px sans-serif",
+        font: `700 10.5px ${UI_FONT_STACK}`,
         offsetY: name ? -15 : 0,
         fill: new Fill({ color: "#fff" }),
         stroke: new Stroke({ color: "rgba(0,0,0,0.9)", width: 3 }),
@@ -367,7 +368,7 @@ const labelStyle = (name) => {
     style = new Style({
       text: new Text({
         text: name,
-        font: "600 12px sans-serif",
+        font: `600 12px ${UI_FONT_STACK}`,
         overflow: false,
         fill: new Fill({ color: "rgba(255,255,255,0.95)" }),
         stroke: new Stroke({ color: "rgba(0,0,0,0.85)", width: 3 }),

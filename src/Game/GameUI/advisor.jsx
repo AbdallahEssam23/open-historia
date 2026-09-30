@@ -34,7 +34,7 @@ const baseStyle = {
     alignItems: "center",
     justifyContent: "center",
     color: "white",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
     borderRadius: "12px",
     border: "1px solid rgba(255,255,255,0.1)",
     boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2)",
@@ -350,7 +350,7 @@ const AdvisorProjectsCard = ({ items, onOpenProjects }) => {
             </button>
         )}
         </div>
-        <ul style={{ margin: "0.4rem 0 0", paddingLeft: "1.1rem" }}>
+        <ul style={{ margin: "0.4rem 0 0", paddingInlineStart: "1.1rem" }}>
         {items.map((item, index) => (
             <li key={index} data-no-translate style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.75)", lineHeight: 1.5 }}>
             {verb[item.change] || "Changed: "}{item.title}
@@ -442,7 +442,7 @@ const AdvisorActionsCard = ({ items, onOpenActions }) => {
             </button>
         )}
         </div>
-        <ul style={{ margin: "0.4rem 0 0", paddingLeft: "1.1rem" }}>
+        <ul style={{ margin: "0.4rem 0 0", paddingInlineStart: "1.1rem" }}>
         {items.map((item, index) => (
             <li key={index} style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.75)", lineHeight: 1.5 }}>
             {item.change === "removed" ? "Removed: " : item.change === "updated" ? "Updated: " : "Added: "}{item.title}
@@ -486,8 +486,8 @@ const AdvisorDraftSend = ({ draft, onDraft }) => {
             borderRadius: "8px",
             color: handedOff ? "rgba(167,243,208,0.95)" : "rgba(191,219,254,0.95)",
             cursor: "pointer",
-            fontFamily: "sans-serif", fontSize: "0.76rem", fontWeight: 600, padding: "0.35rem 0.65rem",
-            textAlign: "left",
+            fontFamily: "var(--oh-font-ui)", fontSize: "0.76rem", fontWeight: 600, padding: "0.35rem 0.65rem",
+            textAlign: "start",
         }}>
         {handedOff ? "✓ In Diplomacy — press send there" : `✉️ Draft to ${draft.country}`}
         </button>
@@ -520,7 +520,7 @@ const AdvisorDeployPlace = ({ deployment, placed, onPlace }) => {
             borderRadius: "8px",
             color: status === "placed" ? "rgba(167,243,208,0.95)" : "#f4f4f5",
             cursor: busy ? "default" : "pointer",
-            fontFamily: "sans-serif", fontSize: "0.76rem", fontWeight: 600, padding: "0.35rem 0.65rem",
+            fontFamily: "var(--oh-font-ui)", fontSize: "0.76rem", fontWeight: 600, padding: "0.35rem 0.65rem",
         }}>
         {status === "placed"
             ? `✓ ${deployment.name} placed`
@@ -600,8 +600,8 @@ const AdvisorChart = ({ config }) => {
                     },
                 },
                 scales: isCartesian ? {
-                    x: { ticks: { color: "rgba(255,255,255,0.45)", font: { size: 10, family: "sans-serif" } }, grid: { color: "rgba(255,255,255,0.06)" }, border: { color: "rgba(255,255,255,0.08)" }, ...coloredConfig.options?.scales?.x },
-                                     y: { ticks: { color: "rgba(255,255,255,0.45)", font: { size: 10, family: "sans-serif" }, callback: val => `${val}${isPercent ? "%" : ""}` }, grid: { color: "rgba(255,255,255,0.06)" }, border: { color: "rgba(255,255,255,0.08)" }, ...coloredConfig.options?.scales?.y },
+                    x: { ticks: { color: "rgba(255,255,255,0.45)", font: { size: 10, family: UI_FONT_STACK } }, grid: { color: "rgba(255,255,255,0.06)" }, border: { color: "rgba(255,255,255,0.08)" }, ...coloredConfig.options?.scales?.x },
+                                     y: { ticks: { color: "rgba(255,255,255,0.45)", font: { size: 10, family: UI_FONT_STACK }, callback: val => `${val}${isPercent ? "%" : ""}` }, grid: { color: "rgba(255,255,255,0.06)" }, border: { color: "rgba(255,255,255,0.08)" }, ...coloredConfig.options?.scales?.y },
                 } : undefined,
             },
         });
@@ -660,7 +660,7 @@ const TabButton = ({ icon, label, active, onClick }) => (
         color: active ? "white" : "rgba(255,255,255,0.55)",
         cursor: "pointer",
         display: "flex",
-        fontFamily: "sans-serif",
+        fontFamily: "var(--oh-font-ui)",
         fontSize: "0.88rem",
         fontWeight: active ? 700 : 500,
         gap: "0.4rem",
@@ -890,7 +890,7 @@ const AdvisorDocumentNotice = ({ notice }) => {
     return (
         <div style={{ alignItems: "flex-start", display: "flex", flexDirection: "column" }}>
             <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.7rem", marginBottom: "0.25rem" }}>🧭 Advisor</span>
-            <div style={{ background: "rgba(250,204,21,0.06)", border: "1px solid rgba(250,204,21,0.22)", borderRadius: "12px 12px 12px 2px", boxSizing: "border-box", fontSize: "0.82rem", lineHeight: 1.5, maxWidth: "90%", padding: "0.55rem 0.8rem" }}>
+            <div style={{ background: "rgba(250,204,21,0.06)", border: "1px solid rgba(250,204,21,0.22)", borderStartStartRadius: "12px", borderStartEndRadius: "12px", borderEndEndRadius: "12px", borderEndStartRadius: "2px", boxSizing: "border-box", fontSize: "0.82rem", lineHeight: 1.5, maxWidth: "90%", padding: "0.55rem 0.8rem" }}>
                 <div>
                     📄 A new paper on your desk: <span data-no-translate style={{ fontWeight: 800 }}>{report.title}</span>, {noticeHow(notice)}.
                 </div>
@@ -949,7 +949,7 @@ const AdvisorMessageList = React.memo(({ messages, isLoading, chatDiffers, chatD
     {isLoading && !(messages[messages.length - 1]?.role === "advisor" && messages[messages.length - 1]?.streaming) && (
         <div style={{ display: "flex", alignItems: "flex-start", flexDirection: "column", gap: "0.25rem" }}>
         <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>🧭 Advisor</span>
-        <div style={{ padding: "0.6rem 0.85rem", borderRadius: "12px 12px 12px 4px", backgroundColor: "rgba(255,255,255,0.08)", fontSize: "0.85rem" }}>
+        <div style={{ padding: "0.6rem 0.85rem", borderStartStartRadius: "12px", borderStartEndRadius: "12px", borderEndEndRadius: "12px", borderEndStartRadius: "4px", backgroundColor: "rgba(255,255,255,0.08)", fontSize: "0.85rem" }}>
         <ThinkingDots />
         </div>
         </div>
@@ -1409,7 +1409,7 @@ const AdvisorPanel = ({ isAdvisorOpen, mapRef, onClose, width, onResize, onResiz
             boxShadow: isAdvisorOpen ? "-4px 0 24px rgba(0,0,0,0.4)" : "none",
             transition: `transform ${ADVISOR_SLIDE}, box-shadow ${ADVISOR_SLIDE}`,
             display: "flex", flexDirection: "column",
-            color: "white", fontFamily: "sans-serif", overflow: "hidden",
+            color: "white", fontFamily: "var(--oh-font-ui)", overflow: "hidden",
         }}>
         {/* Drag the left edge to resize the drawer (main.jsx clamps + persists).
             Not on a phone, where it is the whole screen. */}
@@ -1435,7 +1435,7 @@ const AdvisorPanel = ({ isAdvisorOpen, mapRef, onClose, width, onResize, onResiz
             </div>
         )}
         {/* Header: tabs to flip between the advisor chat and national stats. */}
-        <div style={{ alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", padding: "0 0.75rem 0 0.35rem" }}>
+        <div style={{ alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", paddingBlock: 0, paddingInlineStart: "0.35rem", paddingInlineEnd: "0.75rem" }}>
         <TabButton icon="🧭" label="Advisor" active={activeTab === "advisor"} onClick={() => setActiveTab("advisor")} />
         <TabButton icon="📊" label="Stats" active={activeTab === "stats"} onClick={() => setActiveTab("stats")} />
         <div style={{ flex: 1 }} />
@@ -1450,7 +1450,7 @@ const AdvisorPanel = ({ isAdvisorOpen, mapRef, onClose, width, onResize, onResiz
             title={confirmingClear ? "Tap again to clear the chat" : "Clear chat"}
             aria-label={confirmingClear ? "Confirm clearing the chat" : "Clear chat"}
             style={confirmingClear
-                ? { background: "rgba(239,68,68,0.18)", border: "1px solid rgba(239,68,68,0.55)", borderRadius: "8px", color: "#fca5a5", cursor: "pointer", fontFamily: "sans-serif", fontSize: "0.8rem", fontWeight: 600, lineHeight: 1, padding: "0 0.6rem", display: "flex", alignItems: "center" }
+                ? { background: "rgba(239,68,68,0.18)", border: "1px solid rgba(239,68,68,0.55)", borderRadius: "8px", color: "#fca5a5", cursor: "pointer", fontFamily: "var(--oh-font-ui)", fontSize: "0.8rem", fontWeight: 600, lineHeight: 1, padding: "0 0.6rem", display: "flex", alignItems: "center" }
                 : { background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "1.35rem", lineHeight: 1, padding: 0, display: "flex", alignItems: "center" }}
             >{confirmingClear ? "Clear?" : "🗑"}</button>
         )}
@@ -1462,7 +1462,7 @@ const AdvisorPanel = ({ isAdvisorOpen, mapRef, onClose, width, onResize, onResiz
             onClick={onClose}
             title="Close advisor"
             aria-label="Close advisor"
-            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", fontSize: "1.35rem", lineHeight: 1, padding: "0 0 0 0.5rem", display: "flex", alignItems: "center" }}
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", fontSize: "1.35rem", lineHeight: 1, paddingInlineStart: "0.5rem", display: "flex", alignItems: "center" }}
             >✕</button>
         )}
         </div>
@@ -1505,7 +1505,7 @@ const AdvisorPanel = ({ isAdvisorOpen, mapRef, onClose, width, onResize, onResiz
             resizeTextarea();
         }}
         onKeyDown={handleKeyDown}
-        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "10px", color: "white", fontSize: "0.875rem", padding: "0.6rem 0.75rem", resize: "none", outline: "none", fontFamily: "sans-serif", lineHeight: "1.5", overflowY: "auto", scrollbarWidth: "none", transition: "border-color 0.2s" }}
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "10px", color: "white", fontSize: "0.875rem", padding: "0.6rem 0.75rem", resize: "none", outline: "none", fontFamily: "var(--oh-font-ui)", lineHeight: "1.5", overflowY: "auto", scrollbarWidth: "none", transition: "border-color 0.2s" }}
         onFocus={e => e.target.style.borderColor = "rgba(59,130,246,0.6)"}
         onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.15)"}
         />

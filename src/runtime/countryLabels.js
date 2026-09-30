@@ -8,6 +8,7 @@ import {
   writeRuntimeJson,
 } from "./assets.js";
 import { getStoredLanguage } from "./i18n.js";
+import { containsArabicScript } from "./fontStacks.js";
 import { translateLabel } from "./translator.js";
 
 // v3: label features now carry `lat` (globe text-size correction, issue #6) —
@@ -1061,6 +1062,10 @@ const estimatedTextWidthEm = (name, letterSpacing = 0) =>
   textBaseWidthEm(name) + textGapCount(name) * Math.max(0, Number(letterSpacing) || 0);
 
 const preferredLetterSpacing = (name, mode = "point") => {
+  // Arabic joins its letters into one cursive run: any tracking at all pulls the
+  // joins apart and reads as a rendering fault. The fitting below still measures
+  // the name — it just spends the territory on glyph size instead of on air.
+  if (containsArabicScript(name)) return 0;
   const letters = Math.max(1, String(name ?? "").replace(/\s+/g, "").length);
   const line = mode === "line";
   // Atlas-style point labels spend territory on larger glyphs first and tracking
@@ -1075,6 +1080,7 @@ const preferredLetterSpacing = (name, mode = "point") => {
 };
 
 const maxLetterSpacing = (name, mode = "point") => {
+  if (containsArabicScript(name)) return 0;
   const letters = Math.max(1, String(name ?? "").replace(/\s+/g, "").length);
   if (mode !== "line") {
     if (letters <= 5) return 0.62;
@@ -1093,6 +1099,7 @@ const maxLetterSpacing = (name, mode = "point") => {
 };
 
 const pointMaxLetterSpacing = (name, priorityScale) => {
+  if (containsArabicScript(name)) return 0;
   const letters = Math.max(1, String(name ?? "").replace(/\s+/g, "").length);
   // Giant continental names need some atlas-style tracking to span a continent,
   // but only short names receive it. Normal states stay typographically cohesive.
@@ -1146,7 +1153,9 @@ const fitLineTypography = ({ pathInfo, name, priorityScale }) => {
   // occupy their territory without making each individual glyph absurdly tall.
   const gaps = textGapCount(name);
   let letterSpacing = preferredSpacing;
-  if (gaps > 0) {
+  // maxSpacing is 0 for Arabic: there is no tracking to spend, and clamp() with
+  // a 0 maximum would still hand back its 0.05 minimum.
+  if (gaps > 0 && maxSpacing > 0) {
     letterSpacing = clamp(
       (targetWidth / Math.max(fontPx, 1) - textBaseWidthEm(name)) / gaps,
       0.05,
@@ -1255,12 +1264,13 @@ const fitPointTypography = ({
   );
 
   const gaps = textGapCount(name);
+  const maxSpacing = pointMaxLetterSpacing(name, priorityScale);
   let letterSpacing = preferredSpacing;
-  if (gaps > 0) {
+  if (gaps > 0 && maxSpacing > 0) {
     letterSpacing = clamp(
       (targetWidth / Math.max(fontPx, 1) - textBaseWidthEm(name)) / gaps,
       0.04,
-      pointMaxLetterSpacing(name, priorityScale),
+      maxSpacing,
     );
   }
 
@@ -2122,11 +2132,7 @@ export const loadCountryLabelCollections = async ({ force = false, ownedCodes = 
     return countryLabelsValue;
   }
 
-  if (
-    !force &&
-    countryLabelsPromise &&
-    countryLabelsPromiseKey === cacheKey
-  ) {
+  if (!force && countryLabelsPromise && countryLabelsPromiseKey === cacheKey) {
     return countryLabelsPromise;
   }
 

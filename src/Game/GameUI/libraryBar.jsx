@@ -587,7 +587,7 @@ const PromptSectionEditor = ({
               <div style={{ alignItems: "center", display: "flex", gap: "0.5rem", justifyContent: "space-between" }}>
                 <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>
                   {segment.label}
-                  {edited ? <span style={{ color: "#e4e4e7", marginLeft: "0.4rem" }}>· edited</span> : null}
+                  {edited ? <span style={{ color: "#e4e4e7", marginInlineStart: "0.4rem" }}>· edited</span> : null}
                 </label>
                 {edited ? (
                   <button
@@ -1023,7 +1023,7 @@ const GameCard = ({ active, busy, game, onActivate, onArchive, onClone, onEdit, 
                           minWidth: "8rem",
                           opacity: exporting && !working ? 0.45 : 1,
                           padding: "0.55rem 0.8rem",
-                          textAlign: "left",
+                          textAlign: "start",
                         }, touch)}
                         type="button"
                       >
@@ -3123,7 +3123,7 @@ const LibraryTopBar = () => {
           style={{
             alignItems: "center",
             display: "flex",
-            fontFamily: "sans-serif",
+            fontFamily: "var(--oh-font-ui)",
             gap: "0.45rem",
             left: `calc(5rem + ${SAFE_LEFT})`,
             position: "fixed",
@@ -3171,7 +3171,7 @@ const LibraryTopBar = () => {
           style={{
             display: "flex",
             flexDirection: "column",
-            fontFamily: "sans-serif",
+            fontFamily: "var(--oh-font-ui)",
             gap: "0.45rem",
             left: `calc(0.5rem + ${SAFE_LEFT})`,
             position: "fixed",
@@ -3196,7 +3196,7 @@ const LibraryTopBar = () => {
         <div style={{ position: "fixed", inset: 0, zIndex: 10050 }}>
           <Suspense
             fallback={
-              <div style={{ position: "fixed", inset: 0, background: "#111113", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif" }}>
+              <div style={{ position: "fixed", inset: 0, background: "#111113", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--oh-font-ui)" }}>
                 Loading map editor…
               </div>
             }
@@ -3252,7 +3252,7 @@ const LibraryTopBar = () => {
               (mobileUi.js SCREEN_HEIGHT). */}
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ ...surfaceStyle, borderRadius: 16, width: difficultyPick ? "min(440px, 92vw)" : "min(640px, 92vw)", maxHeight: isMobile ? `calc(${SCREEN_HEIGHT} - 1.5rem - ${SAFE_TOP} - ${SAFE_BOTTOM})` : "80vh", marginTop: isMobile ? "0.75rem" : undefined, display: "flex", flexDirection: "column", padding: "1rem", color: "#fff", fontFamily: "sans-serif", overflow: difficultyPick ? "visible" : "auto" }}
+            style={{ ...surfaceStyle, borderRadius: 16, width: difficultyPick ? "min(440px, 92vw)" : "min(640px, 92vw)", maxHeight: isMobile ? `calc(${SCREEN_HEIGHT} - 1.5rem - ${SAFE_TOP} - ${SAFE_BOTTOM})` : "80vh", marginTop: isMobile ? "0.75rem" : undefined, display: "flex", flexDirection: "column", padding: "1rem", color: "#fff", fontFamily: "var(--oh-font-ui)", overflow: difficultyPick ? "visible" : "auto" }}
           >
             {difficultyPick ? (
               <>
@@ -3392,7 +3392,7 @@ const LibraryTopBar = () => {
           >
             <div
               onClick={(event) => event.stopPropagation()}
-              style={{ ...surfaceStyle, borderRadius: 16, color: "#fff", fontFamily: "sans-serif", padding: "1.1rem", width: "min(430px, 92vw)" }}
+              style={{ ...surfaceStyle, borderRadius: 16, color: "#fff", fontFamily: "var(--oh-font-ui)", padding: "1.1rem", width: "min(430px, 92vw)" }}
             >
               <div style={{ fontSize: "1rem", fontWeight: 800 }}>This game's scenario isn't here</div>
               <div style={{ color: "rgba(255,255,255,0.62)", fontSize: "0.82rem", lineHeight: 1.5, margin: "0.5rem 0 1rem" }}>
@@ -3473,7 +3473,7 @@ const LibraryTopBar = () => {
             color: "#fff",
             display: "flex",
             flexDirection: "column",
-            fontFamily: "sans-serif",
+            fontFamily: "var(--oh-font-ui)",
             inset: 0,
             position: "fixed",
             zIndex: 10046,

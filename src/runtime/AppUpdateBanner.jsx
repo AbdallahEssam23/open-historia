@@ -10,6 +10,7 @@ import {
   parseUpdateManifest,
 } from "./appUpdate.js";
 import { logDebugEvent } from "./debugLog.js";
+import { UI_FONT_STACK } from "./fontStacks.js";
 
 // Stamped into the native app build by the APK workflow (VITE_APP_BUILD / _TRACK).
 // Desktop and dev builds have no stamp, so the banner is a no-op there.
@@ -36,7 +37,9 @@ const bar = {
   background: "linear-gradient(180deg, #161618, #101012)",
   borderBottom: "1px solid rgba(212,175,55,0.35)",
   color: "#f4ead0",
-  font: "600 0.85rem/1.3 system-ui, sans-serif",
+  // The `font` shorthand, not fontFamily: a var() inside it would drop every
+  // longhand of the shorthand if the substitution were ever invalid.
+  font: `600 0.85rem/1.3 ${UI_FONT_STACK}`,
   boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
 };
 const text = { flex: 1, minWidth: 0 };
@@ -48,7 +51,7 @@ const btn = {
   borderRadius: "9px",
   color: "#1a1206",
   cursor: "pointer",
-  font: "700 0.82rem system-ui, sans-serif",
+  font: `700 0.82rem ${UI_FONT_STACK}`,
   padding: "0.45rem 0.9rem",
 };
 const dismissBtn = {

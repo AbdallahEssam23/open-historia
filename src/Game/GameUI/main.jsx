@@ -12,9 +12,6 @@ import { DISCORD_URL, GITHUB_URL, REDDIT_URL } from "../../runtime/communityLink
 import { useCountryDisplayName } from "../../runtime/polityNames.js";
 import { DateWidget } from "./time";
 import { Other } from "./other";
-import { Toolbar } from "./chat";
-import { Search } from "./search";
-import { ForcesPanel } from "./forces";
 import { ADVISOR_SLIDE } from "./advisorSlide.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
@@ -81,7 +78,7 @@ const baseStyle = {
   alignItems: "center",
   justifyContent: "center",
   color: "white",
-  fontFamily: "sans-serif",
+  fontFamily: "var(--oh-font-ui)",
   borderRadius: "14px",
   border: "1px solid var(--oh-hud-border)",
   boxShadow: "var(--oh-hud-shadow-soft)",
@@ -486,7 +483,9 @@ const Main = ({
   return (
     <>
       {showWebGLWarning && <WebGLWarningPopup />}
-      <LibraryTopBar />
+      <Suspense fallback={null}>
+        <LazyLibraryTopBar />
+      </Suspense>
       <DateWidget
         activePanel={activeBottomPanel}
         mapRef={mapRef}
@@ -631,6 +630,7 @@ const Main = ({
             logSettingChange("3D Terrain", !isTerrainEnabled);
           }}
         />
+        </Suspense>
       </Presence>
       <FallbackSwitchNotice />
     </>

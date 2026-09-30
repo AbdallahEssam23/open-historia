@@ -66,7 +66,7 @@ const surface = {
   border: "1px solid rgba(255,255,255,0.12)",
   borderRadius: "12px",
   color: "white",
-  fontFamily: "sans-serif",
+  fontFamily: "var(--oh-font-ui)",
   boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
 };
 
@@ -94,7 +94,7 @@ const UnitRow = ({ unit, dimmed, onClick }) => (
       marginBottom: "5px",
       cursor: "pointer",
       color: "white",
-      textAlign: "left",
+      textAlign: "start",
       opacity: dimmed ? 0.65 : 1,
     }}
   >

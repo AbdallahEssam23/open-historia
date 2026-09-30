@@ -23,7 +23,7 @@ const field = {
   border: "1px solid rgba(255,255,255,0.16)",
   borderRadius: 8,
   color: "#fff",
-  fontFamily: "sans-serif",
+  fontFamily: "var(--oh-font-ui)",
   fontSize: "0.85rem",
   outline: "none",
   padding: "0.55rem 0.7rem",

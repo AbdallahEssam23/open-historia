@@ -370,7 +370,7 @@ const Search = memo(({ mapRef }) => {
         border: "1px solid var(--oh-hud-border)",
         boxShadow: "var(--oh-hud-shadow-soft)",
         color: "white",
-        fontFamily: "sans-serif",
+        fontFamily: "var(--oh-font-ui)",
       }}
       onClick={!expanded ? () => {
         setExpanded(true);
@@ -457,7 +457,7 @@ const Search = memo(({ mapRef }) => {
             opacity: expanded ? 1 : 0,
             pointerEvents: expanded ? "auto" : "none",
             transition: "opacity 0.2s 0.15s",
-            fontFamily: "sans-serif",
+            fontFamily: "var(--oh-font-ui)",
           }}
         />
 

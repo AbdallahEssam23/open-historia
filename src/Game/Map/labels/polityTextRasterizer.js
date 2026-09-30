@@ -1,3 +1,5 @@
+import { ARABIC_LABEL_FONTS, containsArabicScript } from "../../../runtime/fontStacks.js";
+
 const GENERIC_FAMILIES = new Set([
   "serif",
   "sans-serif",
@@ -24,13 +26,26 @@ export const buildFontFamilyCss = (families = []) => (
   families.map(quoteFontFamily).filter(Boolean).join(", ") || "serif"
 );
 
+// A canvas gets no chance to fall back lazily: whatever face is unloaded when
+// the raster is drawn is the face baked into the texture for as long as that
+// raster lives. Loading the stack against a sample of both scripts makes the
+// Arabic face arrive before the first Arabic label is rasterized, instead of a
+// Latin-only sample leaving it to the device's font.
+const ARABIC_SAMPLE = "أبجد هوّز";
+const wantsArabic = (families) =>
+  (families ?? []).some((family) =>
+    ARABIC_LABEL_FONTS.some((arabic) => String(family).toLowerCase() === arabic.toLowerCase()));
+
 export const waitForFontStack = async ({ families, sampleText = "RUSSIAN FEDERATION", sizePx = 128 }) => {
   if (typeof document === "undefined" || !document.fonts) return;
   const familyCss = buildFontFamilyCss(families);
   const shorthand = `${Math.max(12, Number(sizePx) || 128)}px ${familyCss}`;
+  const sample = wantsArabic(families) || containsArabicScript(sampleText)
+    ? `${sampleText} ${ARABIC_SAMPLE}`
+    : sampleText;
   try {
     await Promise.race([
-      document.fonts.load(shorthand, sampleText),
+      document.fonts.load(shorthand, sample),
       new Promise((resolve) => setTimeout(resolve, 1200)),
     ]);
   } catch {

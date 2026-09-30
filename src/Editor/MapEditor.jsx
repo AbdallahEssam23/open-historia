@@ -733,7 +733,7 @@ const MapEditor = ({ onClose, scenarioName, onApplyToScenario, initialMap, revie
         inset: 0,
         background: "#111113",
         overflow: "hidden",
-        fontFamily: "sans-serif",
+        fontFamily: "var(--oh-font-ui)",
         color: "white",
       }}
     >

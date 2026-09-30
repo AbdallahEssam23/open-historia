@@ -188,8 +188,8 @@ const StatPreview = ({ stat, minWidth = 0 }) => (
     <div style={{ alignItems: "center", display: "flex", gap: "0.4rem", minWidth: 0, overflow: "hidden" }}>
       <span aria-hidden="true" style={{ flex: "0 0 auto", fontSize: "0.9rem", width: "1.15rem" }}>{stat.icon || "◆"}</span>
       <span style={{ color: "rgba(255,255,255,0.91)", flex: "1 1 8rem", fontSize: "0.76rem", fontWeight: 780, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.label}</span>
-      <span style={{ color: "rgba(255,255,255,0.28)", flex: "0 1 7rem", fontFamily: "monospace", fontSize: "0.58rem", maxWidth: "35%", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.key}</span>
-      <span style={{ color: "rgba(255,255,255,0.45)", flex: "0 1 auto", fontSize: "0.64rem", fontWeight: 800, marginLeft: "auto", maxWidth: "40%", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{compactPreviewValue(stat)}</span>
+      <span style={{ color: "rgba(255,255,255,0.28)", flex: "0 1 7rem", fontFamily: "var(--oh-font-mono)", fontSize: "0.58rem", maxWidth: "35%", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.key}</span>
+      <span style={{ color: "rgba(255,255,255,0.45)", flex: "0 1 auto", fontSize: "0.64rem", fontWeight: 800, marginInlineStart: "auto", maxWidth: "40%", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{compactPreviewValue(stat)}</span>
     </div>
     {stat.kind === "index" && (
       <div style={{ background: "rgba(255,255,255,0.09)", borderRadius: "999px", height: "5px", marginTop: "0.4rem", overflow: "hidden" }}>
@@ -538,10 +538,10 @@ const StatsSheetEditor = ({ value, onChange }) => {
               <span style={{ fontSize: "0.9rem" }}>{section.icon || "◆"}</span>
               <div style={{ flex: 1, minWidth: touch ? "8rem" : 0 }}>
                 <div style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.72rem", fontWeight: 850, letterSpacing: "0.06em", overflow: "hidden", textOverflow: "ellipsis", textTransform: "uppercase", whiteSpace: "nowrap" }}>{section.label}</div>
-                <div style={{ color: "rgba(255,255,255,0.28)", fontFamily: "monospace", fontSize: "0.56rem", marginTop: "0.1rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{section.key} · {section.stats.length} stat{section.stats.length === 1 ? "" : "s"}</div>
+                <div style={{ color: "rgba(255,255,255,0.28)", fontFamily: "var(--oh-font-mono)", fontSize: "0.56rem", marginTop: "0.1rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{section.key} · {section.stats.length} stat{section.stats.length === 1 ? "" : "s"}</div>
               </div>
               {touch ? (
-                <div style={{ display: "flex", flex: "0 0 auto", gap: "0.32rem", marginLeft: "auto" }}>
+                <div style={{ display: "flex", flex: "0 0 auto", gap: "0.32rem", marginInlineStart: "auto" }}>
                   <button type="button" className="oh-tap" aria-label={`Move section ${section.label} up`} title="Move up" disabled={sectionIndex === 0} onClick={() => moveSectionBy(sectionIndex, -1)} style={touchFit({ ...buttonStyle(false), minWidth: "2rem", opacity: sectionIndex === 0 ? 0.4 : 1, padding: 0 }, touch, { icon: true })}>▲</button>
                   <button type="button" className="oh-tap" aria-label={`Move section ${section.label} down`} title="Move down" disabled={sectionIndex === sections.length - 1} onClick={() => moveSectionBy(sectionIndex, 1)} style={touchFit({ ...buttonStyle(false), minWidth: "2rem", opacity: sectionIndex === sections.length - 1 ? 0.4 : 1, padding: 0 }, touch, { icon: true })}>▼</button>
                   {sectionActions}

@@ -38,7 +38,7 @@ const barStyle = {
   backgroundColor: "rgba(16,21,24,0.96)",
   boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
   color: "white",
-  fontFamily: "sans-serif",
+  fontFamily: "var(--oh-font-ui)",
   fontSize: "0.78rem",
   pointerEvents: "auto",
 };

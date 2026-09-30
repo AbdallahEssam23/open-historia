@@ -47,7 +47,7 @@ const buttonStyle = {
     borderRadius: 9,
     color: "white",
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
     fontSize: "0.8rem",
     fontWeight: 700,
     padding: "0.55rem 0.75rem",
@@ -58,7 +58,7 @@ const searchInputStyle = {
     border: "1px solid rgba(255,255,255,0.14)",
     borderRadius: 9,
     color: "white",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
     fontSize: "0.8rem",
     minWidth: "10rem",
     padding: "0.55rem 0.7rem",
@@ -81,7 +81,7 @@ const FlagCard = ({ imageUrl, label, meta, onClick, selected = false }) => (
             minWidth: 0,
             overflow: "hidden",
             padding: "0.5rem",
-            textAlign: "left",
+            textAlign: "start",
         }}
     >
         <div style={{ width: "100%", aspectRatio: "3 / 2", borderRadius: 7, overflow: "hidden", background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -111,7 +111,7 @@ const PackCard = ({ post, onClick }) => {
                 minWidth: 0,
                 overflow: "hidden",
                 padding: "0.5rem",
-                textAlign: "left",
+                textAlign: "start",
             }}
         >
             <div style={{ position: "relative", width: "100%", aspectRatio: "3 / 2", borderRadius: 7, overflow: "hidden", background: "rgba(38,38,42,0.9)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -123,7 +123,7 @@ const PackCard = ({ post, onClick }) => {
                         <span style={{ fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.08em" }}>FLAG PACK</span>
                     </div>
                 )}
-                <span style={{ position: "absolute", top: 7, right: 7, padding: "0.2rem 0.38rem", borderRadius: 999, background: "rgba(15,23,42,0.9)", border: "1px solid rgba(255,255,255,0.23)", color: "#f4f4f5", fontSize: "0.58rem", fontWeight: 800, letterSpacing: "0.06em" }}>PACK</span>
+                <span style={{ position: "absolute", top: 7, insetInlineEnd: 7, padding: "0.2rem 0.38rem", borderRadius: 999, background: "rgba(15,23,42,0.9)", border: "1px solid rgba(255,255,255,0.23)", color: "#f4f4f5", fontSize: "0.58rem", fontWeight: 800, letterSpacing: "0.06em" }}>PACK</span>
             </div>
             <div style={{ fontSize: "0.75rem", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>{post?.title || "Scenario flag pack"}</div>
             <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.66rem", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -353,7 +353,7 @@ const GameFlagPicker = ({ isOpen, polity, world, onClose, onApplied }) => {
         // Padded clear of the notch and the home indicator (every inset is 0 on
         // a desktop); on a phone the card may use the whole visible height.
         <div style={{ position: "fixed", inset: 0, zIndex: 12050, background: "rgba(2,6,23,0.78)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: `calc(1rem + ${SAFE_TOP}) calc(1rem + ${SAFE_RIGHT}) calc(1rem + ${SAFE_BOTTOM}) calc(1rem + ${SAFE_LEFT})` }}>
-            <div style={{ width: "min(56rem, 96vw)", maxHeight: isMobile ? `calc(${APP_HEIGHT} - 2rem - ${SAFE_TOP} - ${SAFE_BOTTOM})` : "88vh", display: "flex", flexDirection: "column", background: "rgba(16,18,24,0.99)", border: "1px solid rgba(255,255,255,0.13)", borderRadius: 16, boxShadow: "0 24px 70px rgba(0,0,0,0.6)", overflow: "hidden", color: "white", fontFamily: "sans-serif" }}>
+            <div style={{ width: "min(56rem, 96vw)", maxHeight: isMobile ? `calc(${APP_HEIGHT} - 2rem - ${SAFE_TOP} - ${SAFE_BOTTOM})` : "88vh", display: "flex", flexDirection: "column", background: "rgba(16,18,24,0.99)", border: "1px solid rgba(255,255,255,0.13)", borderRadius: 16, boxShadow: "0 24px 70px rgba(0,0,0,0.6)", overflow: "hidden", color: "white", fontFamily: "var(--oh-font-ui)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", padding: "1rem 1.1rem", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
                     {current.imageUrl ? <img src={current.imageUrl} alt="" style={{ width: 46, height: 29, objectFit: "cover", borderRadius: 4, boxShadow: "0 0 0 1px rgba(255,255,255,0.18)" }} /> : <div style={{ width: 46, height: 29, borderRadius: 4, border: "1px solid rgba(255,255,255,0.18)" }} />}
                     <div style={{ flex: 1, minWidth: 0 }}>

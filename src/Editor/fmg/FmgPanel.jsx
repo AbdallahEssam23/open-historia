@@ -172,7 +172,7 @@ const FmgPanel = ({ open, onToggle, busy, log = [], onGenerate }) => {
               borderRadius: 8,
               background: "rgba(0,0,0,0.35)",
               border: "1px solid rgba(255,255,255,0.08)",
-              fontFamily: "ui-monospace, Menlo, Consolas, monospace",
+              fontFamily: "var(--oh-font-mono)",
               fontSize: 11,
               lineHeight: 1.55,
               color: "rgba(180,230,190,0.92)",

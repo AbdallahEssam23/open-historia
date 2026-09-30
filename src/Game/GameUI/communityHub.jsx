@@ -201,7 +201,7 @@ const ScenarioCard = ({ post, busy, onImport, onSelect, touch, isMobile }) => (
         </div>
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.7rem" }}>
           {post.official && (
-            <span style={{ background: "rgba(255,255,255,0.13)", border: "1px solid rgba(255,255,255,0.23)", borderRadius: "999px", color: "#e4e4e7", fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.06em", marginRight: "0.35rem", padding: "0.08rem 0.4rem", textTransform: "uppercase" }}>
+            <span style={{ background: "rgba(255,255,255,0.13)", border: "1px solid rgba(255,255,255,0.23)", borderRadius: "999px", color: "#e4e4e7", fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.06em", marginInlineEnd: "0.35rem", padding: "0.08rem 0.4rem", textTransform: "uppercase" }}>
               ✓ Official
             </span>
           )}
@@ -626,7 +626,7 @@ const CommunityPanel = ({ fullPage = false, onImported }) => {
   return (
     // As the main menu's Community tab (fullPage) the surrounding page owns
     // scrolling; as a floating panel it caps its own height and scrolls itself.
-    <div style={{ color: "#fff", ...(fullPage ? {} : { maxHeight: `calc(${APP_HEIGHT} - 11rem)`, overflowY: "auto", paddingRight: "0.2rem" }) }}>
+    <div style={{ color: "#fff", ...(fullPage ? {} : { maxHeight: `calc(${APP_HEIGHT} - 11rem)`, overflowY: "auto", paddingInlineEnd: "0.2rem" }) }}>
       {selectedPost ? (
         <ScenarioDetail
           post={selectedPost}

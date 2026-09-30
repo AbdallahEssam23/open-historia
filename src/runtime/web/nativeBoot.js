@@ -58,7 +58,7 @@ const css = `
   position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:22px;padding:32px;
   background:#131315;color:#e8eaf2;
-  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"IBM Plex Sans Arabic",sans-serif;
   opacity:1;transition:opacity 260ms ease;
   -webkit-font-smoothing:antialiased;
 }

@@ -174,7 +174,7 @@ const selectStyle = {
   border: "1px solid rgba(255,255,255,0.12)",
   borderRadius: "8px",
   color: "white",
-  fontFamily: "sans-serif",
+  fontFamily: "var(--oh-font-ui)",
   fontSize: "0.72rem",
   outline: "none",
   padding: "0.3rem 0.4rem",
@@ -186,7 +186,7 @@ const ghostButtonStyle = {
   borderRadius: "8px",
   color: "rgba(255,255,255,0.85)",
   cursor: "pointer",
-  fontFamily: "sans-serif",
+  fontFamily: "var(--oh-font-ui)",
   fontSize: "0.7rem",
   fontWeight: 600,
   padding: "0.3rem 0.6rem",
@@ -1034,7 +1034,7 @@ const ProjectsPanel = ({ isOpen, onClose, onOpenAdvisor, mapRef }) => {
         color: "white",
         display: "flex",
         flexDirection: "column",
-        fontFamily: "sans-serif",
+        fontFamily: "var(--oh-font-ui)",
         // Same sizing rule as the Actions panel: use what a tall screen offers,
         // never below a usable 30rem, never into the 9rem the top HUD needs.
         height: `min(calc(${APP_HEIGHT} - 9rem), max(calc(${APP_HEIGHT} - 16rem), 30rem))`,
@@ -1061,7 +1061,7 @@ const ProjectsPanel = ({ isOpen, onClose, onOpenAdvisor, mapRef }) => {
         <span style={{ fontSize: "1rem", fontWeight: 700, letterSpacing: "0.01em" }}>
           Projects &amp; Operations
           {projects.length > 0 && (
-            <span data-no-translate style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.72rem", fontWeight: 500, marginLeft: "0.4rem" }}>
+            <span data-no-translate style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.72rem", fontWeight: 500, marginInlineStart: "0.4rem" }}>
               {visible.length === projects.length ? projects.length : `${visible.length} / ${projects.length}`}
             </span>
           )}
@@ -1097,7 +1097,7 @@ const ProjectsPanel = ({ isOpen, onClose, onOpenAdvisor, mapRef }) => {
             <span style={{
               color: "rgba(255,255,255,0.35)",
               display: "flex",
-              left: "0.55rem",
+              insetInlineStart: "0.55rem",
               position: "absolute",
               top: "50%",
               transform: "translateY(-50%)",
@@ -1115,10 +1115,12 @@ const ProjectsPanel = ({ isOpen, onClose, onOpenAdvisor, mapRef }) => {
                 border: "1px solid rgba(255,255,255,0.12)",
                 borderRadius: "9px",
                 color: "white",
-                fontFamily: "sans-serif",
+                fontFamily: "var(--oh-font-ui)",
                 fontSize: "0.75rem",
                 outline: "none",
-                padding: "0.4rem 0.5rem 0.4rem 1.7rem",
+                paddingBlock: "0.4rem",
+                paddingInlineStart: "1.7rem",
+                paddingInlineEnd: "0.5rem",
                 width: "100%",
               }}
             />
@@ -1230,7 +1232,7 @@ const ProjectsPanel = ({ isOpen, onClose, onOpenAdvisor, mapRef }) => {
                 borderRadius: "10px",
                 color: "white",
                 cursor: "pointer",
-                fontFamily: "sans-serif",
+                fontFamily: "var(--oh-font-ui)",
                 fontSize: "0.75rem",
                 fontWeight: 600,
                 padding: "0.45rem 0.8rem",

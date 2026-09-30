@@ -183,7 +183,7 @@ export const ApiSetupPrompt = ({ providerLabel = "the selected provider", missin
           borderRadius: "16px",
           boxShadow: "var(--oh-hud-shadow)",
           color: "white",
-          fontFamily: "sans-serif",
+          fontFamily: "var(--oh-font-ui)",
           maxHeight: `calc(${APP_HEIGHT} - 2rem - ${SAFE_TOP} - ${SAFE_BOTTOM})`,
           overflowY: "auto",
           padding: "1.35rem 1.4rem 1.2rem",
@@ -199,7 +199,7 @@ export const ApiSetupPrompt = ({ providerLabel = "the selected provider", missin
               onClick={onDismiss}
               aria-label="Not now"
               title="Not now"
-              style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", display: "flex", flexShrink: 0, fontSize: "1.1rem", lineHeight: 1, margin: "-0.6rem -0.7rem 0 0", padding: "0.15rem 0.3rem" }}
+              style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", display: "flex", flexShrink: 0, fontSize: "1.1rem", lineHeight: 1, marginBlock: "-0.6rem 0", marginInlineEnd: "-0.7rem", padding: "0.15rem 0.3rem" }}
             >
               ✕
             </button>

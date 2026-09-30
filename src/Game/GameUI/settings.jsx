@@ -98,7 +98,7 @@ const baseStyle = {
     alignItems: "center",
     justifyContent: "center",
     color: "white",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
     borderRadius: "14px",
     border: "1px solid var(--oh-hud-border)",
     boxShadow: "var(--oh-hud-shadow-soft)",
@@ -344,7 +344,7 @@ const Toggle = ({ label, enabled, onToggle }) => {
     style={{
         position: "absolute",
         top: "2px",
-        left: enabled ? "1.8rem" : "2px",
+        insetInlineStart: enabled ? "1.8rem" : "2px",
         width: "1.5rem",
         height: "1.5rem",
         backgroundColor: "white",
@@ -394,7 +394,7 @@ const ApiProviderSelector = ({ provider, onProviderChange }) => {
             backgroundColor: "rgba(0,0,0,0.18)",
             color: "white",
             cursor: "pointer",
-            textAlign: "left",
+            textAlign: "start",
         }}
         >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem" }}>
@@ -462,7 +462,7 @@ const ApiProviderSelector = ({ provider, onProviderChange }) => {
                             backgroundColor: selected ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0.16)",
                             color: "white",
                             cursor: "pointer",
-                            textAlign: "left",
+                            textAlign: "start",
                         }}
                         >
                         <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "center" }}>
@@ -557,7 +557,7 @@ const SettingsInput = ({
             placeholder={placeholder}
             autoComplete="off"
             spellCheck={false}
-            style={{ ...inputStyle, fontFamily: "monospace", resize: "vertical" }}
+            style={{ ...inputStyle, fontFamily: "var(--oh-font-mono)", resize: "vertical" }}
             />
         ) : (
             <input
@@ -861,7 +861,7 @@ const FallbackListSection = () => {
             <div style={{ alignItems: "center", display: "flex", gap: "0.5rem", justifyContent: "space-between", flexWrap: "wrap" }}>
             <div style={{ minWidth: 0, flex: 1 }}>
             <div data-no-translate style={{ fontSize: "0.82rem", fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            <span style={{ color: "rgba(255,255,255,0.4)", marginRight: "0.4rem" }}>{index + 1}</span>
+            <span style={{ color: "rgba(255,255,255,0.4)", marginInlineEnd: "0.4rem" }}>{index + 1}</span>
             {entry.resolved?.label ?? "(connection removed)"}
             </div>
             <div style={{ ...helperStyle, marginTop: "0.15rem" }}>
@@ -1358,7 +1358,7 @@ const NetworkSharing = () => {
             }}>
             <div style={{ marginBottom: "0.25rem", opacity: 0.8 }}>Type this into the Android app:</div>
             {state.addresses.map((address) => (
-                <div key={address.url} style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600, overflowWrap: "anywhere" }}>
+                <div key={address.url} style={{ fontFamily: "var(--oh-font-mono)", fontWeight: 600, overflowWrap: "anywhere" }}>
                 {address.url}
                 {state.addresses.length > 1 && (
                     <span style={{ fontWeight: 400, opacity: 0.55 }}> ({address.interface})</span>
@@ -1726,7 +1726,7 @@ const diagnosticsButton = {
     color: "white",
     cursor: "pointer",
     display: "flex",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
     fontSize: "0.78rem",
     fontWeight: 600,
     gap: "0.35rem",
@@ -1763,7 +1763,7 @@ const QuickAction = ({ title, description, symbol, tone = "neutral", onClick, hr
         gap: compact ? "0.6rem" : "0.75rem",
         minHeight: compact ? "3rem" : "4.35rem",
         padding: compact ? "0.55rem 0.65rem" : "0.72rem 0.8rem",
-        textAlign: "left",
+        textAlign: "start",
         textDecoration: "none",
         width: "100%",
     };
@@ -1921,7 +1921,7 @@ const SettingsWorkspace = ({
                         gap: "0.65rem",
                         minWidth: 0,
                         padding: "0.62rem 0.65rem",
-                        textAlign: "left",
+                        textAlign: "start",
                         width: isMobile ? "auto" : "100%",
                         ...(isMobile ? { flexDirection: "column", gap: "0.3rem", justifyContent: "center", padding: "0.45rem 0.2rem", textAlign: "center" } : null),
                     }}
@@ -2106,7 +2106,7 @@ const SettingsWorkspace = ({
     // ✕ or the bottom of the page.
     return createPortal(
         <div role="dialog" aria-modal="true" aria-label="Game settings" className={leaving ? "oh-fade-out" : closing ? "oh-fade-out-slow" : fromRect ? undefined : "oh-fade-in"} style={{ alignItems: "center", background: "rgba(6,6,7,0.42)", backdropFilter: "blur(18px) saturate(1.2)", display: "flex", inset: 0, justifyContent: "center", padding: isMobile ? `calc(0.45rem + ${SAFE_TOP}) calc(0.45rem + ${SAFE_RIGHT}) calc(0.45rem + ${SAFE_BOTTOM}) calc(0.45rem + ${SAFE_LEFT})` : "clamp(0.8rem, 2vw, 1.6rem)", position: "fixed", zIndex: 2147483000 }}>
-            <div ref={cardRef} className="oh-ws-card" style={{ background: "linear-gradient(180deg, rgba(46,46,50,0.72), rgba(17,17,19,0.62))", backdropFilter: "var(--oh-hud-blur)", WebkitBackdropFilter: "var(--oh-hud-blur)", border: "1px solid var(--oh-hud-border)", borderRadius: isMobile ? "12px" : "18px", boxShadow: "var(--oh-hud-shadow)", color: "white", display: "flex", flexDirection: "column", fontFamily: "sans-serif", height: isMobile ? `calc(${APP_HEIGHT} - 0.9rem - ${SAFE_TOP} - ${SAFE_BOTTOM})` : `min(800px, calc(${APP_HEIGHT} - 2.4rem))`, maxWidth: "1120px", overflow: "hidden", width: isMobile ? `calc(100vw - 0.9rem - ${SAFE_LEFT} - ${SAFE_RIGHT})` : "min(94vw, 1120px)" }}>
+            <div ref={cardRef} className="oh-ws-card" style={{ background: "linear-gradient(180deg, rgba(46,46,50,0.72), rgba(17,17,19,0.62))", backdropFilter: "var(--oh-hud-blur)", WebkitBackdropFilter: "var(--oh-hud-blur)", border: "1px solid var(--oh-hud-border)", borderRadius: isMobile ? "12px" : "18px", boxShadow: "var(--oh-hud-shadow)", color: "white", display: "flex", flexDirection: "column", fontFamily: "var(--oh-font-ui)", height: isMobile ? `calc(${APP_HEIGHT} - 0.9rem - ${SAFE_TOP} - ${SAFE_BOTTOM})` : `min(800px, calc(${APP_HEIGHT} - 2.4rem))`, maxWidth: "1120px", overflow: "hidden", width: isMobile ? `calc(100vw - 0.9rem - ${SAFE_LEFT} - ${SAFE_RIGHT})` : "min(94vw, 1120px)" }}>
                 <div aria-hidden="true" className="oh-ws-tint" style={{ background: "linear-gradient(180deg, rgba(46,46,50,0.68), rgba(17,17,19,0.58))", borderRadius: "inherit", inset: 0, pointerEvents: "none", position: "absolute" }} />
                 <div style={{ alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: "0.75rem", padding: "0.8rem 0.9rem" }}>
                     <button type="button" className="oh-tap" onClick={onBack} aria-label="Back to game menu" title="Back to game menu" style={{ alignItems: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: "8px", color: "rgba(255,255,255,0.66)", cursor: "pointer", display: "flex", fontSize: "1rem", height: "2.25rem", justifyContent: "center", width: "2.25rem" }}>←</button>
@@ -2122,7 +2122,7 @@ const SettingsWorkspace = ({
                     <button type="button" className="oh-tap" onClick={onClose} aria-label="Close settings" style={{ alignItems: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: "8px", color: "rgba(255,255,255,0.62)", cursor: "pointer", display: "flex", fontSize: "1rem", height: "2.25rem", justifyContent: "center", width: "2.25rem" }}>×</button>
                 </div>
                 <div style={{ display: "grid", flex: 1, gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "235px minmax(0, 1fr)", gridTemplateRows: isMobile ? "auto minmax(0, 1fr)" : "minmax(0, 1fr)", minHeight: 0 }}>
-                    <aside style={{ backgroundColor: "rgba(9,9,10,0.24)", borderBottom: isMobile ? "1px solid rgba(255,255,255,0.07)" : "none", borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.07)", minHeight: 0, overflowY: isMobile ? "visible" : "auto" }}>{nav}</aside>
+                    <aside style={{ backgroundColor: "rgba(9,9,10,0.24)", borderBottom: isMobile ? "1px solid rgba(255,255,255,0.07)" : "none", borderInlineEnd: isMobile ? "none" : "1px solid rgba(255,255,255,0.07)", minHeight: 0, overflowY: isMobile ? "visible" : "auto" }}>{nav}</aside>
                     <main style={{ minHeight: 0, overflowY: "auto", padding: isMobile ? "0.8rem" : "1rem 1.05rem 1.2rem" }}>{content}</main>
                 </div>
             </div>

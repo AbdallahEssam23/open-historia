@@ -1,3 +1,67 @@
+/* -------------------------------------------------------------------------
+   Arabic faces, served with the game like Cinzel and EB Garamond
+   (assets/fonts/fonts.css). Before these, every Arabic string was drawn in
+   whatever the device owned — Segoe UI on Windows, Geeza Pro on macOS, Noto
+   Naskh Arabic on Android — so the same screen could mix two Arabic faces and
+   looked different on every platform. Fontsource 5.3.0 builds; SIL Open Font
+   License 1.1 (OFL-*.txt beside the files).
+
+   unicode-range is the whole point. These are the ARABIC subsets only, declared
+   over the Arabic blocks, so naming them first in a stack changes nothing for
+   Latin text: the browser skips a family whose range excludes the character and
+   falls through to "Segoe UI" / Georgia exactly as before. That also means a
+   page with no Arabic on it downloads none of these bytes on the web build.
+   ------------------------------------------------------------------------- */
+/* The Arabic range, shared by every face below. */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./assets/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./assets/fonts/ibm-plex-sans-arabic-arabic-500-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./assets/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./assets/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./assets/fonts/amiri-arabic-400-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./assets/fonts/amiri-arabic-700-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+
 html,
 body,
 #root {
@@ -11,7 +75,7 @@ body {
   overscroll-behavior: none;
   background: #131315;
   color: #f6f6f7;
-  font-family: "Segoe UI", sans-serif;
+  font-family: var(--oh-font-ui);
 }
 
 * {
@@ -30,6 +94,19 @@ body {
    the screen has nothing to be translucent over.
    ------------------------------------------------------------------------- */
 :root {
+  /* The three type stacks. The Arabic faces are first but declared over the
+     Arabic blocks only (see the @font-face block above), so Latin text still
+     resolves to Segoe UI / Georgia / the system monospace, character by
+     character. Code that cannot read the cascade — a canvas, a Chart.js tick, a
+     MapLibre text-font — takes the same stacks from runtime/fontStacks.js. */
+  --oh-font-ui: "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
+  --oh-font-display: "Amiri", "Cinzel", "EB Garamond", serif;
+  /* The reading serif, for the one place that wants EB Garamond rather than
+     Cinzel's small-capitals voice (the loading screen's shell). Amiri leads it
+     for the same reason as above: Arabic-skips-to-Amiri, Latin-skips-to-EB
+     Garamond, so neither script's shape changes for the other. */
+  --oh-font-serif: "Amiri", "EB Garamond", Georgia, serif;
+  --oh-font-mono: ui-monospace, Consolas, "IBM Plex Sans Arabic", monospace;
   --oh-hud-bg: rgba(18, 18, 20, 0.52);
   --oh-hud-bg-strong: rgba(17, 17, 19, 0.66);
   --oh-hud-bg-soft: rgba(34, 34, 38, 0.46);
@@ -69,6 +146,34 @@ body {
   justify-content: center;
   overflow: hidden;
   background: #0f0f11;
+}
+
+/* -------------------------------------------------------------------------
+   Arabic script, when the game is being played right-to-left.
+
+   translator.js sets dir="rtl" on <html> and puts .oh-rtl on <body> for
+   ar/fa/ur/he. The dir attribute mirrors the HTML UI inside-out (rows, text
+   alignment, logical spacing); the fixed-position HUD panels keep the side they
+   were placed on, so they never fight the unmirrored map. The rules below are
+   about the script itself.
+
+   The tracking has to go. An Arabic word is a cursive run — the letters join,
+   and their shapes depend on their neighbours — so the letter-spacing the UI
+   uses to make Latin capitals breathe (169 call sites, up to 0.08em, and the map
+   labels up to 1.1em) visibly breaks the joins and reads as a defect. Almost all
+   of it is set inline in JSX (`letterSpacing: "0.05em"`), which no stylesheet
+   rule can outrank without !important; that is why these carry it. The reset is
+   scoped to .oh-rtl, so an English screen is untouched.
+
+   Italic is off for the same reason: there is no true italic Arabic here, and
+   the browser's synthesised slant — shear and all — is worse than upright text.
+   font-synthesis: none also stops a missing bold face from being faked.
+   ------------------------------------------------------------------------- */
+.oh-rtl,
+.oh-rtl * {
+  letter-spacing: normal !important;
+  font-style: normal !important;
+  font-synthesis: none;
 }
 
 .startup-grid {

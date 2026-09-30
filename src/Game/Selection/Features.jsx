@@ -137,7 +137,7 @@ const SIDEWAYS_SHEET_MAX_HEIGHT = `calc(${APP_HEIGHT} - 4.5rem - ${SAFE_TOP} - 7
 const DetailRow = ({ label, value }) => (
   <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "11px", color: "rgba(255,255,255,0.6)", marginTop: "3px" }}>
     <span style={{ flexShrink: 0 }}>{label}</span>
-    <span style={{ color: "rgba(255,255,255,0.9)", textAlign: "right", wordBreak: "break-word" }}>{value}</span>
+    <span style={{ color: "rgba(255,255,255,0.9)", textAlign: "end", wordBreak: "break-word" }}>{value}</span>
   </div>
 );
 
@@ -283,7 +283,7 @@ const FeaturePopup = () => {
         animation: dismissing
           ? `${asSheet ? "featureSheetFadeOut" : "featurePopupFadeOut"} 0.18s cubic-bezier(0.4, 0, 1, 1) both`
           : `${asSheet ? "featureSheetFadeIn" : "featurePopupFadeIn"} 0.22s cubic-bezier(0.22, 1, 0.36, 1) both`,
-        fontFamily: "sans-serif",
+        fontFamily: "var(--oh-font-ui)",
       }}
     >
       <div

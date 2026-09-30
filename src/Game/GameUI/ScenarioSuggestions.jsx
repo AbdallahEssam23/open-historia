@@ -539,7 +539,7 @@ export const SuggestChangesDialog = ({ scenario, onClose }) => {
       )}
       {phase === "sent" && sent && (
         <>
-          <ol style={{ ...quietTextStyle, color: "rgba(255,255,255,0.82)", display: "grid", gap: "0.35rem", margin: 0, paddingLeft: "1.2rem" }}>
+          <ol style={{ ...quietTextStyle, color: "rgba(255,255,255,0.82)", display: "grid", gap: "0.35rem", margin: 0, paddingInlineStart: "1.2rem" }}>
             <li>{`The file ${sent.fileName} was saved.`}</li>
             <li>
               {sent.openedPost
@@ -549,7 +549,7 @@ export const SuggestChangesDialog = ({ scenario, onClose }) => {
             <li>{sent.copied ? "Paste the comment below: it is already copied." : "Copy the comment below and paste it there."}</li>
             <li>{`Drag ${sent.fileName} into the comment, then click Comment.`}</li>
           </ol>
-          <textarea readOnly data-no-translate style={{ ...inputStyle, fontFamily: "monospace", fontSize: "0.76rem", minHeight: "9rem" }} value={sent.comment} onFocus={(event) => event.target.select()} />
+          <textarea readOnly data-no-translate style={{ ...inputStyle, fontFamily: "var(--oh-font-mono)", fontSize: "0.76rem", minHeight: "9rem" }} value={sent.comment} onFocus={(event) => event.target.select()} />
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
             <button type="button" className="oh-tap-row" onClick={async () => setSent({ ...sent, copied: await copyText(sent.comment) })} style={tapFit(buttonStyle, touch)}>Copy the comment</button>
             <a href={`${postUrl}#new_comment_field`} target="_blank" rel="noopener noreferrer" className="oh-tap-row" style={{ ...tapFit(buttonStyle, touch), textDecoration: "none" }}>Open the post ↗</a>
@@ -773,7 +773,7 @@ export const SuggestionReviewDialog = ({ scenario, source, onClose, onReviewMap,
             <a href={source.ref.url} target="_blank" rel="noopener noreferrer" style={{ color: "#7dd3fc", fontSize: "0.8rem" }}>View the comment on GitHub ↗</a>
           )}
           {note && (
-            <div data-no-translate style={{ borderLeft: "3px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.82)", fontSize: "0.84rem", lineHeight: 1.5, padding: "0.1rem 0 0.1rem 0.7rem", whiteSpace: "pre-wrap" }}>
+            <div data-no-translate style={{ borderInlineStart: "3px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.82)", fontSize: "0.84rem", lineHeight: 1.5, paddingBlock: "0.1rem", paddingInlineStart: "0.7rem", whiteSpace: "pre-wrap" }}>
               {note}
             </div>
           )}
@@ -1069,4 +1069,3 @@ export const SuggestionsBanner = ({ scenarios, onOpen }) => {
     </div>
   );
 };
-

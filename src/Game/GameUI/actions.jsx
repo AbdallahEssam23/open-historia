@@ -231,9 +231,9 @@ const SuggestionCard = ({ topic, onQueue, queuedIds }) => (
                 borderRadius: "10px",
                 color: "rgba(255,255,255,0.9)",
                 cursor: isQueued ? "default" : "pointer",
-                fontFamily: "sans-serif",
+                fontFamily: "var(--oh-font-ui)",
                 padding: "0.55rem 0.7rem",
-                textAlign: "left",
+                textAlign: "start",
             }}
             >
             <div style={{ fontSize: "0.76rem", fontWeight: 700 }}>
@@ -271,7 +271,7 @@ const goalButtonStyle = (enabled, tone = "neutral") => ({
     borderRadius: "8px",
     color: enabled ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)",
     cursor: enabled ? "pointer" : "not-allowed",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
     fontSize: "0.74rem",
     fontWeight: 600,
     padding: "0.3rem 0.7rem",
@@ -374,7 +374,7 @@ const StandingGoal = ({ country, round, gameDate, isOpen }) => {
                 borderRadius: "8px",
                 boxSizing: "border-box",
                 color: "white",
-                fontFamily: "sans-serif",
+                fontFamily: "var(--oh-font-ui)",
                 fontSize: "0.8rem",
                 lineHeight: "1.45",
                 outline: "none",
@@ -385,7 +385,7 @@ const StandingGoal = ({ country, round, gameDate, isOpen }) => {
             />
             <div style={{ alignItems: "center", display: "flex", gap: "0.4rem", justifyContent: "flex-end" }}>
             {goal && (
-                <button type="button" className="oh-tap-row" disabled={saving || turnRunning} onClick={() => void save("")} style={{ ...goalButtonStyle(!saving && !turnRunning), marginRight: "auto" }}>
+                <button type="button" className="oh-tap-row" disabled={saving || turnRunning} onClick={() => void save("")} style={{ ...goalButtonStyle(!saving && !turnRunning), marginInlineEnd: "auto" }}>
                 Clear goal
                 </button>
             )}
@@ -417,10 +417,10 @@ const StandingGoal = ({ country, round, gameDate, isOpen }) => {
                 borderRadius: "10px",
                 color: turnRunning ? "rgba(255,255,255,0.45)" : "#e4e4e7",
                 cursor: turnRunning ? "not-allowed" : "pointer",
-                fontFamily: "sans-serif",
+                fontFamily: "var(--oh-font-ui)",
                 fontSize: "0.78rem",
                 padding: "0.5rem 0.9rem",
-                textAlign: "left",
+                textAlign: "start",
                 width: "100%",
             }}
             >
@@ -442,7 +442,7 @@ const StandingGoal = ({ country, round, gameDate, isOpen }) => {
         disabled={turnRunning}
         onClick={startEditing}
         title={turnRunning ? lockedNote : "Change or clear the goal"}
-        style={{ background: "none", border: "none", color: turnRunning ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.28)", cursor: turnRunning ? "not-allowed" : "pointer", fontFamily: "sans-serif", fontSize: "0.74rem", padding: 0 }}
+        style={{ background: "none", border: "none", color: turnRunning ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.28)", cursor: turnRunning ? "not-allowed" : "pointer", fontFamily: "var(--oh-font-ui)", fontSize: "0.74rem", padding: 0 }}
         >
         Edit
         </button>
@@ -673,7 +673,7 @@ const ActionsPanel = ({ isOpen, onClose, onOpenAdvisor }) => {
             color: "white",
             display: "flex",
             flexDirection: "column",
-            fontFamily: "sans-serif",
+            fontFamily: "var(--oh-font-ui)",
             // Grow to use the height a taller screen offers (leaving ~16rem for the
             // top bar), never dropping below a usable 30rem floor for laptops/phones,
             // and never past the 9rem the top UI needs (so it can't overflow up).
@@ -891,7 +891,7 @@ const ActionsPanel = ({ isOpen, onClose, onOpenAdvisor }) => {
             borderRadius: "10px",
             boxSizing: "border-box",
             color: "white",
-            fontFamily: "sans-serif",
+            fontFamily: "var(--oh-font-ui)",
             fontSize: "0.82rem",
             outline: "none",
             // Room on the right for the Improve button, bigger on a touch screen.
@@ -930,7 +930,7 @@ const ActionsPanel = ({ isOpen, onClose, onOpenAdvisor }) => {
             position: "absolute",
             // Finger-sized on a touch screen (.oh-tap), and tucked into the
             // corner so it stays inside the box at its smallest.
-            right: isTouch ? "0.125rem" : "0.45rem",
+            insetInlineEnd: isTouch ? "0.125rem" : "0.45rem",
             top: isTouch ? "0.125rem" : "0.55rem",
             width: "1.8rem",
         }}

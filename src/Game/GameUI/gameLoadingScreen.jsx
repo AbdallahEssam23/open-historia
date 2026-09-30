@@ -108,7 +108,7 @@ export const GameLoadingScreen = ({ gameName = "", scenarioName = "", countryNam
     style={{
       background: "#0c0c0e",
       color: "white",
-      fontFamily: "sans-serif",
+      fontFamily: "var(--oh-font-ui)",
       inset: 0,
       overflow: "hidden",
       position: "fixed",

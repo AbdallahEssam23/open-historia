@@ -565,7 +565,7 @@ const ScenarioEditor = ({
     <div>
     <label style={fieldLabelStyle}>Advanced AI Prompt Pack</label>
     <textarea
-    style={{ ...textareaStyle, minHeight: "16rem", fontFamily: "Consolas, monospace", fontSize: "0.8rem" }}
+    style={{ ...textareaStyle, minHeight: "16rem", fontFamily: "var(--oh-font-mono)", fontSize: "0.8rem" }}
     value={formState.advancedPromptsText}
     onChange={(event) => onChange("advancedPromptsText", event.target.value)}
     />
@@ -891,9 +891,9 @@ const ScenarioTopBar = () => {
     style={{
       ...surfaceStyle,
       alignItems: "center",
-      borderLeft: "none",
+      borderInlineStart: "none",
       borderRadius: 0,
-      borderRight: "none",
+      borderInlineEnd: "none",
       borderTop: "none",
       display: "flex",
       gap: "0.9rem",

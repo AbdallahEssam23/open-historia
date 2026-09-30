@@ -89,7 +89,7 @@ const markdownStyles = `
     color: color-mix(in srgb, var(--oh-md-accent) 65%, rgba(255,255,255,0.85));
 }
 
-.oh-md ul, .oh-md ol { margin: 0.3rem 0 0.6rem 0; padding-left: 1.15rem; }
+.oh-md ul, .oh-md ol { margin: 0.3rem 0 0.6rem 0; padding-inline-start: 1.15rem; }
 .oh-md li { margin-bottom: 0.22rem; }
 .oh-md li > ul, .oh-md li > ol { margin: 0.22rem 0 0.1rem 0; }
 .oh-md li::marker { color: color-mix(in srgb, var(--oh-md-accent) 70%, transparent); }
@@ -97,7 +97,7 @@ const markdownStyles = `
 
 /* Task lists: the checkbox replaces the bullet rather than sitting beside it.
    (remark-gfm marks the list .contains-task-list and each item .task-list-item.) */
-.oh-md ul.contains-task-list { padding-left: 0.1rem; }
+.oh-md ul.contains-task-list { padding-inline-start: 0.1rem; }
 .oh-md li.task-list-item { list-style: none; }
 .oh-md li.task-list-item input[type="checkbox"] {
     accent-color: var(--oh-md-accent);
@@ -106,9 +106,12 @@ const markdownStyles = `
 }
 
 .oh-md blockquote {
-    border-left: 2px solid var(--oh-md-accent);
+    border-inline-start: 2px solid var(--oh-md-accent);
     background: color-mix(in srgb, var(--oh-md-accent) 7%, transparent);
-    border-radius: 0 6px 6px 0;
+    border-start-start-radius: 0;
+    border-start-end-radius: 6px;
+    border-end-end-radius: 6px;
+    border-end-start-radius: 0;
     margin: 0.55rem 0;
     padding: 0.4rem 0.7rem;
     color: rgba(255,255,255,0.82);
@@ -149,7 +152,7 @@ const markdownStyles = `
 .oh-md-table-wrap th, .oh-md-table-wrap td {
     border: 1px solid rgba(255,255,255,0.10);
     padding: 0.3rem 0.5rem;
-    text-align: left;
+    text-align: start;
     vertical-align: top;
     /* A floor no column can be squeezed below, whatever its neighbour wants.
        If the floors together exceed the panel the wrapper scrolls, which is

@@ -17,6 +17,7 @@ import {
   polityTextOpacityAtZoom,
 } from "./polityTextLayout.js";
 import { optimizeTerritorialArcPlacement } from "./polityTextPlacement.js";
+import { ARABIC_LABEL_FONTS } from "../../../runtime/fontStacks.js";
 
 export const POLITY_TEXT_RENDERER_LAYER_ID = "polity-text-renderer";
 const RASTER_FONT_SIZE_PX = 128;
@@ -595,7 +596,12 @@ export const createPolityTextCustomLayer = ({
   id = POLITY_TEXT_RENDERER_LAYER_ID,
   records = null,
   preparedEntries = null,
-  fontFamilies = ["Georgia", "Times New Roman", "serif"],
+  // The Arabic faces sit before the Latin ones so an Arabic polity name is drawn
+  // in the game's own Arabic typeface rather than in whatever the device owns
+  // (and before Times New Roman, which carries Arabic on Windows). Latin still
+  // resolves to Georgia: the Arabic faces are declared over the Arabic blocks
+  // only, so they are skipped for Latin characters.
+  fontFamilies = ["Georgia", ...ARABIC_LABEL_FONTS, "Times New Roman", "serif"],
   fillStyle = "rgba(255, 52, 214, 1)",
   haloStyle = "rgba(0, 0, 0, 0.96)",
   haloWidthPx = 5,

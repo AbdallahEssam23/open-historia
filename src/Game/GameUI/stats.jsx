@@ -1049,7 +1049,7 @@ const AdvancedStatsModal = ({
                         )}
                     </div>
 
-                    <aside style={{ backgroundColor: "rgba(9,9,10,0.24)", borderLeft: "1px solid rgba(255,255,255,0.07)", minHeight: 0, overflowY: "auto", padding: "0.9rem 0.85rem 1rem", ...(isMobile ? { borderLeft: "none", borderTop: "1px solid rgba(255,255,255,0.07)", overflowY: "visible" } : null) }}>
+                    <aside style={{ backgroundColor: "rgba(9,9,10,0.24)", borderInlineStart: "1px solid rgba(255,255,255,0.07)", minHeight: 0, overflowY: "auto", padding: "0.9rem 0.85rem 1rem", ...(isMobile ? { borderInlineStart: "none", borderTop: "1px solid rgba(255,255,255,0.07)", overflowY: "visible" } : null) }}>
                         <div style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.58rem", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>Time range</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.5rem" }}>
                             {[['all', 'All'], ['1y', '1 year'], ['5y', '5 years'], ['10y', '10 years']].map(([key, label]) => <button key={key} type="button" className="oh-tap-row" onClick={() => setRange(key)} style={advancedRangeStyle(range === key)}>{label}</button>)}
@@ -1069,7 +1069,7 @@ const AdvancedStatsModal = ({
                                         const checked = metricKeys.includes(metric.key);
                                         const compatible = !selectedMetrics.length || selectedUnit === metric.unit || checked;
                                         return (
-                                            <button key={metric.key} type="button" className="oh-tap-row" onClick={() => toggleMetric(metric)} style={{ alignItems: "center", backgroundColor: checked ? `${metric.color}16` : "transparent", border: `1px solid ${checked ? `${metric.color}50` : "transparent"}`, borderRadius: "7px", color: checked ? "rgba(255,255,255,0.9)" : compatible ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.32)", cursor: "pointer", display: "flex", fontSize: "0.66rem", fontWeight: checked ? 800 : 650, gap: "0.45rem", padding: "0.38rem 0.45rem", textAlign: "left", width: "100%" }}>
+                                            <button key={metric.key} type="button" className="oh-tap-row" onClick={() => toggleMetric(metric)} style={{ alignItems: "center", backgroundColor: checked ? `${metric.color}16` : "transparent", border: `1px solid ${checked ? `${metric.color}50` : "transparent"}`, borderRadius: "7px", color: checked ? "rgba(255,255,255,0.9)" : compatible ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.32)", cursor: "pointer", display: "flex", fontSize: "0.66rem", fontWeight: checked ? 800 : 650, gap: "0.45rem", padding: "0.38rem 0.45rem", textAlign: "start", width: "100%" }}>
                                                 <span aria-hidden="true" style={{ alignItems: "center", backgroundColor: checked ? metric.color : "rgba(255,255,255,0.08)", border: `1px solid ${checked ? metric.color : "rgba(255,255,255,0.13)"}`, borderRadius: "4px", color: "#121214", display: "inline-flex", flexShrink: 0, fontSize: "0.55rem", fontWeight: 1000, height: "14px", justifyContent: "center", width: "14px" }}>{checked ? "✓" : ""}</span>
                                                 <span style={{ flex: 1, minWidth: 0 }}>{metric.label}</span>
                                             </button>
@@ -1289,7 +1289,7 @@ const HistoricalTrackingModal = ({
                                                 justifyContent: "space-between",
                                                 opacity: maxed ? 0.75 : 1,
                                                 padding: "0.6rem 0.72rem",
-                                                textAlign: "left",
+                                                textAlign: "start",
                                                 width: "100%",
                                             }}
                                         >
@@ -1327,7 +1327,7 @@ const HistoricalTrackingModal = ({
                         </div>
                         <div style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", padding: "0.85rem 0.9rem" }}>
                             <div style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.74rem", fontWeight: 800 }}>Suggested approach</div>
-                            <ul style={{ color: "rgba(255,255,255,0.48)", fontSize: "0.67rem", lineHeight: 1.5, margin: "0.5rem 0 0", paddingLeft: "1rem" }}>
+                            <ul style={{ color: "rgba(255,255,255,0.48)", fontSize: "0.67rem", lineHeight: 1.5, margin: "0.5rem 0 0", paddingInlineStart: "1rem" }}>
                                 <li>Keep your country tracked.</li>
                                 <li>Add nearby powers or direct rivals.</li>
                                 <li>6 months is a good default.</li>
@@ -2168,7 +2168,7 @@ const StatsPaneBody = ({ active }) => {
                 <button
                 type="button"
                 onClick={() => setAdvancedOpen(true)}
-                style={{ alignItems: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "11px", color: "#e7e7ea", cursor: "pointer", display: "flex", gap: "0.65rem", justifyContent: "space-between", marginTop: "0.9rem", padding: "0.72rem 0.8rem", textAlign: "left", width: "100%" }}
+                style={{ alignItems: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "11px", color: "#e7e7ea", cursor: "pointer", display: "flex", gap: "0.65rem", justifyContent: "space-between", marginTop: "0.9rem", padding: "0.72rem 0.8rem", textAlign: "start", width: "100%" }}
                 >
                     <span style={{ alignItems: "center", display: "flex", gap: "0.6rem", minWidth: 0 }}>
                         <span style={{ alignItems: "center", backgroundColor: "rgba(59,130,246,0.18)", border: "1px solid rgba(147,197,253,0.2)", borderRadius: "8px", display: "inline-flex", flexShrink: 0, fontSize: "1rem", height: "2rem", justifyContent: "center", width: "2rem" }}>📊</span>
@@ -2183,7 +2183,7 @@ const StatsPaneBody = ({ active }) => {
                 <button
                 type="button"
                 onClick={() => setTrackingOpen(true)}
-                style={{ alignItems: "center", background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.04))", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "11px", color: "#e7e7e9", cursor: "pointer", display: "flex", gap: "0.7rem", justifyContent: "space-between", marginTop: "0.55rem", padding: "0.72rem 0.8rem", textAlign: "left", width: "100%" }}
+                style={{ alignItems: "center", background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.04))", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "11px", color: "#e7e7e9", cursor: "pointer", display: "flex", gap: "0.7rem", justifyContent: "space-between", marginTop: "0.55rem", padding: "0.72rem 0.8rem", textAlign: "start", width: "100%" }}
                 >
                     <span style={{ alignItems: "center", display: "flex", gap: "0.65rem", minWidth: 0 }}>
                         <span style={{ alignItems: "center", backgroundColor: "rgba(234,179,8,0.12)", border: "1px solid rgba(250,204,21,0.22)", borderRadius: "8px", color: "#fbbf24", display: "inline-flex", flexShrink: 0, fontSize: "0.98rem", height: "2rem", justifyContent: "center", width: "2rem" }}>⚙</span>

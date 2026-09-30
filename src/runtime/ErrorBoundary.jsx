@@ -102,8 +102,8 @@ const styles = {
   detail: {
     maxHeight: "8rem",
     overflow: "auto",
-    textAlign: "left",
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    textAlign: "start",
+    fontFamily: "var(--oh-font-mono)",
     fontSize: "0.75rem",
     color: "rgba(230,185,120,0.7)",
     background: "rgba(255,255,255,0.04)",

@@ -63,6 +63,7 @@ import {
   MAX_ACTIVE_OWNERSHIP_FLOOD_FIELDS,
   OWNERSHIP_FLOOD_LAYER_ID,
 } from "./vnext/ownershipFloodCustomLayer.js";
+import { ARABIC_LABEL_FONTS } from "../../runtime/fontStacks.js";
 
 ensurePmtilesProtocol();
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
@@ -3068,7 +3069,11 @@ const WorldMap = ({ isGlobe = false }) => {
     // font wins over it, and the player's own Settings > Map override wins over
     // both - it is the one setting whose whole purpose is to overrule what the
     // author picked.
-    () => [labelFontOverride || labelFont || "Georgia", "Georgia", "Times New Roman", "Palatino Linotype", "serif"],
+    // The Arabic faces come before Times New Roman (which carries Arabic on
+    // Windows) so an Arabic label is drawn in the game's own Arabic typeface.
+    // Latin still resolves to Georgia: they are declared over the Arabic blocks
+    // only, so the browser skips them for Latin characters.
+    () => [labelFontOverride || labelFont || "Georgia", "Georgia", ...ARABIC_LABEL_FONTS, "Times New Roman", "Palatino Linotype", "serif"],
     [labelFont, labelFontOverride],
   );
 

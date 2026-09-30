@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP } from "./mobileUi.js";
 // Cinzel + EB Garamond from the bundle rather than Google Fonts: no request to
-// Google on every start, and the right faces with no network.
+// Google on every start, and the right faces with no network. The Arabic faces
+// (Amiri for these headings) come from styles.css as --oh-font-display.
 import "../assets/fonts/fonts.css";
 
 // Loading-screen artwork. The first is the original; the rest cycle in once the
@@ -95,7 +96,7 @@ const StartupScreen = ({
         height: ${APP_HEIGHT};
         overflow: hidden;
         background: #050403;
-        font-family: 'EB Garamond', Georgia, serif;
+        font-family: var(--oh-font-serif);
       }
 
       /* Cross-fading artwork layers (one per loaded image) */
@@ -175,7 +176,7 @@ const StartupScreen = ({
         }
         .ss-step-info {
           align-items: flex-start;
-          text-align: left;
+          text-align: start;
         }
       }
 
@@ -202,7 +203,7 @@ const StartupScreen = ({
       .ss-title-block {}
 
       .ss-game-name {
-        font-family: 'Cinzel', serif;
+        font-family: var(--oh-font-display);
         font-size: clamp(0.55rem, 1vw, 0.65rem);
         font-weight: 500;
         letter-spacing: 0.32em;
@@ -212,7 +213,7 @@ const StartupScreen = ({
       }
 
       .ss-title {
-        font-family: 'Cinzel', serif;
+        font-family: var(--oh-font-display);
         font-size: clamp(1.4rem, 2.6vw, 2rem);
         font-weight: 700;
         color: #f2e8cc;
@@ -223,7 +224,7 @@ const StartupScreen = ({
 
       /* Right side: current step name + step counter */
       .ss-step-info {
-        text-align: right;
+        text-align: end;
         display: flex;
         flex-direction: column;
         gap: 0.2rem;
@@ -239,7 +240,7 @@ const StartupScreen = ({
       }
 
       .ss-step-counter {
-        font-family: 'Cinzel', serif;
+        font-family: var(--oh-font-display);
         font-size: 0.6rem;
         letter-spacing: 0.2em;
         color: rgba(180,140,50,0.45);
@@ -338,13 +339,13 @@ const StartupScreen = ({
       }
 
       .ss-progress-pct {
-        font-family: 'Cinzel', serif;
+        font-family: var(--oh-font-display);
         font-size: clamp(0.75rem, 1.1vw, 0.85rem);
         font-weight: 700;
         color: rgba(230,185,60,0.9);
         letter-spacing: 0.1em;
         min-width: 3.2rem;
-        text-align: right;
+        text-align: end;
         flex-shrink: 0;
       }
 
@@ -397,7 +398,7 @@ const StartupScreen = ({
         top: calc(0.85rem + ${SAFE_TOP});
         right: calc(1.1rem + ${SAFE_RIGHT});
         z-index: 5;
-        font-family: 'Cinzel', serif;
+        font-family: var(--oh-font-display);
         font-size: 0.5rem;
         letter-spacing: 0.14em;
         color: rgba(232,220,196,0.2);

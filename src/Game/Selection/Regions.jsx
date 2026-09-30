@@ -589,7 +589,7 @@ const RegionPopup = () => {
             borderRadius: "12px",
             overflow: asSheet ? "auto" : "hidden",
             maxHeight: asSheet ? (isMobile ? SHEET_MAX_HEIGHT : SIDEWAYS_SHEET_MAX_HEIGHT) : undefined,
-            fontFamily: "sans-serif",
+            fontFamily: "var(--oh-font-ui)",
             boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)",
             border: "1px solid rgba(255,255,255,0.12)",
             color: "white",
@@ -715,8 +715,8 @@ const RegionPopup = () => {
             style={{
                 width: 0,
                 height: 0,
-                borderLeft: "8px solid transparent",
-                borderRight: "8px solid transparent",
+                borderInlineStart: "8px solid transparent",
+                borderInlineEnd: "8px solid transparent",
                 borderTop: "9px solid rgba(24,24,27,0.95)",
                 margin: "0 auto",
             }}

@@ -162,7 +162,7 @@ const InfoRow = ({ label, children }) => (
     }}
   >
     <span style={{ flexShrink: 0 }}>{label}</span>
-    <span style={{ color: "rgba(255,255,255,0.9)", textAlign: "right" }}>{children}</span>
+    <span style={{ color: "rgba(255,255,255,0.9)", textAlign: "end" }}>{children}</span>
   </div>
 );
 
@@ -394,7 +394,7 @@ const UnitPopup = () => {
         animation: dismissing
           ? `${asSheet ? "unitSheetFadeOut" : "unitPopupFadeOut"} 0.18s cubic-bezier(0.4, 0, 1, 1) both`
           : `${asSheet ? "unitSheetFadeIn" : "unitPopupFadeIn"} 0.22s cubic-bezier(0.22, 1, 0.36, 1) both`,
-        fontFamily: "sans-serif",
+        fontFamily: "var(--oh-font-ui)",
       }}
     >
       <div

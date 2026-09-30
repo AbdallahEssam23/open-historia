@@ -169,7 +169,7 @@ const homeToolButtonStyle = {
     gap: "0.65rem",
     justifyContent: "flex-start",
     padding: "0.62rem 0.7rem",
-    textAlign: "left",
+    textAlign: "start",
     width: "100%",
 };
 
@@ -383,7 +383,7 @@ const CheatsPanel = ({ open, onClose, onOpenForces }) => {
             screen's: centred from 50%, it could only use half the screen and
             broke a one-line instruction over four. */}
         {clickMode && (
-            <div className="oh-hud-popover" style={{ alignItems: "center", display: "flex", gap: "0.6rem", background: "rgba(24, 24, 27, 0.96)", border: "1px solid rgba(0,0,0,0.19)", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", color: "#fff", fontFamily: "sans-serif", fontSize: "0.85rem", left: "50%", padding: "0.6rem 0.9rem", position: "fixed", top: PANEL_TOP, transform: "translateX(-50%)", zIndex: 10070, ...(isMobile ? { boxSizing: "border-box", maxWidth: "calc(100vw - 1rem)", width: "max-content" } : null) }}>
+            <div className="oh-hud-popover" style={{ alignItems: "center", display: "flex", gap: "0.6rem", background: "rgba(24, 24, 27, 0.96)", border: "1px solid rgba(0,0,0,0.19)", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", color: "#fff", fontFamily: "var(--oh-font-ui)", fontSize: "0.85rem", left: "50%", padding: "0.6rem 0.9rem", position: "fixed", top: PANEL_TOP, transform: "translateX(-50%)", zIndex: 10070, ...(isMobile ? { boxSizing: "border-box", maxWidth: "calc(100vw - 1rem)", width: "max-content" } : null) }}>
             <span>{clickMode.label}</span>
             <button type="button" className="oh-tap-row" onClick={endClickMode} style={{ ...primaryButtonStyle, padding: "0.3rem 0.6rem" }}>Done</button>
             </div>
@@ -400,7 +400,7 @@ const CheatsPanel = ({ open, onClose, onOpenForces }) => {
             color: "white",
             display: clickMode ? "none" : "flex",
             flexDirection: "column",
-            fontFamily: "sans-serif",
+            fontFamily: "var(--oh-font-ui)",
             maxHeight: `calc(${APP_HEIGHT} - ${PANEL_TOP} - ${SAFE_TOP} - 1rem)`,
             overflow: "hidden",
             padding: "0.9rem",
@@ -414,7 +414,7 @@ const CheatsPanel = ({ open, onClose, onOpenForces }) => {
         {!tool ? (
             <>
             {header("Cheats", "Game Master, world editing, and simulation administration")}
-            <div style={{ overflowY: "auto", paddingRight: "0.15rem" }}>
+            <div style={{ overflowY: "auto", paddingInlineEnd: "0.15rem" }}>
             <div style={{
                 alignItems: "center",
                 background: "rgba(255,255,255,0.04)",
@@ -856,7 +856,7 @@ const CountryEditorView = ({ meta, header, busy, status, polities, refresh, runB
     return (
         <>
         {header(meta.title, "Identity, national baseline, and present-state economic administration")}
-        <div style={{ overflowY: "auto", paddingRight: "0.12rem" }}>
+        <div style={{ overflowY: "auto", paddingInlineEnd: "0.12rem" }}>
             <div style={{
                 background: "rgba(255,255,255,0.05)",
                 border: "1px solid rgba(255,255,255,0.12)",
@@ -1390,7 +1390,7 @@ const RemindersView = ({ meta, header, busy, status, game, runBusy }) => {
     return (
         <>
         {header(meta.title, meta.subtitle)}
-        <div style={{ display: "flex", flex: 1, flexDirection: "column", gap: "0.55rem", minHeight: 0, overflowY: "auto", paddingRight: "0.12rem" }}>
+        <div style={{ display: "flex", flex: 1, flexDirection: "column", gap: "0.55rem", minHeight: 0, overflowY: "auto", paddingInlineEnd: "0.12rem" }}>
             <div style={noteStyle}>
                 A reminder is a fact you declare for this game — "the Kerch bridge is down", "the harvest has failed across the south". The time skip, the checks after it, the advisor and every leader are told it on each call, ahead of the lore and the starting borders, until you withdraw it. Every AI sees every reminder, so keep secrets out of them.
             </div>
@@ -1461,7 +1461,7 @@ const RemindersView = ({ meta, header, busy, status, game, runBusy }) => {
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
                             {pending.map((entry) => (
                                 <div key={entry.id} style={{ ...cardStyle, fontSize: "0.7rem", lineHeight: 1.4 }}>
-                                    <span style={{ color: "#e4e4e7", fontSize: "0.6rem", fontWeight: 750, marginRight: "0.4rem", textTransform: "uppercase" }}>{gmChangeKindLabel(entry.kind)}</span>
+                                    <span style={{ color: "#e4e4e7", fontSize: "0.6rem", fontWeight: 750, marginInlineEnd: "0.4rem", textTransform: "uppercase" }}>{gmChangeKindLabel(entry.kind)}</span>
                                     {entry.summary}
                                 </div>
                             ))}
@@ -1539,7 +1539,7 @@ const InteractiveEventView = ({ meta, header, busy, status, game, runBusy, close
     return (
         <>
         {header(meta.title, meta.subtitle)}
-        <div style={{ display: "flex", flex: 1, flexDirection: "column", gap: "0.55rem", minHeight: 0, overflowY: "auto", paddingRight: "0.12rem" }}>
+        <div style={{ display: "flex", flex: 1, flexDirection: "column", gap: "0.55rem", minHeight: 0, overflowY: "auto", paddingInlineEnd: "0.12rem" }}>
             <div style={noteStyle}>
                 Pick an event and it becomes the moment to play out: the scene opens inside it, you make the moves, and how it ends is written into the record as one event. Only the scene costs requests — offering one costs nothing, and letting it pass costs nothing.
             </div>
@@ -1994,7 +1994,7 @@ const EventEditorView = ({ meta, header, busy, status, game, runBusy }) => {
     return (
         <>
         {header(meta.title, meta.subtitle)}
-        <div style={{ display: "flex", flex: 1, flexDirection: "column", minHeight: 0, overflowY: "auto", paddingRight: "0.12rem" }}>
+        <div style={{ display: "flex", flex: 1, flexDirection: "column", minHeight: 0, overflowY: "auto", paddingInlineEnd: "0.12rem" }}>
             <div style={{
                 background: "rgba(255,255,255,0.045)",
                 border: "1px solid rgba(96,165,250,0.2)",
@@ -2122,7 +2122,7 @@ const EventEditorView = ({ meta, header, busy, status, game, runBusy }) => {
                 ].map(([value, label]) => (
                     <button key={value} type="button" className="oh-tap-row" onClick={() => { setFilter(value); setLimit(80); }} style={eventFilterButtonStyle(filter === value)}>{label}</button>
                 ))}
-                <span style={{ alignSelf: "center", color: "rgba(255,255,255,0.34)", fontSize: "0.62rem", marginLeft: "auto" }}>
+                <span style={{ alignSelf: "center", color: "rgba(255,255,255,0.34)", fontSize: "0.62rem", marginInlineStart: "auto" }}>
                     {filtered.length} match{filtered.length === 1 ? "" : "es"}
                 </span>
             </div>
@@ -2230,7 +2230,7 @@ const EventEditorView = ({ meta, header, busy, status, game, runBusy }) => {
                                 </div>
                             )}
                             {!isEditing && event?.quote?.text && (
-                                <div style={{ borderLeft: "2px solid rgba(148,163,184,0.38)", marginTop: "0.45rem", padding: "0.08rem 0 0.08rem 0.58rem" }}>
+                                <div style={{ borderInlineStart: "2px solid rgba(148,163,184,0.38)", marginTop: "0.45rem", paddingBlock: "0.08rem", paddingInlineStart: "0.58rem" }}>
                                     <div style={{ color: "rgba(247,247,249,0.78)", fontSize: "0.65rem", fontStyle: "italic", lineHeight: 1.45 }}>
                                         “{event.quote.text}”
                                     </div>
@@ -2613,7 +2613,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
                 <div style={{ color: "rgba(255,255,255,0.76)", fontSize: "0.67rem", fontWeight: 750, letterSpacing: "0.02em" }}>
                     {title} <span style={{ color: "rgba(147,197,253,0.72)", fontWeight: 600 }}>({count})</span>
                 </div>
-                {note ? <div style={{ color: "rgba(255,255,255,0.34)", fontSize: "0.58rem", textAlign: "right" }}>{note}</div> : null}
+                {note ? <div style={{ color: "rgba(255,255,255,0.34)", fontSize: "0.58rem", textAlign: "end" }}>{note}</div> : null}
             </div>
         );
 
@@ -2640,7 +2640,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
                         fontWeight: 650,
                         marginTop: "0.28rem",
                         padding: "0.15rem 0",
-                        textAlign: "left",
+                        textAlign: "start",
                     }}
                 >
                     {expanded ? "Show fewer" : `… ${hidden} more · click to show all`}
@@ -2685,7 +2685,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
         return (
             <>
             {header(meta.title, "Unified GM · natural-language canonical transaction planner")}
-            <div style={{ overflowY: "auto", paddingRight: "0.15rem" }}>
+            <div style={{ overflowY: "auto", paddingInlineEnd: "0.15rem" }}>
                 <div style={{
                     background: "rgba(30,64,175,0.09)",
                     border: "1px solid rgba(96,165,250,0.18)",
@@ -2721,7 +2721,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
                                     justifyContent: "flex-start",
                                     minHeight: 74,
                                     padding: "0.55rem",
-                                    textAlign: "left",
+                                    textAlign: "start",
                                 }}
                             >
                                 <span style={{ color: active ? "#f4f4f5" : "rgba(255,255,255,0.8)", fontSize: "0.74rem" }}>{option.title}</span>
@@ -3381,7 +3381,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
         return (
             <>
             {header(meta.title, meta.subtitle)}
-            <div style={{ overflowY: "auto", paddingRight: "0.12rem" }}>
+            <div style={{ overflowY: "auto", paddingInlineEnd: "0.12rem" }}>
                 <div style={{
                     background: "rgba(255,255,255,0.06)",
                     border: "1px solid rgba(255,255,255,0.21)",
@@ -3421,7 +3421,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
                                     gap: "0.26rem",
                                     minHeight: "6.1rem",
                                     padding: "0.58rem 0.62rem",
-                                    textAlign: "left",
+                                    textAlign: "start",
                                 }}
                             >
                                 <div style={{ alignItems: "center", display: "flex", gap: "0.42rem", width: "100%" }}>
@@ -3463,7 +3463,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
                                 {currentMeta.emoji} {currentMeta.label}
                             </div>
                         </div>
-                        <div style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.58rem", textAlign: "right" }}>
+                        <div style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.58rem", textAlign: "end" }}>
                             Applies from the next AI decision
                         </div>
                     </div>
@@ -3480,7 +3480,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
                     <div style={{ display: "grid", gap: "0.22rem", marginTop: "0.48rem" }}>
                         {(currentMeta.effects ?? []).map((effect) => (
                             <div key={effect} style={{ color: "rgba(255,255,255,0.56)", fontSize: "0.6rem", lineHeight: 1.38 }}>
-                                <span style={{ color: "#d4d4d8", marginRight: "0.28rem" }}>◆</span>{effect}
+                                <span style={{ color: "#d4d4d8", marginInlineEnd: "0.28rem" }}>◆</span>{effect}
                             </div>
                         ))}
                     </div>
@@ -3806,7 +3806,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
         return (
             <>
             {header(meta.title, meta.subtitle)}
-            <div style={{ overflowY: "auto", paddingRight: "0.08rem" }}>
+            <div style={{ overflowY: "auto", paddingInlineEnd: "0.08rem" }}>
                 <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.17)", borderRadius: 10, color: "#e4e4e7", fontSize: "0.68rem", lineHeight: 1.45, padding: "0.55rem 0.65rem" }}>
                     <strong style={{ color: "#f4f4f5" }}>Canonical now · evolvable later.</strong> Region edits change the present territorial state only. Future wars, treaties and simulated events remain free to move it again.
                 </div>
@@ -4232,7 +4232,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
                     placeholder={activeTab === "runtime" ? "Search name, type, owner, status…" : "Search scenario cities…"}
                 />
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.38rem", marginTop: "0.5rem", overflowY: isMobile || touch ? "visible" : "auto", paddingRight: "0.08rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.38rem", marginTop: "0.5rem", overflowY: isMobile || touch ? "visible" : "auto", paddingInlineEnd: "0.08rem" }}>
                 {activeTab === "runtime" && markerRows.length === 0 && (
                     <div style={{ color: "rgba(255,255,255,0.44)", fontSize: "0.72rem", lineHeight: 1.45, padding: "0.55rem 0" }}>
                         No runtime world features match this view. Use + Add new map feature above to create HQs, ports, landmarks, temporary markers, and more without replacing the city layer.
@@ -4640,7 +4640,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
         return (
             <>
             {header(meta.title, "Create a persistent city or world feature without replacing unrelated map data")}
-            <div style={{ overflowY: "auto", paddingRight: "0.08rem" }}>
+            <div style={{ overflowY: "auto", paddingInlineEnd: "0.08rem" }}>
                 <button
                     type="button"
                     className="oh-tap"

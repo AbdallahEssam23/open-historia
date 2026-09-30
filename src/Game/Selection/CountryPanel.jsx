@@ -34,7 +34,7 @@ const surface = {
     borderRadius: "16px",
     boxShadow: "-4px 0 24px rgba(0,0,0,0.45)",
     color: "white",
-    fontFamily: "sans-serif",
+    fontFamily: "var(--oh-font-ui)",
 };
 
 // On a phone the panel is the whole screen, inset like the card it is. Docked
