@@ -702,13 +702,15 @@ const WorldMap = ({ isGlobe = false }) => {
   );
   const ownedCodesKey = useMemo(() => [...ownedCountryCodes].sort().join(","), [ownedCountryCodes]);
 
-  // Bumped when the translator learns new strings, so labels rebuild with
-  // translated names (they're baked into map features, not DOM text).
+  // Bumped only when a name the map drew is (re)translated, so labels rebuild
+  // with the new names. The generic "i18n:updated" is deliberately NOT used:
+  // every content batch fires it, and rebuilding the baked label features on
+  // each one froze the map while panels were translating.
   const [labelEpoch, setLabelEpoch] = useState(0);
   useEffect(() => {
     const onUpdated = () => setLabelEpoch((epoch) => epoch + 1);
-    window.addEventListener("i18n:updated", onUpdated);
-    return () => window.removeEventListener("i18n:updated", onUpdated);
+    window.addEventListener("i18n:labels-updated", onUpdated);
+    return () => window.removeEventListener("i18n:labels-updated", onUpdated);
   }, []);
 
   useEffect(() => {

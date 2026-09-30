@@ -2109,6 +2109,43 @@ const isCountryLabelPayload = (value) =>
   value.curvedLabelData?.type === "FeatureCollection" &&
   Array.isArray(value.curvedLabelData.features);
 
+// The label names a payload was built with, or null when it predates the field.
+const payloadLabelSignature = (value) =>
+  typeof value?.labelSignature === "string" ? value.labelSignature : null;
+
+// The translated names the current tile would produce, as a fingerprint. Cheap
+// next to a rebuild: it decodes the same z0 tile and resolves each name, but does
+// none of the geometry a label payload bakes. Two payloads with this same value
+// draw identical names, so one can stand in for the other.
+const countryLabelNameSignature = async (tileData, ownedCodes = null) => {
+  if (!tileData?.data) return "";
+  const tile = await decodeVectorTile(tileData.data);
+  const layer = tile.layers.countries;
+  if (!layer) return "";
+  const filterByOwners = ownedCodes instanceof Set && ownedCodes.size > 0;
+  const names = [];
+  for (let index = 0; index < layer.length; index += 1) {
+    const props = layer.feature(index).properties;
+    const code = props?.GID_0 || props?.gid_0 || props?.ISO_A3 || props?.iso_a3 || "";
+    if (filterByOwners && !ownedCodes.has(code)) continue;
+    const name = translateLabel(resolveCountryDisplayName(
+      props?.Country || props?.NAME || props?.name || props?.COUNTRY,
+      code,
+    ));
+    if (name) names.push(name);
+  }
+  names.sort();
+  let hash = 2166136261;
+  for (const name of names) {
+    for (let index = 0; index < name.length; index += 1) {
+      hash ^= name.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    hash = Math.imul(hash ^ 0x1f, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+};
+
 export const loadCountryLabelCollections = async ({ force = false, ownedCodes = null } = {}) => {
   const tileData = await getCountriesTileData();
   const baseKey = tileData?.data
@@ -2148,6 +2185,21 @@ export const loadCountryLabelCollections = async ({ force = false, ownedCodes = 
       } catch {
         // Cache miss falls through to live generation.
       }
+    } else {
+      // `force` means a label translation arrived, not that the labels actually
+      // changed — every content batch used to send it here and rebuild the whole
+      // atlas. Compare the names this tile would draw now with the ones the
+      // cached payload holds; only a real change costs a regeneration.
+      const cached = await readRuntimeJson(cacheKey).catch(() => null);
+      const known = countryLabelsValue && countryLabelsValueKey === cacheKey
+        ? countryLabelsValue
+        : cached;
+      if (isCountryLabelPayload(known)
+        && payloadLabelSignature(known) === await countryLabelNameSignature(tileData, ownedCodes)) {
+        countryLabelsValue = known;
+        countryLabelsValueKey = cacheKey;
+        return countryLabelsValue;
+      }
     }
 
     const built = await buildCountryLabelCollections(tileData, ownedCodes);
@@ -2165,11 +2217,14 @@ export const loadCountryLabelCollections = async ({ force = false, ownedCodes = 
       return built;
     }
 
-    countryLabelsValue = built;
+    // Stamp the names these features were built with, so the next forced call can
+    // tell "the names changed" from "something else translated".
+    const stamped = { ...built, labelSignature: await countryLabelNameSignature(tileData, ownedCodes) };
+    countryLabelsValue = stamped;
     countryLabelsValueKey = cacheKey;
 
     try {
-      await writeRuntimeJson(cacheKey, built);
+      await writeRuntimeJson(cacheKey, stamped);
     } catch {
       // Runtime cache persistence is best-effort only.
     }
