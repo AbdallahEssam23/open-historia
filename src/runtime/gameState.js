@@ -3684,21 +3684,39 @@ export const normalizeWorldState = (world) => {
 // The distinction that matters: owning a region via an override = has land; but
 // a scenario that ships NO override list at all means the polity owns its country
 // through the base map tiles (a stock modern map), which is NOT landless.
-export const isPolityLandless = (world, code) => {
+export const isPolityLandless = (world, code, index = null) => {
   const polityCode = normalizeString(code);
   if (!polityCode) return false;
-  const normalized = normalizeWorldState(world);
-  const entries = Object.entries(normalized.regionOwnershipOverrides);
+  const { declared, hasAdministeredRegions, owners } = index ?? polityLandlessIndex(world);
   // Administering a region or being its lawful sovereign both count: an
   // occupied homeland is still a homeland.
-  const owns = [...entries, ...Object.entries(normalized.regionSovereigntyOverrides || {})].some(
-    ([, ownerCode]) => normalizeString(ownerCode).toLowerCase() === polityCode.toLowerCase(),
-  );
-  if (owns) return false;
-  const isKnownPolity = Boolean(normalized.polityOverrides?.[polityCode]);
+  if (owners.has(polityCode.toLowerCase())) return false;
   // No override list AND not a declared polity = stock map, owns via base tiles.
-  if (entries.length === 0 && !isKnownPolity) return false;
+  if (!hasAdministeredRegions && !declared.has(polityCode)) return false;
   return true;
+};
+
+// Everything a landless check reads, derived from the world in one pass.
+//
+// isPolityLandless re-normalizes the world and re-scans every region per call,
+// which is fine once and quadratic in a loop: the Stats panel's candidate list
+// asks about every tracked and every declared polity, so a 4816-region campaign
+// paid 202 whole-world normalizations to answer 202 questions. A caller with a
+// list builds this once and passes it to every isPolityLandless call instead.
+export const polityLandlessIndex = (world) => {
+  const normalized = normalizeWorldState(world);
+  const owners = new Set();
+  const add = (value) => {
+    const key = normalizeString(value).toLowerCase();
+    if (key) owners.add(key);
+  };
+  for (const owner of Object.values(normalized.regionOwnershipOverrides || {})) add(owner);
+  for (const owner of Object.values(normalized.regionSovereigntyOverrides || {})) add(owner);
+  return {
+    declared: new Set(Object.keys(normalized.polityOverrides || {})),
+    hasAdministeredRegions: Object.keys(normalized.regionOwnershipOverrides || {}).length > 0,
+    owners,
+  };
 };
 
 // Recover a Gregorian date stored in a loose format back to strict YYYY-MM-DD.

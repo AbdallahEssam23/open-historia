@@ -9,7 +9,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyEventImpactsToWorld, normalizeWorldState } from "./gameState.js";
+import { applyEventImpactsToWorld, isPolityLandless, normalizeWorldState, polityLandlessIndex } from "./gameState.js";
 import { buildOwnerAliasMap, canonicalOwnerName } from "./ownerNames.js";
 
 const RENAMED = { Germany: { code: "Germany", name: "Third Reich", aliases: ["the Reich"] } };
@@ -230,4 +230,48 @@ test("annexation moves every region and leaves the loser landless, not deleted",
   assert.equal(world.polityOverrides["Kingdom of Belgium"].name, "Kingdom of Belgium");
   assert.deepEqual(world.polityOverrides["Kingdom of Belgium"].formerNames, ["Belgium"]);
   assert.deepEqual(world.countryTags["Kingdom of Belgium"], ["neutral"]);
+});
+
+// The Stats panel asks this about every tracked and every declared polity in one
+// pass, so it derives the ownership index once (polityLandlessIndex) instead of
+// re-normalizing the campaign per name. The indexed answer must be the plain
+// answer for every case, including the two that are easy to get wrong: a
+// case-different spelling, and a world with no ownership ledger at all.
+test("the landless index answers exactly as the unindexed check", () => {
+  const annexed = {
+    polityOverrides: {
+      Belgium: { code: "Belgium" },
+      Germany: { code: "Germany" },
+      "Free Bavaria": { code: "Free Bavaria" },
+    },
+    regionOwnershipOverrides: { "BEL.1_1": "Germany", "DEU.1_1": "Germany" },
+    regionSovereigntyOverrides: { "DEU.2_1": "Free Bavaria" },
+  };
+  // No ledger at all: every polity owns through the stock map's base tiles.
+  const stock = { polityOverrides: { Japan: { code: "Japan" } } };
+  const empty = {};
+
+  for (const world of [annexed, stock, empty]) {
+    const normalized = normalizeWorldState(world);
+    const index = polityLandlessIndex(world);
+    for (const code of ["Germany", "Belgium", "Free Bavaria", "Japan", "Nowhere", "germany", "FREE BAVARIA", ""]) {
+      assert.equal(
+        isPolityLandless(world, code, index),
+        isPolityLandless(normalized, code),
+        `landless("${code}") answered differently through the index`,
+      );
+    }
+  }
+
+  // And the answers themselves, so a change to BOTH paths together is still
+  // caught. The two asymmetries here are the existing contract, preserved:
+  // a world with no ownership ledger falls back to the stock map's baked tiles
+  // for names it does not declare, but a name it DOES declare has no region to
+  // own in that world and is landless.
+  assert.equal(isPolityLandless(annexed, "Germany"), false, "an administering polity holds land");
+  assert.equal(isPolityLandless(annexed, "Free Bavaria"), false, "a lawful sovereign holds land even with none administered");
+  assert.equal(isPolityLandless(annexed, "Belgium"), true, "an annexed polity is landless, not deleted");
+  assert.equal(isPolityLandless(annexed, "Nowhere"), true, "a ledger exists and does not list this name: landless");
+  assert.equal(isPolityLandless(stock, "Japan"), true, "declared but holding nothing in a ledger-less world: landless");
+  assert.equal(isPolityLandless(stock, "Nowhere"), false, "undeclared in a ledger-less world: a stock map country, not landless");
 });

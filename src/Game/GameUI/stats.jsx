@@ -5,7 +5,7 @@ import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
 import { createPortal } from "react-dom";
 import { JSON_URLS, getNationFlags, readJson, reportPerfOperation } from "../../runtime/assets.js";
-import { isPolityLandless, readGameData, readWorldState, readWorldStateView, writeWorldState } from "../../runtime/gameState.js";
+import { isPolityLandless, polityLandlessIndex, readGameData, readWorldState, readWorldStateView, writeWorldState } from "../../runtime/gameState.js";
 import { useLibraryState } from "../../runtime/library.js";
 import { useCountryDisplayName } from "../../runtime/polityNames.js";
 import { resolvePolityIdentity } from "../../runtime/polityIdentity.js";
@@ -1126,10 +1126,14 @@ const HistoricalTrackingModal = ({
 
     const candidates = useMemo(() => {
         const collected = new Map();
+        // One index for the whole list: the check below asks about every tracked
+        // and every declared polity, and deriving it per name re-normalizes the
+        // campaign and re-scans every region each time.
+        const landless = world ? polityLandlessIndex(world) : null;
         const add = (value) => {
             const key = canonicalPolityKey(value, world);
             if (!key || collected.has(lowerText(key))) return;
-            if (world && isPolityLandless(world, key)) return;
+            if (landless && isPolityLandless(world, key, landless)) return;
             collected.set(lowerText(key), key);
         };
         add(playerCountry);
