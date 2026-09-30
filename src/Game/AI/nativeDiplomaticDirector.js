@@ -206,29 +206,33 @@ const normalizeAgreementStatus = (value, fallback = "active") => {
   return AGREEMENT_STATUS_SET.has(status) ? status : fallback;
 };
 
-const normalizedRelations = (world) => array(normalizeWorldState(world)?.relations)
+// `normalized` says the caller already ran normalizeWorldState on this exact
+// world. The migrant and applier entry points all do, immediately before reading
+// the ledgers, and reading them re-normalized the whole document each time —
+// once per helper, and one pass here reads relations AND agreements.
+const normalizedRelations = (world, normalized = false) => array((normalized ? world : normalizeWorldState(world))?.relations)
   .map((entry) => entry && typeof entry === "object"
     ? { ...entry, status: normalizeRelationStatus(entry.status, entry.score) }
     : null)
   .filter(Boolean)
   .slice(0, MAX_RELATIONS);
 
-const normalizedAgreements = (world) => array(normalizeWorldState(world)?.agreements)
+const normalizedAgreements = (world, normalized = false) => array((normalized ? world : normalizeWorldState(world))?.agreements)
   .map((entry) => entry && typeof entry === "object" ? entry : null)
   .filter(Boolean)
   .slice(0, MAX_AGREEMENTS);
 
-const relationMapFromWorld = (world) => {
+const relationMapFromWorld = (world, normalized = false) => {
   const map = new Map();
-  for (const relation of normalizedRelations(world)) {
+  for (const relation of normalizedRelations(world, normalized)) {
     const key = relationPairKey(relation.a, relation.b, world);
     if (key) map.set(key, relation);
   }
   return map;
 };
 
-const agreementMapFromWorld = (world) =>
-  new Map(normalizedAgreements(world).map((agreement) => [clean(agreement.id), agreement]));
+const agreementMapFromWorld = (world, normalized = false) =>
+  new Map(normalizedAgreements(world, normalized).map((agreement) => [clean(agreement.id), agreement]));
 
 const splitFixedFields = (value, cuts) => {
   const fields = [];
@@ -1196,7 +1200,7 @@ export const validateDiplomaticLedgerPayload = (
 
 export const applyRelationUpdates = ({ world, updates, events = [], stopDate = "", round = 0, allowUnboundBaseline = false } = {}) => {
   const nextWorld = normalizeWorldState(world);
-  const map = relationMapFromWorld(nextWorld);
+  const map = relationMapFromWorld(nextWorld, true);
   const decoded = bindRelationUpdatesToEvents(updates, events);
   const applied = [];
 
@@ -1251,7 +1255,7 @@ export const applyRelationUpdates = ({ world, updates, events = [], stopDate = "
 
 export const applyAgreementUpdates = ({ world, updates, events = [], stopDate = "", round = 0, allowUnboundBaseline = false } = {}) => {
   const nextWorld = normalizeWorldState(world);
-  const map = agreementMapFromWorld(nextWorld);
+  const map = agreementMapFromWorld(nextWorld, true);
   const decoded = bindAgreementUpdatesToEvents(updates, events);
   const applied = [];
 
@@ -1440,7 +1444,7 @@ export const buildBoundedDiplomaticContext = (
 
   // Formal commitments and current wars can pull in a directly connected actor,
   // but the whole context remains bounded.
-  for (const agreement of normalizedAgreements(world)) {
+  for (const agreement of normalizedAgreements(world, true)) {
     if (!["active", "suspended"].includes(agreement.status)) continue;
     if (!array(agreement.parties).some((party) => seedActorKeys.has(politySetKey(party)))) continue;
     array(agreement.parties).forEach(pushActor);
@@ -1456,12 +1460,12 @@ export const buildBoundedDiplomaticContext = (
     if (actors.length >= maxActors) break;
   }
 
-  const relations = normalizedRelations(world)
+  const relations = normalizedRelations(world, true)
     .filter((relation) => actorKeys.has(politySetKey(relation.a)) && actorKeys.has(politySetKey(relation.b)))
     .sort((a, b) => Math.abs(Number(b.score) || 0) - Math.abs(Number(a.score) || 0))
     .slice(0, MAX_CONTEXT_RELATIONS);
 
-  const agreements = normalizedAgreements(world)
+  const agreements = normalizedAgreements(world, true)
     .filter((agreement) => ["active", "suspended"].includes(agreement.status))
     .filter((agreement) => {
       const parties = array(agreement.parties);
@@ -1959,8 +1963,8 @@ export const migrateLegacyDiplomaticState = ({ world: worldLike, events = [], ch
   }
 
   const roster = buildMigrationRoster(world);
-  const relationMap = relationMapFromWorld(world);
-  const agreementMap = agreementMapFromWorld(world);
+  const relationMap = relationMapFromWorld(world, true);
+  const agreementMap = agreementMapFromWorld(world, true);
   const beforeRelations = relationMap.size;
   const beforeAgreements = agreementMap.size;
   const normalizedEvents = normalizeEvents(events)

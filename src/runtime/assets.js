@@ -5,7 +5,7 @@
 import { PMTiles, Protocol, SharedPromiseCache } from "pmtiles";
 import { resolveRegionName } from "./regionNameFixes.js";
 import { logDebugEvent } from "./debugLog.js";
-import { resolvePolityIdentity, resolveStockCountryCode } from "./polityIdentity.js";
+import { buildPolityIdentityIndex, resolvePolityIdentity, resolveStockCountryCode } from "./polityIdentity.js";
 import { mergeStockAndDeclaredPolities } from "./countryList.js";
 import { WholeFileSource } from "./wholeFileSource.js";
 import { isNativeBuild } from "./native/bridge.js";
@@ -1481,6 +1481,7 @@ export const loadCountryNames = async ({ force = false } = {}) => {
         // Merged through the save-aware identity resolvers, one entry per polity
         // (see countryList.js for the folding rule).
         return mergeStockAndDeclaredPolities(countries, world, {
+          buildPolityIdentityIndex,
           resolvePolityIdentity,
           resolveStockCountryCode,
         });

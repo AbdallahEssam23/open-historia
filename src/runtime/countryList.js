@@ -99,11 +99,20 @@ export const mergeCountryOverrides = (countries, polityOverrides) => {
 export const mergeStockAndDeclaredPolities = (
   countries,
   world,
-  { resolvePolityIdentity, resolveStockCountryCode } = {},
+  { resolvePolityIdentity, resolveStockCountryCode, buildPolityIdentityIndex } = {},
 ) => {
   const overrides = world?.polityOverrides && typeof world.polityOverrides === "object"
     ? world.polityOverrides
     : {};
+
+  // One identity index for the whole list. resolvePolityIdentity rebuilds it
+  // from the whole world on every call otherwise, and this loop asks about
+  // every country the tiles report — a full pass per country. Resolvers are
+  // injected so this module stays pure (see the header); the builder comes in
+  // the same way, and a caller that does not supply one keeps the old path.
+  const identityIndex = typeof buildPolityIdentityIndex === "function"
+    ? buildPolityIdentityIndex(world)
+    : null;
 
   // Stock code -> the ONE declared polity carrying it (null when contested).
   const declaredByStockCode = new Map();
@@ -129,6 +138,7 @@ export const mergeStockAndDeclaredPolities = (
           requireActive: false,
           allowCoreMatch: true,
           allowStockBase: true,
+          identityIndex,
         })?.resolved
         : "";
     // Ambiguous identities deliberately remain distinct. Never collapse a
