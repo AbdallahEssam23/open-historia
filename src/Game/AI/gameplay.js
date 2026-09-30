@@ -4232,6 +4232,10 @@ const resolveRegionTransfers = async (containers, world, {
   exactRegionIdsOnly = false,
   explicitScopeText = "",
   requests = null,
+  // An author's declared impacts are resolved against the map alone: the model
+  // cannot fix an author's data, and asking would be a request nobody asked for.
+  // Unresolved entries are dropped and reported by the caller.
+  allowModel = true,
 } = {}) => {
   // Apply-time GM revalidation must verify the EXACT previewed region ids, not
   // pay to reopen/parse the full scenario geometry and reinterpret friendly
@@ -5070,6 +5074,21 @@ const resolveRegionTransfers = async (containers, world, {
   for (let offset = 0; offset < semanticPending.length; offset += resolverBatchSize) {
     const batch = semanticPending.slice(offset, offset + resolverBatchSize);
 
+    // Deterministic geography only. The author resolves against the map or not
+    // at all; a semantic pass would be a model call nobody asked for.
+    if (!allowModel) {
+      for (const record of batch) {
+        unresolved.push({
+          label: record.label,
+          fromCode: normalizeString(record.transfer?.fromCode),
+          path: record.path,
+          candidates: record.candidates,
+          reason: "not resolvable from the map alone",
+        });
+      }
+      continue;
+    }
+
     const items = batch.map((record) => ({
       index: record.semanticIndex,
       sourcePlace: record.label,
@@ -5381,7 +5400,7 @@ const resolveRegionTransfers = async (containers, world, {
 // legal transfers, but they are bounded by current DE-FACTO control instead of
 // sovereignty. Proxy them through the proven resolver rather than maintain two
 // subtly different historical-geography engines.
-const resolveRegionControlOps = async (containers, world, { exactRegionIdsOnly = false, explicitScopeText = "", requests = null } = {}) => {
+const resolveRegionControlOps = async (containers, world, { exactRegionIdsOnly = false, explicitScopeText = "", requests = null, allowModel = true } = {}) => {
   const proxyContainers = containers.map((container) => {
     const proxies = normalizeArray(container?.impacts?.regionControlOps).map((op, index) => {
       const realToCode = normalizeString(op?.toCode);
@@ -5414,6 +5433,7 @@ const resolveRegionControlOps = async (containers, world, { exactRegionIdsOnly =
     exactRegionIdsOnly,
     explicitScopeText,
     requests,
+    allowModel,
   });
 
   for (let index = 0; index < containers.length; index += 1) {
@@ -5650,6 +5670,9 @@ export const validateGeneratedWorldChanges = async (candidate, world, {
   // The time skip being validated (createJumpRequests), so that the place-name
   // resolver's model call asks the skip's budget first. Null outside a skip.
   requests = null,
+  // An author's declared impacts are resolved against the map alone: no semantic
+  // geography pass, so no request is ever spent on the author's data.
+  allowModel = true,
 } = {}) => {
   const strict = strictTransfers;
   const containers = Array.isArray(candidate?.events)
@@ -5694,6 +5717,7 @@ export const validateGeneratedWorldChanges = async (candidate, world, {
     exactRegionIdsOnly: resolvedRegionIdsOnly,
     explicitScopeText,
     requests,
+    allowModel,
   });
   if (strict && unresolvedTransfers.length > 0) {
     return buildTransferFeedback(unresolvedTransfers);
@@ -5707,6 +5731,7 @@ export const validateGeneratedWorldChanges = async (candidate, world, {
     exactRegionIdsOnly: resolvedRegionIdsOnly,
     explicitScopeText,
     requests,
+    allowModel,
   });
   if (strict && unresolvedControlOps.length > 0) {
     return buildControlFeedback(unresolvedControlOps);
