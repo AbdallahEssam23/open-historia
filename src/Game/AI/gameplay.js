@@ -283,6 +283,7 @@ import {
   worldShareShortfall,
 } from "./worldDirection.js";
 import { addGameDays, compareGameDates, diffGameDays, gameDateDayNumber, normalizeGameDate, parseGameDate } from "../../runtime/gameDates.js";
+import { authoredImpactTargets, stampResolvedImpacts, withAuthorImpacts, withoutAuthorImpacts } from "../../runtime/scriptedImpacts.js";
 import {
   NO_RESPONSE_BODY_NOTE,
   beginSimulation,
@@ -11860,6 +11861,7 @@ const runJumpSegments = async ({ context, onEvents, onProgress, signal, state })
           // out is written by the engine, in the author's words, and the model is
           // told so it carries the consequences. An auto jump that stopped short
           // owes only the beats up to where it stopped.
+          let authoredTargets = [];
           if (scriptedBeats.length) {
             const stopKey = mode === "auto" ? dateKey(candidate?.stopDate) : null;
             const due = stopKey === null ? scriptedBeats : scriptedBeats.filter((beat) => dateKey(beat.date) <= stopKey);
@@ -11867,9 +11869,17 @@ const runJumpSegments = async ({ context, onEvents, onProgress, signal, state })
             if (scripted.inserted.length) {
               candidate.events = scripted.events;
               sortTimelineEventsChronologically(candidate);
-              for (const beat of scripted.inserted) {
-                noteReceipt(draft, "adjusted", `The scripted event of ${beat.date} — "${beat.title}" — was not in your answer, so the engine wrote it in the author's words, with no impacts. It is history in this world: its consequences are yours to carry forward.`);
-              }
+            }
+            // The author's word is final: the beat's own impacts are the ones
+            // that count, so the model's are dropped, and the author's are held
+            // back until the answer has passed every check. They are exempt from
+            // the map's tempo by construction: the tempo counts the model's
+            // impacts above, before the beats are attached.
+            authoredTargets = authoredImpactTargets(due, candidate.events);
+            if (authoredTargets.length) candidate.events = withoutAuthorImpacts(candidate.events, authoredTargets);
+            for (const beat of scripted.inserted) {
+              const declared = beat.impacts && authoredTargets.some((target) => target.impacts === beat.impacts);
+              noteReceipt(draft, "adjusted", `The scripted event of ${beat.date} — "${beat.title}" — was not in your answer, so the engine wrote it in the author's words${declared ? ", with the impacts the scenario declares" : ", with no impacts"}. It is history in this world: its consequences are yours to carry forward.`);
             }
           }
           // The war ledger must see the sanitized impacts, so world changes go first.
@@ -11881,7 +11891,7 @@ const runJumpSegments = async ({ context, onEvents, onProgress, signal, state })
           if (worldChangeError) return worldChangeError;
           const ledgerError = validateSegmentLedgers(candidate, { world: ledgerWorld, strict, segmentIndex, receipt: draft });
           if (ledgerError) return ledgerError;
-          return validateSegmentStorylines(candidate, {
+          const storylineError = validateSegmentStorylines(candidate, {
             world: ledgerWorld,
             analysis: worldInitiative.analysis,
             strict,
@@ -11891,6 +11901,23 @@ const runJumpSegments = async ({ context, onEvents, onProgress, signal, state })
             gameCountry: bundle.game.country,
             board: normalizeArray(bundle.world?.projects),
           });
+          if (storylineError) return storylineError;
+          // Stage B: the answer is accepted, so the author's own impacts are
+          // resolved against the map and stamped onto their events. The map
+          // alone — no model call, so no request is spent — and an entry the map
+          // cannot resolve is reported and dropped. Runs last, so the author's
+          // declared history is what really happened, whatever the model wrote.
+          if (authoredTargets.length) {
+            const withImpacts = withAuthorImpacts(candidate.events, authoredTargets);
+            const authoredCandidate = { events: authoredTargets.map((target) => withImpacts[target.eventIndex]) };
+            await validateGeneratedWorldChanges(authoredCandidate, bundle.world, {
+              strictTransfers: false,
+              allowModel: false,
+              receipt: draft,
+            });
+            candidate.events = stampResolvedImpacts(candidate.events, authoredTargets, authoredCandidate.events);
+          }
+          return null;
         }, {
           onAccepted: (draft) => { segmentDraft = draft; },
           onRejected: (complaint) => { segmentComplaints.push(complaint); },
