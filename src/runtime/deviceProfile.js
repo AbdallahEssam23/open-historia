@@ -19,6 +19,11 @@ import { isNativeBuild } from "./native/bridge.js";
 
 export const DEVICE_PROFILE_OVERRIDE_KEY = "oh_device_profile";
 const LOW_DEVICE_MEMORY_GB = 4;
+// 8 is the ceiling navigator.deviceMemory ever reports (the spec rounds down to
+// a power of two), so "8" reads as "8 GB or more" — the only value that can mean
+// real headroom on a phone. Cores guard a big-memory, weak-CPU device.
+const HIGH_DEVICE_MEMORY_GB = 8;
+const HIGH_DEVICE_CORES = 8;
 
 export const classifyDevice = ({ native = false, touchOnly = false, deviceMemoryGb = null, override = "" } = {}) => {
   if (override === "constrained") return true;
@@ -26,6 +31,43 @@ export const classifyDevice = ({ native = false, touchOnly = false, deviceMemory
   if (native || touchOnly) return true;
   const memory = Number(deviceMemoryGb);
   return deviceMemoryGb != null && Number.isFinite(memory) && memory > 0 && memory <= LOW_DEVICE_MEMORY_GB;
+};
+
+// A finer reading than "constrained or not", for the things that can safely be
+// scaled up. A flagship phone was classified constrained like a budget one, so
+// it decoded tiles with two workers. `isConstrainedDevice` deliberately keeps
+// its old meaning — it guards memory decisions, and those must not change — and
+// only the map runtime limits read the tier.
+//
+//   low    — 4 GB or less, or the stored "constrained" override
+//   full   — not a native/touch device, or the stored "full" override
+//   high   — native/touch with 8 GB (the spec ceiling) and 8+ cores
+//   mid    — every other native/touch device
+//
+// Promotion is only ever granted on positive evidence, so a phone that reports
+// no memory (or reports 4, which is what a 6 GB phone reports) keeps the profile
+// it already had.
+export const DEVICE_TIERS = Object.freeze(["low", "mid", "high", "full"]);
+
+export const classifyDeviceTier = ({
+  native = false,
+  touchOnly = false,
+  deviceMemoryGb = null,
+  hardwareThreads = 0,
+  override = "",
+} = {}) => {
+  if (override === "constrained") return "low";
+  if (override === "full") return "full";
+  const memory = Number(deviceMemoryGb);
+  const hasMemory = deviceMemoryGb != null && Number.isFinite(memory) && memory > 0;
+  const cores = Number(hardwareThreads) > 0 ? Number(hardwareThreads) : 0;
+  // Little memory is the one signal always believed, phone or desktop.
+  if (hasMemory && memory <= LOW_DEVICE_MEMORY_GB) return "low";
+  // A desktop takes the unrestricted path it always had: this profile exists to
+  // stop treating a strong phone like a weak one, not to retune desktops.
+  if (!native && !touchOnly) return "full";
+  if (hasMemory && memory >= HIGH_DEVICE_MEMORY_GB && cores >= HIGH_DEVICE_CORES) return "high";
+  return "mid";
 };
 
 const readSignals = () => {
@@ -45,6 +87,7 @@ const readSignals = () => {
     native: isNativeBuild(),
     touchOnly,
     deviceMemoryGb: globalThis.navigator?.deviceMemory ?? null,
+    hardwareThreads: globalThis.navigator?.hardwareConcurrency ?? 0,
     override,
   };
 };
@@ -56,6 +99,13 @@ export const isConstrainedDevice = () => {
   return constrained;
 };
 
+let tier = null;
+
+export const deviceTier = () => {
+  if (tier === null) tier = classifyDeviceTier(readSignals());
+  return tier;
+};
+
 // MapLibre's worker pool and how many tiles and images it fetches and decodes at
 // once (Map/mapLibreSetup.js). Elsewhere: half the cores (2 to 6 workers) and
 // twice as many requests (16 to 24). A phone gets 2 and 8: every worker is a
@@ -64,8 +114,16 @@ export const isConstrainedDevice = () => {
 // Every tile still loads, fewer at a time.
 const FALLBACK_THREADS = 4;
 
-export const mapRuntimeLimits = ({ hardwareThreads, constrained = false } = {}) => {
-  if (constrained) return { workerCount: 2, parallelImageRequests: 8 };
+const TIER_LIMITS = {
+  low: { workerCount: 2, parallelImageRequests: 8 },
+  mid: { workerCount: 3, parallelImageRequests: 12 },
+  high: { workerCount: 4, parallelImageRequests: 16 },
+};
+
+export const mapRuntimeLimits = ({ hardwareThreads, constrained = false, tier = null } = {}) => {
+  const resolved = tier ?? (constrained ? "low" : null);
+  if (resolved && TIER_LIMITS[resolved]) return { ...TIER_LIMITS[resolved] };
+  // No tier (the caller only knows constrained vs not): the original formula.
   const threads = Number(hardwareThreads) > 0 ? Number(hardwareThreads) : FALLBACK_THREADS;
   return {
     workerCount: Math.min(6, Math.max(2, Math.ceil(threads / 2))),

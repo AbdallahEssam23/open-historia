@@ -7,7 +7,7 @@
 // renders nothing, silently.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { binaryResponse, sha256Hex } from "./util.js";
+import { binaryResponse, jsonTextResponse, sha256Hex } from "./util.js";
 
 const bytes = new Uint8Array(100).map((_, index) => index);
 
@@ -44,4 +44,15 @@ test("a range past the end is 416 with the total, and a malformed one is the who
 
 test("sha256Hex is the shared one, so it works without WebCrypto", async () => {
   assert.equal(await sha256Hex("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+});
+
+// jsonTextResponse is how the runtime-json route returns a scenario's geojson
+// without parsing it on this thread. The contract the client relies on: a body
+// that goes through response.json() unchanged, and a JSON content type.
+test("jsonTextResponse passes serialised JSON through verbatim, as application/json", async () => {
+  const response = jsonTextResponse('{"type":"FeatureCollection","features":[]}');
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Content-Type"), "application/json");
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.deepEqual(await response.json(), { type: "FeatureCollection", features: [] });
 });

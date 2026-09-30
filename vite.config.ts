@@ -109,6 +109,96 @@ const dropWebAnalytics = (isAndroid: boolean) => ({
   },
 })
 
+// Android-first chunking. A handful of named vendor groups, and nothing more:
+// under Capacitor every chunk is a file read off the APK, so a dozen micro-chunks
+// costs more in local I/O than it saves in parse time. What the split buys is the
+// shape of the BOOT: the shell (entry) and React, then the map, then the HUD, and
+// the heavy simulation/editor stacks never at all unless asked for.
+//
+//   vendor-core         React itself. Needed for the first render, nothing else.
+//   vendor-map          MapLibre GL and its React bindings, reached only through
+//                       the lazily-imported Game/Map/World.jsx. Its stylesheet is
+//                       imported from Game/Map/mapLibreSetup.js, not main.jsx:
+//                       Rollup attaches a package's CSS to the chunk that holds
+//                       its code, so a CSS import in main.jsx gave the entry a
+//                       static edge to this ~1 MB chunk just to paint a startup
+//                       screen that has no map on it.
+//   vendor-chartjs      chart.js, the advisor panel's.
+//   vendor-geo          The geometry helpers the map and the editor BOTH need.
+//   engine-ai-lazy      The simulation stack (Game/AI), reached only through
+//                       gameplayLazy.js; prefetched after the first world idle.
+//                       Named in chunkFileNames below, not here — see the note
+//                       there on why source modules are never pinned.
+//
+// OpenLayers is deliberately NOT pinned. A predicate that claimed the whole `ol`
+// package also claimed the shared Vite preload helper, so the entry ended up with
+// a static import of the entire editor chunk. Left to Rollup, OpenLayers lands in
+// the editor's own lazily-imported chunk, which is where it belongs.
+//
+// Nothing under src/ is pinned in manualChunks, and that is not laziness. Pinning
+// a single module (gameplay.js) made Rollup place gameplay.js's SHARED
+// dependencies — debugLog.js, which the boot path (src/main.jsx) imports, and
+// gameState.js, which the HUD imports — into the pinned chunk, which turned into
+// a static entry -> engine-ai-lazy edge and put the whole simulation stack on the
+// boot path (graph of the regression: a module a second importer needs gets
+// hoisted into whatever chunk already owns its dependencies). Pinning the whole
+// Game/AI directory fails the other way: the HUD statically imports
+// gameplaySchemas, chatActions, interactiveRewind, historyConsolidation and
+// nativeUnitDirector, so that would drag ~650 KB of the simulation into the HUD
+// and make prefetchGameplay meaningless. A module shared between an eager and a
+// lazy path has to stay Rollup's decision; manualChunks gets the packages,
+// chunkFileNames gets the names.
+// Suffixes, not absolute paths: this file is ESM, so there is no __dirname, and
+// the build may run from any working directory.
+const AI_ENTRY = '/src/Game/AI/gameplay.js'
+
+// The package a module id belongs to, e.g. "react-dom" or "@vis.gl/react-maplibre".
+// Matching the whole directory, rather than the bare specifier, is load-bearing
+// for React: Vite's CJS interop splits "react-dom" into a `?commonjs-entry` stub
+// and the real `react-dom/cjs/react-dom*.js` modules, so naming the specifier (as
+// the previous object form did) claimed only the empty stub and left the ~240 KB
+// renderer to be swept into whichever chunk happened to own it.
+const packageOf = (id: string): string => {
+  const marker = id.lastIndexOf('node_modules/')
+  if (marker === -1) return ''
+  const parts = id.slice(marker + 'node_modules/'.length).split('/')
+  return parts[0].startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0]
+}
+
+// Shared by the map (Game/Map/vnext builds display meshes with it) and the
+// editor (topology sweeps). Pinning it to the editor group would download the
+// editor on every game start, so it stays its own small chunk.
+const VENDOR_GEO = new Set([
+  '@turf/area',
+  '@turf/boolean-point-in-polygon',
+  '@turf/centroid',
+  '@turf/helpers',
+  '@turf/line-intersect',
+  '@turf/line-split',
+  '@turf/polygon-to-line',
+  '@turf/simplify',
+  'd3-geo',
+  'polygon-clipping',
+])
+
+const manualChunks = (id: string): string | undefined => {
+  if (!id.includes('node_modules')) return undefined
+  const pkg = packageOf(id)
+  if (pkg === 'react' || pkg === 'react-dom' || pkg === 'scheduler') return 'vendor-core'
+  if (pkg === 'maplibre-gl') return 'vendor-map'
+  if (VENDOR_GEO.has(pkg)) return 'vendor-geo'
+  if (pkg === 'chart.js') return 'vendor-chartjs'
+  return undefined
+}
+
+// Named by role after Rollup has decided the split. chunkFileNames only chooses
+// the file name, so it labels the simulation stack without touching placement.
+const chunkFileNames = (chunk: { isDynamicEntry: boolean; moduleIds: string[] }) => {
+  const has = (suffix: string) => chunk.moduleIds.some((id) => id.endsWith(suffix))
+  if (chunk.isDynamicEntry && has(AI_ENTRY)) return 'assets/engine-ai-lazy-[hash].js'
+  return 'assets/[name]-[hash].js'
+}
+
 // https://vite.dev/config/
 // `--mode web` (npm run build:web / build:site / dev:web) builds the website,
 // `--mode android` (npm run build:android) the Android app's bundle — the web
@@ -160,28 +250,11 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        // Explicit entries so the split is stable across builds rather than
-        // incidental. The AI stack reaches the graph only through
-        // Game/AI/gameplayLazy.js, so naming it here keeps it one chunk instead
-        // of letting Rollup fold it back into whatever imports it first.
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-maplibre': ['maplibre-gl'],
-          'vendor-chartjs': ['chart.js'],
-          'vendor-ol': ['ol'],
-          'vendor-geo': [
-            '@turf/area',
-            '@turf/boolean-point-in-polygon',
-            '@turf/centroid',
-            '@turf/helpers',
-            '@turf/line-intersect',
-            '@turf/line-split',
-            '@turf/polygon-to-line',
-            '@turf/simplify',
-            'd3-geo',
-            'polygon-clipping',
-          ],
-        },
+        // See manualChunks above: a few named vendor groups, and the rest of the
+        // split left to Rollup so a module shared by the map and the editor does
+        // not drag the editor into every game start.
+        manualChunks,
+        chunkFileNames,
       },
     },
   },

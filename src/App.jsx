@@ -1,6 +1,5 @@
 /*! Open Historia — portions (standalone map-editor mode) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import UI from "./Game/GameUI/main.jsx";
 
 // Lazy so OpenLayers is only fetched when the editor is actually opened.
 const MapEditor = lazy(() => import("./Editor/MapEditor.jsx"));
@@ -8,6 +7,15 @@ const MapEditor = lazy(() => import("./Editor/MapEditor.jsx"));
 // while the startup screen is already up, not before it can draw, and the
 // editor never loads them. Nothing outside Game/Map imports maplibre-gl.
 const WorldMap = lazy(() => import("./Game/Map/World.jsx"));
+// And the HUD, for the same reason and one more: it only ever renders AFTER
+// isReady (App returns no <UI/> before that), so every byte of it — the panels,
+// the AI setup, gameState, the markdown renderer, JSZip — used to be parsed
+// before the startup screen could paint. Split out, the boot path is the shell
+// and the map; the HUD arrives on its own while the opening screen is still up
+// (loadHud below starts it immediately). On the Android WebView that is most of
+// the entry chunk's weight off the first paint.
+const loadHud = () => import("./Game/GameUI/main.jsx");
+const UI = lazy(loadHud);
 import StartupScreen from "./runtime/StartupScreen.jsx";
 import ErrorBoundary from "./runtime/ErrorBoundary.jsx";
 import AppUpdateBanner from "./runtime/AppUpdateBanner.jsx";
@@ -16,6 +24,7 @@ import {
   createInitialStartupState,
   runStartupPreload,
 } from "./runtime/preload.js";
+import { noteHudReady, recordStartupPerf } from "./runtime/startupPerf.js";
 import { ensureLibraryCatalog, useLibraryState } from "./runtime/library.js";
 import { announceMapRerender } from "./runtime/mapReadiness.js";
 import { prefetchGameplay } from "./Game/AI/gameplayLazy.js";
@@ -127,6 +136,12 @@ function GameApp() {
 
     frameId = requestAnimationFrame(frame);
 
+    // Fetch the HUD's chunk alongside the preload, so it is parsed and waiting
+    // when isReady flips and <UI/> first renders. React.lazy memoises the import,
+    // so this is the same module instance the component suspends on. Failures are
+    // swallowed: the real render retries the import and reports properly.
+    loadHud().then(noteHudReady).catch(() => {});
+
     setStartupState((current) => ({
       ...current,
       stage: "Syncing games and scenarios",
@@ -179,6 +194,19 @@ function GameApp() {
     }
   };
 
+  // One line in the log, and one object for a bug report, per page load: how long
+  // this device took to reach the HUD, against the device class that asked for it.
+  // Settings > Advanced > Diagnostics shows the same numbers.
+  useEffect(() => {
+    if (!isReady) return;
+    recordStartupPerf({
+      preloadMs: preloadStartedAtRef.current !== null
+        ? performance.now() - preloadStartedAtRef.current
+        : null,
+      timeBudgetMs: STARTUP_TIME_BUDGET_MS,
+    });
+  }, [isReady]);
+
   const startupOverlayState = useMemo(() => {
     if (isReady || hasFirstWorldIdle || !startupState.done) {
       return startupState;
@@ -206,6 +234,7 @@ function GameApp() {
     <div style={Vignette} />
     </div>
     {isReady && (
+      <Suspense fallback={null}>
       <UI
       key={`ui-${activeGameId || "default"}`}
       isGlobeEnabled={isGlobeEnabled}
@@ -214,6 +243,7 @@ function GameApp() {
       setIsGlobeEnabled={setGlobeEnabled}
       setIsTerrainEnabled={setIsTerrainEnabled}
       />
+      </Suspense>
     )}
     {!isReady && <StartupScreen {...startupOverlayState} />}
     </>

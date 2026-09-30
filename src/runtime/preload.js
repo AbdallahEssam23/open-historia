@@ -121,6 +121,13 @@ const STARTUP_TASKS = [
     id: "textures",
     label: "Warming world textures",
     weight: 20,
+    // BACKGROUND: this is a warm, and the module's own rule for one ("the map
+    // has to render correctly without it") applies — MapLibre loads the tiles
+    // the opening viewport actually needs on its own. Holding the splash open
+    // for ~90 remote fetches made a phone on mobile data wait on the network for
+    // imagery the map was about to request anyway. The `state` dependency stays,
+    // so a custom-background map still fires zero ESRI requests.
+    background: true,
     // Depends on `state` only for world.json. readJson would dedupe a concurrent
     // read anyway, so this costs nothing; the ordering is what keeps "a custom
     // map fires zero ESRI requests" a guarantee rather than a race.

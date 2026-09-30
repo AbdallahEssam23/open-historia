@@ -60,6 +60,16 @@ export const jsonResponse = (data, status = 200, headers = {}) =>
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...headers },
   });
 
+// Same shape as jsonResponse, but the body is already-serialised JSON. Used for
+// the geojson assets, where parsing on this thread only to re-serialise cost
+// seconds on a 55 MB file (the desktop server streams those bytes verbatim for
+// the same reason). Consumers parse the response body themselves.
+export const jsonTextResponse = (text, status = 200, headers = {}) =>
+  new Response(text, {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...headers },
+  });
+
 export const errorResponse = (message, status = 400) =>
   jsonResponse({ error: String(message ?? "Request failed") }, status);
 

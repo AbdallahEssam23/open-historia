@@ -17,6 +17,12 @@ import {
 } from "./globeCelestialCanvas.js";
 import { MAP_SETTING_KEYS, useMapSetting } from "../../runtime/mapSettings.js";
 import { isConstrainedDevice } from "../../runtime/deviceProfile.js";
+import {
+  QUALITY_MINIMAL,
+  QUALITY_REDUCED,
+  currentQualityLevel,
+  subscribeQuality,
+} from "../../runtime/adaptiveQuality.js";
 
 const ROTATION_DEG_PER_MS = 360 / (10 * 60 * 1000);
 const INTERACTION_GRACE_MS = 3000;
@@ -39,6 +45,9 @@ const LIGHTING_FRAME_MS_ACTIVE = 0;
 // 30 fps is every other frame; the throttle's trailing timer still draws the
 // final position when the drag stops.
 const LIGHTING_FRAME_MS_ACTIVE_CONSTRAINED = 1000 / 30;
+// What the adaptive layer drops to when the device is measurably missing frames
+// (adaptiveQuality.js) even though its static baseline asked for more.
+const LIGHTING_FRAME_MS_REDUCED = 1000 / 20;
 const LIGHTING_FRAME_MS_IDLE = 1000 / 15;
 // Idle auto-rotation itself doesn't need a fresh jumpTo() every animation
 // frame either — updating the camera 15x/sec still reads as smooth rotation
@@ -89,6 +98,17 @@ const GlobeEffects = ({ active }) => {
     const activeLightingFrameMs = isConstrainedDevice()
       ? LIGHTING_FRAME_MS_ACTIVE_CONSTRAINED
       : LIGHTING_FRAME_MS_ACTIVE;
+    // Layered on top of the device baseline: a level the frames earned only ever
+    // thins an already-throttled repaint further, never speeds it up.
+    let qualityLevel = currentQualityLevel();
+    const unsubscribeQuality = subscribeQuality((level) => {
+      qualityLevel = level;
+    });
+    const lightingInterval = () => {
+      if (qualityLevel >= QUALITY_MINIMAL) return LIGHTING_FRAME_MS_IDLE;
+      if (qualityLevel >= QUALITY_REDUCED) return Math.max(activeLightingFrameMs, LIGHTING_FRAME_MS_REDUCED);
+      return activeLightingFrameMs;
+    };
     const sunElement = document.getElementById("oh-globe-sun");
     const starsCanvas = document.getElementById("oh-globe-stars");
     const lightingCanvas = document.getElementById("oh-globe-lighting");
@@ -137,7 +157,7 @@ const GlobeEffects = ({ active }) => {
         && (autoRotationActive
           || (!mapInstance.isMoving() && now - lastInteraction > INTERACTION_GRACE_MS));
       const celestialFrameMs = isIdle ? CELESTIAL_FRAME_MS_IDLE : CELESTIAL_FRAME_MS_ACTIVE;
-      const lightingFrameMs = isIdle ? LIGHTING_FRAME_MS_IDLE : activeLightingFrameMs;
+      const lightingFrameMs = isIdle ? LIGHTING_FRAME_MS_IDLE : lightingInterval();
       if (projectionTransition > 0
         && (forceLighting || now - lastCelestialDraw >= celestialFrameMs)) {
         lastCelestialDraw = now;
@@ -275,6 +295,7 @@ const GlobeEffects = ({ active }) => {
       cancelAnimationFrame(frameId);
       clearInterval(liveSunTimer);
       clearTimeout(lightingTimer);
+      unsubscribeQuality();
       mapInstance.off("render", handleRender);
       mapInstance.off("moveend", handleMovementEnd);
       for (const event of interactionEvents) mapInstance.off(event, markInteraction);

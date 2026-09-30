@@ -10,7 +10,7 @@ import { serializeWrite } from "./writeQueue.js";
 import { coarsenFeatureCollection } from "../../../server/coarseGeometry.js";
 import {
   cloneJson, nowIso, jsonResponse, errorResponse, binaryResponse, base64ToBytes, bytesToBase64,
-  parseJsonValue, serializeJsonValue,
+  parseJsonValue, serializeJsonValue, jsonTextResponse,
 } from "./util.js";
 import FALLBACK_COLORS from "./generated/fallbackColors.js";
 import { builtInMap as BUILT_IN_MAP, builtInRevision as BUILT_IN_REVISION, regionsUrl as BUILT_IN_REGIONS_URL } from "./generated/defaultScenarioMeta.js";
@@ -472,12 +472,31 @@ const builtInCoarseRegionsText = () => {
 // (the Worker proxy → GitHub Release) and cache it for the session. It is what
 // a scenario without a map of its own — and without the built-in stamp — renders on.
 const CONTENT_BASE = (import.meta.env.VITE_OH_PMTILES_URL || "/assets").replace(/\/$/, "");
+// The file as TEXT, for callers that only pass the bytes on (the map's workers)
+// and never need a parsed value on this thread. `response.json()` parses 12.8 MB
+// on the main thread; this does not.
+let defaultRegionsGeojsonTextPromise = null;
+const fetchDefaultRegionsGeojsonText = () => {
+  if (!defaultRegionsGeojsonTextPromise) {
+    defaultRegionsGeojsonTextPromise = fetch(`${CONTENT_BASE}/default-regions.geojson`, { cache: "force-cache" })
+      .then((response) => (response.ok ? response.text() : null))
+      .catch(() => null)
+      .then((text) => {
+        if (!text) {
+          defaultRegionsGeojsonTextPromise = null;
+          return null;
+        }
+        return text;
+      });
+  }
+  return defaultRegionsGeojsonTextPromise;
+};
+
 let defaultRegionsGeojsonPromise = null;
 const fetchDefaultRegionsGeojson = () => {
   if (!defaultRegionsGeojsonPromise) {
-    defaultRegionsGeojsonPromise = fetch(`${CONTENT_BASE}/default-regions.geojson`, { cache: "force-cache" })
-      .then((response) => (response.ok ? response.json() : null))
-      .catch(() => null)
+    defaultRegionsGeojsonPromise = fetchDefaultRegionsGeojsonText()
+      .then((text) => (text ? parseJsonValue(text, null) : null))
       .then((data) => {
         // Never pin an empty/failed result for the whole session — a transient
         // miss during the heavy first load would otherwise blank the political
@@ -692,6 +711,52 @@ const runtimeValueFromRecord = (record, assetKey, scenarioScope = false) => {
 // assets and snapshots are always structured, so they pass through).
 const coerceRuntimeValue = (assetKey, value) =>
   (OPTIONAL_JSON_ASSET_KEYS.includes(assetKey) ? parseJsonValue(value, {}) : value);
+
+// A scenario's GeoJSON as TEXT, with no parse on this thread.
+//
+// The desktop server already does exactly this (server.js `/api/runtime/json/:assetKey`
+// streams the file through `resolveRuntimeGeojsonAsset` → `streamBinaryFile`),
+// because "parsing it only to re-serialise blocked the event loop for seconds on
+// a 55 MB file". The web build was still doing parse-then-stringify inside
+// `jsonResponse`, and the map's workers only ever want the bytes. Text is
+// byte-compatible: every existing JSON consumer parses the reply body anyway.
+//
+// Returns null when there is no scenario geometry, so the caller falls back to
+// the ordinary JSON path (an empty FeatureCollection, or the stock world).
+const readRuntimeGeojsonText = async (assetKey) => {
+  // The same owner migration readRuntimeJsonAsset runs before it reads: owners
+  // inside the stored file are rewritten in the record, and the record's copy is
+  // what we serialise below.
+  const activeForMigration = await getActiveGameRecord();
+  if (activeForMigration && ensureOwnerSchema(activeForMigration, "game")) {
+    await idbPut(STORES.games, activeForMigration);
+  }
+  const scenario = await getActiveRuntimeScenarioRecord();
+  if (scenario && ensureOwnerSchema(scenario, "scenario")) await idbPut(STORES.scenarios, scenario);
+
+  let value = scenario?.geojson?.[assetKey];
+  // The bundled built-in map is held as bytes: decode, never parse.
+  if (value === undefined && assetKey === "regionsGeojson" && scenario && usesBuiltInMap(scenario)) {
+    return fetchBuiltInRegionsText();
+  }
+  if (value === undefined && assetKey === "regionsGeojson" && scenario && scenario.id !== DEFAULT_SCENARIO_ID) {
+    const fallback = await getScenario(DEFAULT_SCENARIO_ID);
+    if (fallback && ensureOwnerSchema(fallback, "scenario")) await idbPut(STORES.scenarios, fallback);
+    value = fallback?.geojson?.[assetKey];
+  }
+  if ((value === undefined || value === null) && assetKey === "regionsGeojson" && scenario) {
+    return fetchDefaultRegionsGeojsonText();
+  }
+  if (value === undefined || value === null) return null;
+  // Uploaded GeoJSON is stored as raw text; only editor-authored geometry is a
+  // structured record, and that one must be serialised. It is the small, rare case.
+  // An empty stored string is "no file": report it as such so the caller falls
+  // back to the JSON path's empty FeatureCollection rather than an empty body.
+  return serializeJsonValue(value) || null;
+};
+
+const readRuntimeGeojsonRawText = async (assetKey) =>
+  (SCENARIO_GEOJSON_ASSET_KEYS.includes(assetKey) ? readRuntimeGeojsonText(assetKey) : null);
 
 // Serialized: this is a read-modify-write of the WHOLE game record (every runtime
 // JSON asset lives in one), and the end of a turn fires six of these at once. Run
@@ -1718,7 +1783,13 @@ export const handleRuntimeJson = async ({ method, segments, body }) => {
   const key = segments[1] ? decodeURIComponent(segments[1]) : null;
   if (!key) return null;
   try {
-    if (method === "GET") return jsonResponse(await readRuntimeJsonAsset(key));
+    if (method === "GET") {
+      // GeoJSON goes out as verbatim bytes (no parse/serialise here) — see
+      // readRuntimeGeojsonText. Everything else keeps the ordinary JSON path.
+      const rawGeojson = await readRuntimeGeojsonRawText(key);
+      if (rawGeojson !== null) return jsonTextResponse(rawGeojson);
+      return jsonResponse(await readRuntimeJsonAsset(key));
+    }
     if (method === "PUT") return jsonResponse(await writeRuntimeJsonAsset(key, body ?? {}));
     return null;
   } catch (error) {

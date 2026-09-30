@@ -84,6 +84,7 @@ import {
     subscribeToDebugLog,
 } from "../../runtime/debugLog.js";
 import { saveDebugLogFile } from "../../runtime/saveDebugLog.js";
+import { describeStartupPerf, lastStartupPerf } from "../../runtime/startupPerf.js";
 import { buildGameZipBlob, formatZipSize, saveGameZipToDisk } from "../../runtime/gameZip.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { usePresenceLeaving } from "./presence.jsx";
@@ -1507,6 +1508,9 @@ const DiagnosticsPanel = () => {
     // Read at render rather than subscribed: this panel is remounted every time the
     // settings menu opens, and the name only has to be right when it is on screen.
     const activeGameName = String(getLibraryState().activeGame?.name ?? "").trim();
+    // Same reason: the last start's numbers (runtime/startupPerf.js). They are a
+    // fact about this page load and never change while it is open.
+    const startup = lastStartupPerf();
     // The count is the whole reason this section is visible when nothing is
     // wrong: "Entries: 0" after a crash means the log is not recording and the
     // player should say so, rather than pasting an empty report.
@@ -1681,6 +1685,17 @@ const DiagnosticsPanel = () => {
             is the one line here that has to be believed. */}
         Your API key is never included. Country names, your queued orders and error messages are{verbose ? ", and while detailed logging is on, everything you and the AI said to each other" : ""} — read it before posting it somewhere public.
         </div>
+
+        {/* The last start, against the device class that shaped it. A slow start
+            on a phone is otherwise a claim nobody can check, and the two numbers
+            a fix is judged by — the page to the HUD, and the shell chunk itself —
+            are the ones no log line carries (runtime/startupPerf.js). */}
+        {startup && (
+        <div style={{ marginBottom: "0.9rem", fontSize: "0.68rem", color: "rgba(255,255,255,0.38)", lineHeight: 1.4 }}>
+        <span style={{ fontWeight: 600, color: "rgba(255,255,255,0.5)" }}>Last start:</span>{" "}
+        {describeStartupPerf(startup)}
+        </div>
+        )}
 
         <Toggle label="Keep a diagnostics log" enabled={enabled} onToggle={toggleEnabled} />
         <div style={helperTextStyle}>

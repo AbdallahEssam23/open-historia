@@ -6,9 +6,16 @@
 // could draw, and in the Scenario Workshop, which never shows a MapLibre map.
 // World.jsx, Nations.jsx and Cities.jsx call these as they load, before any
 // map exists; each is idempotent.
+//
+// The library's stylesheet is imported here rather than in main.jsx for the same
+// reason as the library itself: main.jsx importing it made the entry depend on
+// the whole vendor-map chunk (Rollup attaches a package's CSS to the chunk that
+// holds its code), so the first download carried 1 MB of MapLibre to render a
+// startup screen that has no map on it.
 import mapLibreGl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { basemapTileLoader, pmtilesProtocol } from "../../runtime/assets.js";
-import { isConstrainedDevice, mapRuntimeLimits } from "../../runtime/deviceProfile.js";
+import { deviceTier, mapRuntimeLimits } from "../../runtime/deviceProfile.js";
 
 const { addProtocol, setMaxParallelImageRequests, setWorkerCount } = mapLibreGl;
 
@@ -21,7 +28,10 @@ export const configureMapRuntime = () => {
   if (runtimeConfigured || typeof navigator === "undefined") return;
   const { workerCount, parallelImageRequests } = mapRuntimeLimits({
     hardwareThreads: navigator.hardwareConcurrency,
-    constrained: isConstrainedDevice(),
+    // The tier, not the binary constrained flag: a strong phone should not decode
+    // tiles with a budget phone's two workers. A device with less than 4 GB is
+    // still tier "low", so the value that protects weak phones is unchanged.
+    tier: deviceTier(),
   });
   setWorkerCount(workerCount);
   setMaxParallelImageRequests(parallelImageRequests);

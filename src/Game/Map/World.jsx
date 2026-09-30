@@ -7,6 +7,7 @@ import MapScene from "./MapScene.jsx";
 import { loadNatGeoDarkStyle } from "./natGeoDarkStyle.js";
 
 import { recordMapFreeze, recordMapTrace } from "../../runtime/mapPerfTrace.js";
+import { reportFrameDelta, resetQualitySamples } from "../../runtime/adaptiveQuality.js";
 import {
   DEFAULT_BASEMAP_ID,
   TERRAIN_TILE_TEMPLATE,
@@ -740,6 +741,9 @@ function World({ mapRef, projection, terrainEnabled, onInitialIdle }) {
     emitMapMotion(true);
     const perf = dragPerfRef.current;
     if (perf.raf) cancelAnimationFrame(perf.raf);
+    // A new gesture starts from a clean window: the frames of the last drag
+    // should not decide this one's quality.
+    resetQualitySamples();
     perf.active = true;
     perf.startedAt = performance.now();
     perf.lastFrameAt = perf.startedAt;
@@ -762,7 +766,13 @@ function World({ mapRef, projection, terrainEnabled, onInitialIdle }) {
       if (!perf.active) return;
       const delta = now - perf.lastFrameAt;
       perf.lastFrameAt = now;
-      if (delta > 0 && perf.frameDeltas.length < 1200) perf.frameDeltas.push(delta);
+      if (delta > 0) {
+        // The same numbers that back __OH_LAST_MAP_PERF__ drive the adaptive
+        // quality level, so the optional per-frame work steps aside exactly when
+        // this device is missing frames.
+        reportFrameDelta(delta);
+        if (perf.frameDeltas.length < 1200) perf.frameDeltas.push(delta);
+      }
       if (delta >= 100) {
         recordMapFreeze({
           deltaMs: delta,
