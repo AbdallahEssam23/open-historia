@@ -158,7 +158,7 @@ override:
 |---|---|
 | **Espionage** | Spies, intercepts and foreign agents. Off hides the Spy tab. |
 | **Idle diplomacy** | Unprompted notes between turns, and how often — one attempt every 8 minutes on average by default. |
-| **World direction** | **Pace** (40–250% of the usual number of events), **the world's share** (at least this much of each skip is not about the player, 35% by default), **priority rules** that outrank everything else the simulation is told, **scripted events** (one per line, the date first — the engine writes any the skip leaves out), and **the map's tempo** (a ceiling on regions changing hands per 30 days). |
+| **World direction** | **Pace** (40–250% of the usual number of events), **the world's share** (at least this much of each skip is not about the player, 35% by default), **priority rules** that outrank everything else the simulation is told, **scripted events** (one per line, the date first — the engine writes any the skip leaves out, and a beat can declare its own impacts, an indented line under it, which always overrule what the simulation wrote), and **the map's tempo** (a ceiling on regions changing hands per 30 days). |
 
 <p class="beta-note"><b>On beta there are two more.</b> <b>Puppet states</b> switches the
 <a href="/wiki/war/#puppets-and-overlords">puppet system</a> off entirely, and <b>Player focus</b>
