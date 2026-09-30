@@ -8,10 +8,11 @@ import ReactMarkdown from "react-markdown";
 import { getNationFlags, getNationTags, loadRegionCatalog } from "../../runtime/assets.js";
 import { resolveCountryTags } from "../../runtime/countryTags.js";
 import { readEventsState, readWorldState } from "../../runtime/gameState.js";
-import { requestDiplomaticChat } from "../GameUI/chat.jsx";
+import { requestDiplomaticChat } from "../GameUI/diplomaticChat.js";
 import GameFlagPicker from "../GameUI/GameFlagPicker.jsx";
 import { resolvePolityFlag } from "../../runtime/polityFlags.js";
 import { resolvePolityIdentity } from "../../runtime/polityIdentity.js";
+import { markUiInteraction } from "../../runtime/uiStalls.js";
 import { generateCountryStats } from "../AI/gameplayLazy.js";
 
 // Bridge: the region popup's info button opens this panel from outside React.
@@ -113,6 +114,7 @@ const CountryInfoPanel = () => {
     const [flagPickerOpen, setFlagPickerOpen] = useState(false);
 
     _openPanel = (next) => {
+        if (next) markUiInteraction("country panel");
         setCountry(next);
         setSearch("");
         setFilterIndex(0);

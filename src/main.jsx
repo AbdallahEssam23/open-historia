@@ -3,6 +3,7 @@ import { installAppHeight } from "./runtime/mobileUi.js";
 import { installNativeBackgroundPause } from "./runtime/native/backgroundPause.js";
 import { isGenerating } from "./Game/AI/simulationStatus.js";
 import { startTranslator } from "./runtime/translator.js";
+import { installUiStallObserver } from "./runtime/uiStalls.js";
 import {
     installDebugLogCapture,
     logDebugEvent,
@@ -12,7 +13,6 @@ import {
 // Registers the Logging file's settings snapshot (every setting's current value).
 import "./runtime/settingsLog.js";
 import App from "./App.jsx";
-import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles.css";
 
 const registerServiceWorker = () => {
@@ -29,6 +29,10 @@ const mount = () => {
     // Before the first render: every panel sizes itself from the visible height
     // (runtime/mobileUi.js), which on a phone is not 100vh.
     installAppHeight();
+    // Passive main-thread stall recorder, for the Diagnostics Log's performance
+    // section. Installed before any interaction so a freeze while picking a
+    // country is already being measured.
+    installUiStallObserver();
     // MapLibre is configured by the map's own chunk as it loads
     // (Game/Map/mapLibreSetup.js), so the library stays out of this one.
     createRoot(document.getElementById("root"), {

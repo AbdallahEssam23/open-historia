@@ -19,6 +19,7 @@ import { toCountryName } from "../../runtime/ownerNames.js";
 import { isBrowserOnline } from "../../runtime/networkStatus.js";
 import { SCREEN_HEIGHT, isTouchPrimary, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
+import { markUiInteraction } from "../../runtime/uiStalls.js";
 
 const codeToColor = (code) => {
   let h = 0;
@@ -310,6 +311,7 @@ const CountryPickerMap = ({
       }
       const code = hit.get("owner") || hit.get("gid0");
       if (code && playableCodesRef.current.has(code)) {
+        markUiInteraction("country pick");
         onPickCountry(code);
       }
     });

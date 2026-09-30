@@ -86,6 +86,7 @@
 // entries to stay there — see trimToBudget.
 
 import { escapeForRegExp, redactLogText } from "../../server/logRedaction.js";
+import { summarizeUiStalls } from "./uiStalls.js";
 
 // Two ceilings, and the size one is the one that really governs. Both modes
 // share them: they differ in WHAT they record, not in how much of it they keep.
@@ -534,6 +535,28 @@ const settingsLines = (settings) => {
         for (const [label, value] of items) {
             lines.push(value === undefined ? `  ${label}` : `  ${label}: ${value}`);
         }
+    }
+    return lines.map(redactSecrets);
+};
+
+// The main-thread stalls the browser recorded (runtime/uiStalls.js): the
+// "it froze" a player reports, with how long and what they were doing at the
+// time. Read here rather than logged per stall so an idle session leaves no
+// noise, and a report of a freeze carries the numbers behind it.
+const performanceLines = () => {
+    const summary = summarizeUiStalls();
+    if (!summary) return [];
+    const lines = [
+        "",
+        "-- Performance --",
+        `Main-thread stalls: ${summary.count} (total ${summary.totalMs} ms, worst ${summary.worstMs} ms`
+        + (summary.worstPhase ? ` during ${summary.worstPhase}` : "") + ")",
+    ];
+    for (const stall of summary.recent) {
+        const time = new Date(stall.at).toISOString().slice(11, 19);
+        lines.push(`  [${time}] ${stall.ms} ms`
+        + (stall.phase ? ` during ${stall.phase}` : "")
+        + (stall.source && stall.source !== "self" ? ` (${stall.source})` : ""));
     }
     return lines.map(redactSecrets);
 };
@@ -1064,7 +1087,7 @@ const composeLoggingFile = ({ incident, desktop, settings } = {}) => {
         : incidentBlock;
 
     return {
-        header: [...header, ...settingsBlock],
+        header: [...header, ...performanceLines(), ...settingsBlock],
         incidentBlock: reportedProblem,
         entries: logEntries.slice(leftOut),
         lines: logLines.slice(leftOut),
