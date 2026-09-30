@@ -1604,9 +1604,11 @@ export const EMPTY_RESPONSE_BODY_NOTE = "(the provider returned an empty respons
 // part-way through an answer, fifteen with no answer at all. A model that keeps
 // writing is never interrupted however long the turn takes, so the setting is
 // safe to turn on; a stalled one is caught instead of hanging the turn forever.
-// It ships OFF all the same: the fallback it triggers is a canned turn the
-// player did not ask for, and the beta leaves that trade to the player. Off —
-// and an absent key — means "wait as long as the model needs".
+// It ships ON. The trade is a canned turn the player did not ask for, which is
+// why the beta shipped it off and left the choice to the player - but off means
+// a request that never returns has no end at all, and the game waits behind it
+// forever. A visible fallback the player can switch off in Settings -> AI
+// (opt-out) is the better default; an absent key means on.
 const taskIdleTimeoutMs = () =>
   (getMapSettingDefaultOn(MAP_SETTING_KEYS.limitAiGeneration) ? AI_IDLE_TIMEOUT_MS : 0);
 
