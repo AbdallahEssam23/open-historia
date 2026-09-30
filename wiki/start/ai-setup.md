@@ -300,9 +300,9 @@ not per key, so several keys in one project share the same allowance.
 - **Mind your daily requests.** A free key allows a few hundred a day. **Save AI requests**, on by
   default, keeps a time skip to one to three of them; Settings → AI → **AI requests** shows how
   many you have used today. See [settings](/wiki/settings/#ai-requests).
-- **Limit AI generation** (Settings → AI) is off by default. Turned on, it gives up on a stalled
-  generation and falls back to a canned event rather than waiting forever. It measures *silence*,
-  not total time, so a slow-but-working model is not cut off.
+- **Limit AI generation** (Settings → AI) is on by default. It gives up on a stalled generation
+  and falls back to a canned event rather than waiting forever. It measures *silence*, not total
+  time, so a slow-but-working model is not cut off.
 - **Expert controls** let you send raw parameters to the provider and enable reasoning on models
   that support it. You do not need these to play. Custom parameters sit on connections and
   entries, as [above](#adding-backups), and **Model reasoning** applies to every model in the

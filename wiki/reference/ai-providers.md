@@ -108,7 +108,8 @@ provider accepts — temperature, sampling, provider-specific options. Malformed
 rather than breaking the game.
 
 **Limit AI generation** abandons a stalled generation and falls back to a canned event. It
-measures silence rather than elapsed time. Recommended with local models.
+measures silence rather than elapsed time, and is on by default: without it a request that never
+comes back leaves the turn waiting with no end.
 
 Custom parameters and Strict tool schema are set on a **connection**; an entry in the Models list
 can have custom parameters of its own and **How the AI answers**, which picks the structured-output

@@ -2266,8 +2266,9 @@ const SettingsMenu = ({
         disableEventCamera: getMapSetting(MAP_SETTING_KEYS.disableEventCamera),
         // Not getMapSetting: this one ships ON, and an absent key must read as
         // on rather than off (see mapSettings.js).
-        limitAiGeneration: getMapSetting(MAP_SETTING_KEYS.limitAiGeneration),
-        // Same again: ships ON.
+        limitAiGeneration: getMapSettingDefaultOn(MAP_SETTING_KEYS.limitAiGeneration),
+        // Not ships-on: an absent key reads as off, and opting in is the point
+        // of the setting (see mapSettings.js).
         chunkLongJumps: getMapSetting(MAP_SETTING_KEYS.chunkLongJumps),
         // Ships ON: an absent key reads as on (see mapSettings.js).
         lookupFunctions: getMapSettingDefaultOn(MAP_SETTING_KEYS.lookupFunctions),

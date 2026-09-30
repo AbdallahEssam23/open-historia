@@ -31,14 +31,20 @@ export const MAP_SETTING_KEYS = {
     // an answer, 15 with no answer at all — and falls back to canned events. Off
     // waits as long as the model needs.
     //
-    // OFF by default — read with getMapSetting, so an absent key means "off".
+    // ON by default — read with getMapSettingDefaultOn, so an absent key means
+    // "on". It shipped off while the fallback trade was still being weighed, and
+    // the cost of that was a request that never comes back leaving the turn —
+    // and the whole game — waiting with no end in sight and nothing to press
+    // except Cancel. Bounded and recoverable beats unbounded and frozen, so the
+    // default is on and the player who would rather wait turns it off.
     //
     // It measures SILENCE rather than elapsed time (see AI/idleDeadline.js): a
     // window that every token restarts never interrupts a model that is still
-    // answering, so turning it on is safe, and it is the only thing that ever
-    // ends a genuine stall. It ships off all the same, because the fallback it
-    // triggers is a canned turn the player did not ask for; the beta leaves
-    // that trade to the player, who opts in from Settings → AI.
+    // answering, so leaving it on is safe, and it is the only thing that ever
+    // ends a genuine stall. The cost of it is the fallback it triggers: a canned
+    // turn the player did not ask for. That cost is visible (the turn says it
+    // fell back) and reversible (Settings → AI, or retry the turn), which the
+    // freeze it replaces is not.
     limitAiGeneration: "ai_limit_generation",
     // Opt-in (ported from the abdulrahman-2005 fork): tasks nobody is waiting
     // on — today the event consolidator — ride the provider's batch endpoint
@@ -95,8 +101,8 @@ export function getMapSetting(key) {
 // A default-on setting CANNOT use getMapSetting above — an absent key reads as
 // "1" !== null, i.e. off — so every consumer of such a key must come through here.
 //
-// lookupFunctions and liveSkipEvents ship on; limitAiGeneration and
-// chunkLongJumps, which used to, went default-off in the beta.
+// lookupFunctions, liveSkipEvents and limitAiGeneration ship on; chunkLongJumps,
+// which used to, went default-off in the beta.
 export function getMapSettingDefaultOn(key) {
     if (typeof localStorage === "undefined") return true;
     return localStorage.getItem(key) !== "0";

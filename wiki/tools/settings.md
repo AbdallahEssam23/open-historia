@@ -87,7 +87,7 @@ bases, shipyards, data centres and ground stations appear where the events built
 
 | Setting | |
 |---|---|
-| **Limit AI generation** | **Off by default.** On, the game stops waiting and falls back to canned events when the model goes quiet — five minutes of silence part-way through an answer, or fifteen with no answer at all. It measures **silence**, not elapsed time: a model that is still writing is never interrupted. Worth turning on for a local model, or if you have had turns hang. |
+| **Limit AI generation** | **On by default.** The game stops waiting and falls back to canned events when the model goes quiet — five minutes of silence part-way through an answer, or fifteen with no answer at all. It measures **silence**, not elapsed time: a model that is still writing is never interrupted. Turn it off to wait as long as the model needs, but a request that never comes back then has no end at all, and the turn waits until you press Cancel. |
 | **Generate long time skips in segments** | **Off by default.** On, skips of more than a few months are generated as several shorter requests merged into one round — slower and costlier, but far less likely to time out on a hosted provider. See [time and turns](/wiki/time/). |
 | **AI lookup functions** | On by default, but only used while Save AI requests is off. The model can call functions — exact power and region names, a region's neighbours, the war ledger, a chat — in up to three extra requests per task. Needs a provider that supports function calling. |
 | **Show time skip events as they are written** | **On by default.** A skip opens the Events panel and fills it as the model writes. Off: the round appears at the end. The turn is the same either way, and Gemini arrives all at once regardless. |
@@ -144,7 +144,8 @@ Switching the globe on or off shows the game's loading screen while the map redr
 1. **Set up your AI provider.** Nothing else matters until this is done.
 2. **Look at AI requests** if you are on a free key — the defaults are chosen for one, and the
    counter tells you what a turn costs.
-3. **Turn on Limit AI generation** if you are running a local model.
+3. **Leave Limit AI generation on** unless you are running a local model that needs longer than
+   fifteen minutes to start answering.
 4. **Try the 3D globe.** It is the better way to look at the world, and it costs little.
 5. **Leave 3D terrain off** unless you specifically want it — it is the most expensive thing in
    the game to render.

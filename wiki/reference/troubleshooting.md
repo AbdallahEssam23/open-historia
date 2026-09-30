@@ -55,9 +55,13 @@ This is almost always the model failing to produce valid structured output.
 
 ## Turns hang forever
 
-**Turn on Limit AI generation** (Settings → AI). It abandons a generation that has gone silent and
-falls back rather than waiting indefinitely. It watches for silence rather than total time, so it
-will not cut off a slow-but-working model.
+**Limit AI generation** is on by default (Settings → AI). It abandons a generation that has gone
+silent and falls back rather than waiting indefinitely. It watches for silence rather than total
+time, so it will not cut off a slow-but-working model.
+
+If a turn still waits far too long, the request is not reaching the model at all rather than
+being slow — check the provider, key and network in Settings → AI, then reproduce with
+**Diagnostics** on and read the log (see below).
 
 Then: **Cancel** in the time panel always works and leaves the world untouched.
 

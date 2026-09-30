@@ -303,7 +303,7 @@ Tiny localStorage-backed boolean toggles read reactively instead of threaded as 
 | `hideCountryLabels` | `map_hide_country_labels` | Hide country name labels |
 | `disableIdleRotation` | `map_disable_idle_rotation` | Stop the idle globe spin |
 | `disableEventCamera` | `map_disable_event_camera` | Suppress event camera moves |
-| `limitAiGeneration` | `ai_limit_generation` | (Not a map setting) timeline-jump generation gets a 5-min deadline → canned-event fallback; OFF (the default) waits as long as the model needs |
+| `limitAiGeneration` | `ai_limit_generation` | (Not a map setting) an AI task that goes quiet — 5 min part-way through an answer, 15 min with no answer at all — is abandoned and falls back to canned events. ON by default (`getMapSettingDefaultOn`): the alternative, waiting as long as the model needs, has no end at all, so a request that never returns froze the whole game. Turn it off in Settings → AI to wait indefinitely |
 
 | Export | Purpose |
 |---|---|

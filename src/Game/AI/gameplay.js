@@ -1608,7 +1608,7 @@ export const EMPTY_RESPONSE_BODY_NOTE = "(the provider returned an empty respons
 // player did not ask for, and the beta leaves that trade to the player. Off —
 // and an absent key — means "wait as long as the model needs".
 const taskIdleTimeoutMs = () =>
-  (getMapSetting(MAP_SETTING_KEYS.limitAiGeneration) ? AI_IDLE_TIMEOUT_MS : 0);
+  (getMapSettingDefaultOn(MAP_SETTING_KEYS.limitAiGeneration) ? AI_IDLE_TIMEOUT_MS : 0);
 
 // Difficulty 2.0 carries one directive per scope; chat-shaped tasks get the
 // diplomacy reading, interactive events their own, everything else the simulation one.
@@ -9416,7 +9416,7 @@ For each country include only values that genuinely changed.`;
         signal,
         reasoningEnabled: false,
         taskKey: "countryStatSheet",
-        ...(getMapSetting(MAP_SETTING_KEYS.limitAiGeneration) ? { deadline: Date.now() + 90000 } : {}),
+        ...(getMapSettingDefaultOn(MAP_SETTING_KEYS.limitAiGeneration) ? { deadline: Date.now() + 90000 } : {}),
       },
     );
     const rawText = typeof response === "string" ? response : normalizeString(response?.rawText);
@@ -9620,7 +9620,7 @@ You may omit a field when the existing value should remain exactly unchanged.`;
         reasoningEnabled: false,
         taskKey: "countryStatSheet",
         ...(requests ? { onRequest: jumpTaskOptions(requests, "stats").onRequest } : {}),
-        ...(getMapSetting(MAP_SETTING_KEYS.limitAiGeneration)
+        ...(getMapSettingDefaultOn(MAP_SETTING_KEYS.limitAiGeneration)
           ? { deadline: Date.now() + 90000 }
           : {}),
       },

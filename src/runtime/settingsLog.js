@@ -107,7 +107,7 @@ registerSettingsSnapshot("AI", () => {
     else items.push(["Per-task models", "none — every task starts at the top of the list"]);
     items.push(
         ["Model reasoning", onOff(getReasoningEnabled())],
-        ["Limit AI generation", onOff(getMapSetting(MAP_SETTING_KEYS.limitAiGeneration))],
+        ["Limit AI generation", onOff(getMapSettingDefaultOn(MAP_SETTING_KEYS.limitAiGeneration))],
         ["Generate long time skips in segments", onOff(getMapSetting(MAP_SETTING_KEYS.chunkLongJumps))],
         ["AI lookup functions", onOff(getMapSettingDefaultOn(MAP_SETTING_KEYS.lookupFunctions))],
         ["Show time skip events as they are written", onOff(getMapSettingDefaultOn(MAP_SETTING_KEYS.liveSkipEvents))],

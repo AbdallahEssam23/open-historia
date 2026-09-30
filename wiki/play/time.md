@@ -80,10 +80,11 @@ The **Events panel** opens as soon as the skip starts and fills as the model wri
 start reading before it finishes (Gemini delivers the whole answer at once, so there it all arrives
 together). Turn this off with **Show time skip events as they are written** in Settings → AI.
 
-If jumps routinely hang, turn on **Limit AI generation** in Settings → AI. It gives up on a
-stalled generation and falls back to a canned event rather than waiting indefinitely. It watches
-for *silence* rather than total elapsed time, so a slow-but-working model is not cut off
-mid-answer.
+**Limit AI generation** (Settings → AI) is on by default: it gives up on a stalled generation and
+falls back to a canned event rather than waiting indefinitely. It watches for *silence* rather
+than total elapsed time, so a slow-but-working model is not cut off mid-answer. Turn it off if you
+would rather wait as long as the model needs — but a request that never comes back then has no
+end, and the turn waits until you press **Cancel**.
 
 ## Long skips in segments
 
