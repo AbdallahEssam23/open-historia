@@ -6145,7 +6145,11 @@ export const rollBackToSnapshot = async (index = 0) => {
     // restored file no longer holds as stolen is taken out (reportDelivery.js).
     const snapshotIntercepts = s.intercepts && typeof s.intercepts === "object" && !Array.isArray(s.intercepts) ? s.intercepts : null;
     const filedIntercepts = snapshotIntercepts ?? await readInterceptsState({ force: true }).catch(() => ({}));
-    const reconciledIntercepts = withoutOrphanedDocuments(filedIntercepts, normalizeWorldState(s.world ?? {}).reports);
+    // The snapshot's world is normalized once for both reconciliations below:
+    // `s.world` is the same document in each, and normalizing it is the cost of
+    // rebuilding every ledger in it.
+    const restoredWorld = normalizeWorldState(s.world ?? {});
+    const reconciledIntercepts = withoutOrphanedDocuments(filedIntercepts, restoredWorld.reports);
     if (snapshotIntercepts || reconciledIntercepts !== filedIntercepts) {
       await writeInterceptsState(reconciledIntercepts);
     }
@@ -6154,7 +6158,6 @@ export const rollBackToSnapshot = async (index = 0) => {
     // player's and is not rolled back.
     try {
       const advisorMessages = await readJson(JSON_URLS.advisor, { defaultValue: [], force: true });
-      const restoredWorld = normalizeWorldState(s.world ?? {});
       const keptMessages = withoutOrphanedNotices(advisorMessages, restoredWorld.reports, normalizeString(s.game?.country));
       if (Array.isArray(advisorMessages) && keptMessages !== advisorMessages) await writeJson(JSON_URLS.advisor, keptMessages);
     } catch (error) {
@@ -6567,6 +6570,10 @@ const applySimulationResult = async ({
   // is left is what the world is about to receive.
   tallyAppliedEvents(receipt, freshEvents);
 
+  // Normalizing the pre-turn world is the expensive part of a long campaign's
+  // turn (every ledger rebuilt), and this function reads two fields of it — the
+  // history it prepends to and the unit system. Derived once, not twice.
+  const baseWorldNormalized = normalizeWorldState(baseWorld);
   const impactMerge = applyEventImpactsToWorld({
     colors: baseColors,
     events: freshEvents,
@@ -6608,7 +6615,7 @@ const applySimulationResult = async ({
           storylineIds: [...new Set(normalizeArray(storylineUpdates).map((entry) => normalizeString(entry?.id)).filter(Boolean))],
           toDate: nextGame.gameDate,
         },
-        ...normalizeWorldState(baseWorld).simulationHistory,
+        ...baseWorldNormalized.simulationHistory,
       ].slice(0, 12),
     },
   });
@@ -6645,7 +6652,7 @@ const applySimulationResult = async ({
       // Give them the rest of their life from here before advancing anything.
       resumeStandingOrders(impactedWorld, {
         round: nextGame.round,
-        previousSystem: normalizeWorldState(baseWorld).unitSystem,
+        previousSystem: baseWorldNormalized.unitSystem,
       }),
       {
         fromDate: baseGame.gameDate,
@@ -6958,30 +6965,37 @@ const applySimulationResult = async ({
       }
       const movedByHidden = new Set();
       let hiddenEventsThatMoved = 0;
-      const applyCarrier = (world, carrier, event, { stamped }) => applyEventImpactsToWorld({
+      // The first carrier normalizes the world it is handed; every one after it
+      // continues from that already-normalized result (see `normalized` in
+      // gameState.js — re-deriving the whole document per carrier cost the round
+      // its event count in world normalizations).
+      const applyCarrier = (world, carrier, event, { stamped, normalized }) => applyEventImpactsToWorld({
         colors: nextColors,
         events: [{ id: event.id, date: event.date || nextGame.gameDate, title: event.title, description: "", impacts: { projectOps: carrier.ops } }],
         world,
         motion: null,
+        normalized,
         round: nextGame.round,
         boardOnlyEventIds: stamped ? [] : [event.id],
       }).world;
+      let normalizedCarriers = false;
       for (const carrier of carriers) {
         const event = carrier.onTimeline ? freshEvents[carrier.eventIndex] : boardHiddenEvents[carrier.hiddenIndex];
         if (!event) continue;
         const before = worldWithImpacts;
         const stamped = carrier.onTimeline && !unbackedIds.has(event.id);
-        let after = applyCarrier(before, carrier, event, { stamped });
+        let after = applyCarrier(before, carrier, event, { stamped, normalized: normalizedCarriers });
         const changed = materiallyChangedEntryIds(before.projects, after.projects);
         if (carrier.onTimeline && !carrier.fallback && provisionalIndexes.has(carrier.eventIndex) && !changed.length) {
           unbackedIds.add(event.id);
-          after = applyCarrier(before, carrier, event, { stamped: false });
+          after = applyCarrier(before, carrier, event, { stamped: false, normalized: normalizedCarriers });
         }
         if (!carrier.onTimeline && changed.length) {
           hiddenEventsThatMoved += 1;
           changed.forEach((id) => movedByHidden.add(id));
         }
         worldWithImpacts = after;
+        normalizedCarriers = true;
       }
       if (attached) logDebugEvent("turn", `Projects board updated: ${attached} op(s).`, undefined, { verbose: true });
 
