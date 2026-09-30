@@ -18,7 +18,7 @@ import { normalizeSpyOp } from "./spycraft.js";
 import { normalizeChatEvents, projectChatThread, withUnloggedMessages } from "./chatThreads.js";
 import { latestTurnEventIds, unseenEvents, withoutUnseenChats, withoutUnseenEvents, withoutUnseenReports } from "./unseenEvents.js";
 import { mergeCountryStatPatch, normalizeCountryStatSheet } from "./countryStats.js";
-import { resolvePolityIdentity } from "./polityIdentity.js";
+import { buildPolityIdentityIndex, resolvePolityIdentity } from "./polityIdentity.js";
 import {
   DEFAULT_PATROL_RADIUS_KM,
   daysBetweenDates,
@@ -3274,7 +3274,13 @@ const normalizeWorldWars = (value) => {
     .slice(0, MAX_WORLD_WARS);
 };
 
-const resolveWorldDiplomaticPolity = (token, identityWorld) => {
+// `identityIndex` is the polity identity index for `identityWorld`, when the
+// caller has already built one. resolvePolityIdentity rebuilds that index from
+// the whole world on every call otherwise (polityIdentity.js), and a diplomatic
+// ledger resolves a name per PARTY — so a full relations/agreements ledger paid
+// thousands of index builds per normalizeWorldState. Callers with a world in
+// hand pass the index once; the default path is unchanged.
+const resolveWorldDiplomaticPolity = (token, identityWorld, identityIndex = null) => {
   const raw = normalizeOptionalString(token);
   if (!raw) return "";
   const resolved = resolvePolityIdentity(raw, identityWorld, {
@@ -3282,6 +3288,7 @@ const resolveWorldDiplomaticPolity = (token, identityWorld) => {
     requireActive: false,
     allowCoreMatch: true,
     allowStockBase: true,
+    identityIndex,
   });
   return normalizeOptionalString(resolved?.resolved || toCountryName(raw) || raw);
 };
@@ -3291,10 +3298,10 @@ const worldRelationPairKey = (a, b) => [normalizeOptionalString(a), normalizeOpt
   .sort()
   .join("||");
 
-const normalizeWorldRelation = (entry, identityWorld, index = 0) => {
+const normalizeWorldRelation = (entry, identityWorld, index = 0, identityIndex = null) => {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
-  const aRaw = resolveWorldDiplomaticPolity(entry.a, identityWorld);
-  const bRaw = resolveWorldDiplomaticPolity(entry.b, identityWorld);
+  const aRaw = resolveWorldDiplomaticPolity(entry.a, identityWorld, identityIndex);
+  const bRaw = resolveWorldDiplomaticPolity(entry.b, identityWorld, identityIndex);
   if (!aRaw || !bRaw || aRaw.toLocaleLowerCase() === bRaw.toLocaleLowerCase()) return null;
   const ordered = [aRaw, bRaw].sort((a, b) => a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase()));
   const scoreNumber = Number(entry.score);
@@ -3322,10 +3329,10 @@ const normalizeWorldRelation = (entry, identityWorld, index = 0) => {
   };
 };
 
-const normalizeWorldRelations = (value, identityWorld) => {
+const normalizeWorldRelations = (value, identityWorld, identityIndex = null) => {
   const deduped = new Map();
   normalizeArray(value).forEach((entry, index) => {
-    const normalized = normalizeWorldRelation(entry, identityWorld, index);
+    const normalized = normalizeWorldRelation(entry, identityWorld, index, identityIndex);
     if (!normalized) return;
     deduped.set(worldRelationPairKey(normalized.a, normalized.b), normalized);
   });
@@ -3334,11 +3341,11 @@ const normalizeWorldRelations = (value, identityWorld) => {
     .slice(0, MAX_WORLD_RELATIONS);
 };
 
-const normalizeWorldAgreement = (entry, identityWorld, index = 0) => {
+const normalizeWorldAgreement = (entry, identityWorld, index = 0, identityIndex = null) => {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
   const id = normalizeOptionalString(entry.id) || `agreement-${index}`;
   const parties = [...new Set(normalizeArray(entry.parties)
-    .map((party) => resolveWorldDiplomaticPolity(party, identityWorld))
+    .map((party) => resolveWorldDiplomaticPolity(party, identityWorld, identityIndex))
     .filter(Boolean))].slice(0, 12);
   if (!id || parties.length < 2) return null;
   const rawType = normalizeOptionalString(entry.type).toLowerCase().replace(/[ -]+/g, "_");
@@ -3346,10 +3353,10 @@ const normalizeWorldAgreement = (entry, identityWorld, index = 0) => {
   const rawStatus = normalizeOptionalString(entry.status).toLowerCase();
   const status = WORLD_AGREEMENT_STATUS_SET.has(rawStatus) ? rawStatus : "active";
   const guarantor = type === "guarantee"
-    ? resolveWorldDiplomaticPolity(entry.guarantor || parties[0], identityWorld)
+    ? resolveWorldDiplomaticPolity(entry.guarantor || parties[0], identityWorld, identityIndex)
     : "";
   const beneficiary = type === "guarantee"
-    ? resolveWorldDiplomaticPolity(entry.beneficiary || parties[1], identityWorld)
+    ? resolveWorldDiplomaticPolity(entry.beneficiary || parties[1], identityWorld, identityIndex)
     : "";
   return {
     id,
@@ -3371,10 +3378,10 @@ const normalizeWorldAgreement = (entry, identityWorld, index = 0) => {
   };
 };
 
-const normalizeWorldAgreements = (value, identityWorld) => {
+const normalizeWorldAgreements = (value, identityWorld, identityIndex = null) => {
   const deduped = new Map();
   normalizeArray(value).forEach((entry, index) => {
-    const normalized = normalizeWorldAgreement(entry, identityWorld, index);
+    const normalized = normalizeWorldAgreement(entry, identityWorld, index, identityIndex);
     if (normalized) deduped.set(normalized.id, normalized);
   });
   const statusRank = { active: 0, suspended: 1, ended: 2, expired: 3 };
@@ -3510,6 +3517,15 @@ export const normalizeWorldState = (world) => {
   // The ledgers resolve their polity names against the overrides computed above,
   // not the raw input, so a renamed polity folds onto one identity.
   const diplomaticIdentityWorld = { ...nextWorld, polityOverrides, regionOwnershipOverrides };
+  // Built once for both diplomatic ledgers below. Each name they resolve would
+  // otherwise rebuild this index from the whole world — a relations and
+  // agreements ledger at its caps resolves over a thousand names, and the index
+  // is a full pass over every declared polity. Skipped entirely for the common
+  // campaign that has neither ledger; building it costs a pass of its own.
+  // See resolveWorldDiplomaticPolity.
+  const diplomaticIdentityIndex = (normalizeArray(nextWorld.relations).length || normalizeArray(nextWorld.agreements).length)
+    ? buildPolityIdentityIndex(diplomaticIdentityWorld)
+    : null;
 
   return {
     ...WORLD_DEFAULTS,
@@ -3630,8 +3646,8 @@ export const normalizeWorldState = (world) => {
         .map(([city, value]) => [normalizeOptionalString(city).toLowerCase(), Number(value)])
         .filter(([city, value]) => city && Number.isFinite(value) && value >= 0),
     ),
-    relations: normalizeWorldRelations(nextWorld.relations, diplomaticIdentityWorld),
-    agreements: normalizeWorldAgreements(nextWorld.agreements, diplomaticIdentityWorld),
+    relations: normalizeWorldRelations(nextWorld.relations, diplomaticIdentityWorld, diplomaticIdentityIndex),
+    agreements: normalizeWorldAgreements(nextWorld.agreements, diplomaticIdentityWorld, diplomaticIdentityIndex),
     diplomaticLedgerVersion: Number.isFinite(Number(nextWorld.diplomaticLedgerVersion))
       ? Math.max(0, Math.trunc(Number(nextWorld.diplomaticLedgerVersion)))
       : 0,

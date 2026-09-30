@@ -72,3 +72,34 @@ test("an event keeps its war metadata", () => {
   assert.equal(plain.warId, "");
   assert.deepEqual(plain.combatants, []);
 });
+
+// Both diplomatic ledgers resolve their parties through ONE identity index built
+// for the call (see diplomaticIdentityIndex in normalizeWorldState), because the
+// per-name default rebuilt that index over the whole world for every party. This
+// pins that the shared index is only a saving: an alias still folds to its
+// polity, and one world's index never answers for the next world normalized.
+test("diplomatic parties fold aliases through one index per call, never a stale one", () => {
+  const withAlias = () => ({
+    polityOverrides: {
+      Germany: { code: "Germany", aliases: ["Third Reich"] },
+      France: { code: "France" },
+    },
+    relations: [{ a: "Third Reich", b: "France", score: 40 }],
+    agreements: [{ id: "pact", type: "alliance", parties: ["Third Reich", "France"] }],
+  });
+
+  const first = normalizeWorldState(withAlias());
+  assert.deepEqual([first.relations[0].a, first.relations[0].b], ["France", "Germany"], "a relation party written as an alias must fold onto its polity");
+  assert.deepEqual(first.agreements[0].parties, ["Germany", "France"], "an agreement party written as an alias must fold onto its polity");
+
+  // A DIFFERENT world, where "Third Reich" answers to nobody. Were the previous
+  // call's index still in hand, this would resolve to Germany again.
+  const other = normalizeWorldState({
+    polityOverrides: { Italy: { code: "Italy" }, France: { code: "France" } },
+    relations: [{ a: "Third Reich", b: "France", score: 40 }],
+  });
+  assert.deepEqual([other.relations[0].a, other.relations[0].b], ["France", "Third Reich"], "the previous world's index answered for this one");
+
+  // Back to the first world: the result must not depend on what came between.
+  assert.deepEqual(normalizeWorldState(withAlias()).relations, first.relations);
+});
