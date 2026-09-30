@@ -4415,12 +4415,32 @@ const applyPolityAndTerritoryImpacts = ({
 // Hidden event's Board changes (gameplay.js applySimulationResult). Their project
 // ops apply exactly as any event's, completion effects included, but they are
 // not stamped into an entry's activity, which lists timeline events only.
+//
+// `normalized` marks a CONTINUATION: the caller already applied an earlier batch
+// and hands the running result straight back in. normalizeWorldState rebuilds
+// every ledger in the document — over 50 ms on a long campaign's world — so
+// re-deriving it once per batch made applying a turn's events cost (batches ×
+// world size). Only the containers the apply writes into are copied here, which
+// keeps the earlier result the caller may already be holding untouched.
 export const applyEventImpactsToWorld = ({
-  colors = {}, events = [], world, motion = null, round = 0, boardOnlyEventIds = [],
+  colors = {}, events = [], world, motion = null, normalized = false, round = 0, boardOnlyEventIds = [],
 }) => {
   const boardOnly = new Set(normalizeArray(boardOnlyEventIds).map(normalizeOptionalString).filter(Boolean));
-  let nextColors = cloneValue(colors) ?? {};
-  const nextWorld = normalizeWorldState(world);
+  let nextColors = normalized ? { ...(colors ?? {}) } : cloneValue(colors) ?? {};
+  // Every registry applyPolityAndTerritoryImpacts writes into by key — see the
+  // assignments there and POLITY_LIFECYCLE_STORES. Copied one level deep so a
+  // continuation cannot reach back into the world it was handed.
+  const nextWorld = normalized
+    ? {
+      ...world,
+      countryStats: { ...(world?.countryStats ?? {}) },
+      countryTags: { ...(world?.countryTags ?? {}) },
+      intelligence: { ...(world?.intelligence ?? {}) },
+      internationalReputation: { ...(world?.internationalReputation ?? {}) },
+      polityOverrides: { ...(world?.polityOverrides ?? {}) },
+      regionOwnershipOverrides: { ...(world?.regionOwnershipOverrides ?? {}) },
+    }
+    : normalizeWorldState(world);
   let cursorDate = motion ? normalizeOptionalString(motion.originDate) : "";
   // Every polity renamed by this apply, for gameplay.js to carry into what the
   // world does not hold (the game's own polity, chats, flags, baked regions).
