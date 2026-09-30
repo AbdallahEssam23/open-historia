@@ -32,8 +32,9 @@ test("every shipped pack on disk is one the game knows it has, and the other way
   assert.deepEqual(onDisk, [...SHIPPED_PACK_LANGUAGES].sort());
   const prompts = fs.readdirSync(new URL("prompts/", LANG)).filter((file) => /^[a-z]{2,3}\.json$/.test(file)).map((file) => file.slice(0, -5)).sort();
   assert.deepEqual(prompts, [...SHIPPED_PACK_LANGUAGES].sort(), "every pack language has its prompts too");
-  assert.equal(hasShippedPack("de"), true);
+  assert.equal(hasShippedPack("ar"), true);
   assert.equal(hasShippedPack("en"), false, "English is the source, not a pack");
+  assert.equal(hasShippedPack("de"), false);
   assert.equal(hasShippedPack("sw"), false);
 });
 

@@ -25,8 +25,8 @@
 // the server's pack like content.
 
 import {
-  DEFAULT_LANGUAGE,
   LANGUAGES,
+  SOURCE_LANGUAGE,
   getStoredLanguage,
   hasShippedPack,
   isRtlLanguage,
@@ -74,7 +74,7 @@ const ATTRIBUTE_SKIP_SELECTOR = "script, style, noscript, [contenteditable], [da
 // The progress pill's text: a pattern in the packs like any other string.
 const PROGRESS_TEXT = { label: "Translating to {{language}}…" };
 
-let language = DEFAULT_LANGUAGE;
+let language = SOURCE_LANGUAGE;
 // A shipped pack covers the interface: only content goes to the AI.
 let packed = false;
 // Everything known: the server's pack (shipped + saved), over what this device
@@ -96,7 +96,13 @@ let progressEl = null;
 let unsyncedEntries = {};
 let syncTimer = null;
 let updatedEventTimer = null;
+let labelEventTimer = null;
 let translatorActive = false;
+// Strings the map's label builders have asked for (translateLabel). Only a
+// translation of one of these can change a name baked into a map label feature;
+// every other batch is interface or panel content and must not make the map
+// rebuild its labels.
+const labelStrings = new Set();
 
 // node → { english, written }: the English last rendered there, and what this
 // module wrote over it. A value equal to `written` is ours; anything else is
@@ -139,6 +145,17 @@ const announceUpdate = () => {
   clearTimeout(updatedEventTimer);
   updatedEventTimer = setTimeout(() => {
     window.dispatchEvent(new Event("i18n:updated"));
+  }, 800);
+};
+
+// "The names drawn OUTSIDE the DOM changed." Kept separate from announceUpdate so
+// a content batch that touched no label cannot make Nations.jsx throw away and
+// rebuild its country/polity label features (they bake translated names, so only
+// this event justifies the rebuild).
+const announceLabelUpdate = () => {
+  clearTimeout(labelEventTimer);
+  labelEventTimer = setTimeout(() => {
+    window.dispatchEvent(new Event("i18n:labels-updated"));
   }, 800);
 };
 
@@ -190,7 +207,7 @@ const showProgress = () => {
   progressEl.style.cssText =
     "position:fixed;bottom:5.2rem;left:50%;transform:translateX(-50%);z-index:10075;" +
     "background:rgba(24,24,27,0.96);border:1px solid rgba(255,255,255,0.25);border-radius:999px;" +
-    "color:#fff;font-family:sans-serif;font-size:0.8rem;font-weight:600;padding:0.45rem 0.95rem;" +
+    "color:#fff;font-family:var(--oh-font-ui);font-size:0.8rem;font-weight:600;padding:0.45rem 0.95rem;" +
     "box-shadow:0 6px 24px rgba(0,0,0,0.5);pointer-events:none;";
   document.body.appendChild(progressEl);
 };
@@ -517,6 +534,7 @@ const processQueue = async () => {
       } else {
         if (batchStrings < BATCH_MAX_STRINGS) batchStrings = BATCH_MAX_STRINGS;
         failureCount = 0;
+        let labelsChanged = false;
         batch.forEach((source, index) => {
           const translated = typeof result.translations[index] === "string"
             ? result.translations[index].trim()
@@ -526,7 +544,11 @@ const processQueue = async () => {
           learned.set(source, value);
           unsyncedEntries[source] = value;
           pending.delete(source);
+          // A name the map drew, now translated: the baked label features are
+          // stale. Everything else is content and leaves the labels alone.
+          if (translated && labelStrings.has(source)) labelsChanged = true;
         });
+        if (labelsChanged) announceLabelUpdate();
       }
 
       updateProgress();
@@ -646,9 +668,17 @@ const collectAndTranslate = async () => {
 
 // Synchronous best-effort translation for text drawn OUTSIDE the DOM (map
 // country labels): names, so content. Unknown ones are queued, and an
-// "i18n:updated" event fires once they resolve, so callers can rebuild.
+// "i18n:labels-updated" event fires once they resolve, so callers can rebuild.
 export const translateLabel = (text) => {
-  if (!translatorActive || typeof text !== "string") {
+  if (typeof text !== "string") {
+    return text;
+  }
+  // Registered even before the translator is active: a label built while the
+  // pack was still loading is drawn in English, and this is how the activation
+  // below knows a rebuild is owed. It is also the set the fingerprint is taken
+  // over, so registering a name that is already translated is not a change.
+  labelStrings.add(text);
+  if (!translatorActive) {
     return text;
   }
   const translated = book.get(text);
@@ -774,7 +804,21 @@ export const startTranslator = () => {
   });
 
   language = getStoredLanguage();
-  if (language === DEFAULT_LANGUAGE) {
+  // The document's direction follows the language, Arabic default and all —
+  // set before the early return below so English actively resets it to LTR.
+  const rtl = isRtlLanguage(language);
+  document.documentElement.lang = language;
+  document.documentElement.dir = rtl ? "rtl" : "ltr";
+  if (rtl) {
+    // The script's own typography (styles.css): no tracking — it breaks the
+    // cursive joins — and no synthesised italic. Text direction is carried by
+    // the dir attribute above, so panels and their contents mirror inside-out
+    // while the fixed-position map UI keeps the side it was placed on.
+    document.body.classList.add("oh-rtl");
+  }
+
+  // English IS the authored text: there is nothing to translate.
+  if (language === SOURCE_LANGUAGE) {
     return;
   }
   packed = hasShippedPack(language);
@@ -784,13 +828,6 @@ export const startTranslator = () => {
   // For bug reports and tests: what is queued for the AI, what the pack lacks,
   // and a way to walk the page again.
   window.__ohI18n = { language, packed, pending, missing, rescan: () => scan() };
-
-  document.documentElement.lang = language;
-  if (isRtlLanguage(language)) {
-    // Text direction only — flipping the whole HUD layout would fight the
-    // fixed-position map UI, so panels stay put but text reads correctly.
-    document.body.style.direction = "rtl";
-  }
 
   loadCache();
 
@@ -811,6 +848,11 @@ export const startTranslator = () => {
     });
     scan();
     announceUpdate();
+    // A label built before the pack arrived was drawn in English and needs one
+    // rebuild now that the names are known. When no label was asked for yet, the
+    // first build happens after this point and already reads the translations, so
+    // there is nothing to invalidate.
+    if (labelStrings.size > 0) announceLabelUpdate();
 
     // Content, translated once: on later boots the server pack already has it
     // and this drains without a request. A switch to another save brings its

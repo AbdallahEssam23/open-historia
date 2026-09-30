@@ -52,7 +52,7 @@ import {
     normalizeStructuredMode,
 } from "../AI/structuredMode.js";
 import {
-    DEFAULT_LANGUAGE,
+    SOURCE_LANGUAGE,
     getLanguageOptions,
     hasShippedPack,
     languageDisplayName,
@@ -201,9 +201,9 @@ function groupProviders(options) {
     return groups;
 }
 
-// A language whose interface ships translated (runtime/i18n.js): no AI request
-// is spent on the game's own text in it.
-const isBuiltInLanguage = (code) => code === DEFAULT_LANGUAGE || hasShippedPack(code);
+// A language whose interface ships translated or needs no translation at all
+// (runtime/i18n.js): no AI request is spent on the game's own text in it.
+const isBuiltInLanguage = (code) => code === SOURCE_LANGUAGE || hasShippedPack(code);
 
 const LanguagePicker = ({ label, current, onSelect, saving = false, helperText, markBuiltIn = false }) => {
     const [query, setQuery] = useState("");
@@ -218,6 +218,7 @@ const LanguagePicker = ({ label, current, onSelect, saving = false, helperText, 
     return (
         <div style={fieldGroupStyle}>
         <label style={labelStyle}>{label}</label>
+        {options.length > 8 && (
         <input
         style={{ ...inputStyle, marginBottom: "0.4rem" }}
         type="text"
@@ -225,6 +226,7 @@ const LanguagePicker = ({ label, current, onSelect, saving = false, helperText, 
         placeholder="Search languages..."
         onChange={(event) => setQuery(event.target.value)}
         />
+        )}
         <select
         data-no-translate
         value={listed ? current : ""}
@@ -277,9 +279,7 @@ const LanguageSelector = () => {
         onSelect={applyLanguage}
         saving={saving}
         markBuiltIn
-        helperText={isBuiltInLanguage(current)
-            ? "Languages marked ✓ ship with the game translated. What scenarios add (names, descriptions, custom stats) is translated by your AI model, once."
-            : "This language is translated by your AI model as you play, once per string. Languages marked ✓ ship with the game translated."}
+        helperText="The interface ships translated in both. What a scenario or a save adds (names, descriptions, custom stats) is translated by your AI model, once."
         />
     );
 };
@@ -1690,7 +1690,7 @@ const DiagnosticsPanel = () => {
         <Toggle label="Detailed logging" enabled={verbose} onToggle={toggleVerbose} />
         <div style={helperTextStyle}>
         Off by default, and remembered like the switch above. Turn it on before reproducing a bug, then send the log. Adds:
-        <ul style={{ margin: "0.3rem 0 0", paddingLeft: "1rem" }}>
+        <ul style={{ margin: "0.3rem 0 0", paddingInlineStart: "1rem" }}>
         <li>Every message to and from your advisor, in full</li>
         <li>Every diplomatic message, in full, with who said it to whom</li>
         <li>Letters the advisor drafted, and the notes countries send you</li>

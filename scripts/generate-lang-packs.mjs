@@ -16,9 +16,9 @@
 //
 //   OH_LLM_BASE_URL=http://localhost:8080/v1 \
 //   OH_LLM_KEY=... OH_LLM_MODEL=nemotron-3-super \
-//   node scripts/generate-lang-packs.mjs --lang es,fr
+//   node scripts/generate-lang-packs.mjs --lang ar
 //   node scripts/generate-lang-packs.mjs --all          # every language in LANGUAGES
-//   node scripts/generate-lang-packs.mjs --lang de --dry-run
+//   node scripts/generate-lang-packs.mjs --lang ar --dry-run
 //
 // The key is read from the environment and never written to disk or logged — packs
 // are committed, so nothing secret may reach them.
@@ -50,13 +50,11 @@ const BATCH = Number(process.env.OH_LLM_BATCH) || 25;
 const RETRIES = 3;
 
 // code -> endonym (the language's own name). The endonym matters: models translate
-// noticeably better when asked for "Deutsch" than for "German".
+// noticeably better when asked for "العربية" than for "Arabic". The game ships
+// Arabic plus its authored English (SOURCE_LANGUAGE, which has no pack), so this
+// is the whole set `--all` regenerates.
 const LANGUAGES = {
-  ar: "العربية", bn: "বাংলা", de: "Deutsch", es: "Español", fa: "فارسی",
-  fr: "Français", hi: "हिन्दी", id: "Bahasa Indonesia", it: "Italiano",
-  ja: "日本語", ko: "한국어", nl: "Nederlands", pl: "Polski", pt: "Português",
-  ru: "Русский", sv: "Svenska", th: "ไทย", tr: "Türkçe", uk: "Українська",
-  ur: "اردو", vi: "Tiếng Việt", zh: "中文",
+  ar: "العربية",
 };
 
 const readJson = (p, fallback) => {
