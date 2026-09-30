@@ -44,6 +44,10 @@ const CACHE_PREFIX = "i18n_v2_";
 const LEGACY_CACHE_PREFIX = "i18n_cache_";
 const CACHE_LIMIT = 8000;
 const MISSING_LIMIT = 3000;
+// How many drawn map names are remembered. Only a name in this set may force a
+// label rebuild, and a session that loads scenario after scenario would carry
+// every name it ever saw without a ceiling.
+export const LABEL_STRINGS_LIMIT = 3000;
 // How many strings ride in one request. This used to be 60 strings × 3 requests
 // at a time, which made a first pass over a new language dozens of requests
 // nobody pressed a button for — on a free key, where a few hundred a day is the
@@ -103,6 +107,17 @@ let translatorActive = false;
 // every other batch is interface or panel content and must not make the map
 // rebuild its labels.
 const labelStrings = new Set();
+
+// Remembers a name the map drew, capped. A Set keeps insertion order, so the
+// oldest entry — a scenario no longer loaded — is the one dropped, and a name
+// seen again is not re-added to the back of the queue.
+const registerLabelString = (text) => {
+  if (labelStrings.has(text)) return;
+  labelStrings.add(text);
+  if (labelStrings.size > LABEL_STRINGS_LIMIT) {
+    labelStrings.delete(labelStrings.values().next().value);
+  }
+};
 
 // node → { english, written }: the English last rendered there, and what this
 // module wrote over it. A value equal to `written` is ours; anything else is
@@ -500,6 +515,30 @@ export const planTranslationBatch = (strings, { maxStrings = BATCH_MAX_STRINGS, 
 // Shrinks on failure, recovers on success (see BATCH_MIN_STRINGS).
 let batchStrings = BATCH_MAX_STRINGS;
 
+// Applies one batch's answer: records every translation, drains it from the
+// queue, and — only when a name the map drew came back translated — tells the
+// label builders their baked features are stale. Nothing else may: the generic
+// i18n:updated fires on every content batch, and rebuilding the country atlas on
+// each one froze the map while panels were translating. Exported so that rule is
+// tested directly, with no DOM or translation provider behind it.
+export const commitTranslationBatch = (batch, translations) => {
+  const list = Array.isArray(translations) ? translations : [];
+  let labelsChanged = false;
+  batch.forEach((source, index) => {
+    const translated = typeof list[index] === "string" ? list[index].trim() : "";
+    const value = translated || source;
+    book.set(source, value);
+    learned.set(source, value);
+    unsyncedEntries[source] = value;
+    pending.delete(source);
+    // A name the map drew, now translated: the baked label features are stale.
+    // Everything else is content and leaves the labels alone.
+    if (translated && labelStrings.has(source)) labelsChanged = true;
+  });
+  if (labelsChanged) announceLabelUpdate();
+  return labelsChanged;
+};
+
 const processQueue = async () => {
   if (inFlight || stopped || pending.size === 0 || Date.now() < cooldownUntil) {
     return;
@@ -534,21 +573,7 @@ const processQueue = async () => {
       } else {
         if (batchStrings < BATCH_MAX_STRINGS) batchStrings = BATCH_MAX_STRINGS;
         failureCount = 0;
-        let labelsChanged = false;
-        batch.forEach((source, index) => {
-          const translated = typeof result.translations[index] === "string"
-            ? result.translations[index].trim()
-            : "";
-          const value = translated || source;
-          book.set(source, value);
-          learned.set(source, value);
-          unsyncedEntries[source] = value;
-          pending.delete(source);
-          // A name the map drew, now translated: the baked label features are
-          // stale. Everything else is content and leaves the labels alone.
-          if (translated && labelStrings.has(source)) labelsChanged = true;
-        });
-        if (labelsChanged) announceLabelUpdate();
+        commitTranslationBatch(batch, result.translations);
       }
 
       updateProgress();
@@ -677,7 +702,7 @@ export const translateLabel = (text) => {
   // pack was still loading is drawn in English, and this is how the activation
   // below knows a rebuild is owed. It is also the set the fingerprint is taken
   // over, so registering a name that is already translated is not a change.
-  labelStrings.add(text);
+  registerLabelString(text);
   if (!translatorActive) {
     return text;
   }
@@ -689,6 +714,17 @@ export const translateLabel = (text) => {
     scheduleScan();
   }
   return text;
+};
+
+// The translation already known for a name, with NONE of translateLabel's side
+// effects: it neither registers the name as one the map drew nor queues it. The
+// label fingerprint (countryLabels.js) reads through this, so hashing a
+// scenario's names cannot make a later batch look like it changed a label.
+export const peekLabelTranslation = (text) => {
+  if (typeof text !== "string" || !translatorActive) {
+    return text;
+  }
+  return book.get(text) || text;
 };
 
 // Proactively queue content that exists as data but may not be rendered yet
@@ -871,4 +907,19 @@ export const stopTranslator = () => {
   clearTimeout(scanTimer);
   progressEl?.remove();
   progressEl = null;
+};
+
+// Clears the state a test asserts on, so cases do not leak into each other: the
+// drawn-name set (its cap is one of the things under test), the queue, and the
+// pending debounced label announcement.
+export const __resetTranslatorForTests = () => {
+  clearTimeout(labelEventTimer);
+  clearTimeout(updatedEventTimer);
+  labelEventTimer = null;
+  updatedEventTimer = null;
+  labelStrings.clear();
+  pending.clear();
+  learned = new Map();
+  unsyncedEntries = {};
+  book = createPhraseBook();
 };

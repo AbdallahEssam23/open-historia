@@ -3,7 +3,12 @@
 // has no MapLibre, PMTiles, DOM, storage, or translation dependencies so it can
 // run inside the political-cartography worker.
 
-import { containsArabicScript } from "../../../runtime/fontStacks.js";
+import {
+  createLabelSpacing,
+  estimatedTextWidthEm,
+  textBaseWidthEm,
+  textGapCount,
+} from "../../../runtime/typographyHelpers.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -1267,73 +1272,16 @@ export const curveMinZoomForPolityLabelTier = (tier, band = "standard") => {
 const REFERENCE_ZOOM = 4;
 const REFERENCE_PIXELS_PER_TILE_UNIT = (512 * (2 ** REFERENCE_ZOOM)) / 4096; // 2 px
 
-const nameGlyphWidthEm = (glyph) => {
-  if (glyph === " ") return 0.34;
-  if ("MW@%".includes(glyph)) return 0.82;
-  if ("IJLT1".includes(glyph)) return 0.40;
-  if ("ABCDEFGHKNOPQRSTUVXYZ023456789".includes(glyph)) return 0.60;
-  return 0.56;
-};
-
-const textBaseWidthEm = (name) => Array.from(String(name ?? "").toUpperCase())
-  .reduce((sum, glyph) => sum + nameGlyphWidthEm(glyph), 0);
-
-const textGapCount = (name) => Math.max(0, Array.from(String(name ?? "")).length - 1);
-
-const estimatedTextWidthEm = (name, letterSpacing = 0) =>
-  textBaseWidthEm(name) + textGapCount(name) * Math.max(0, Number(letterSpacing) || 0);
-
-const preferredLetterSpacing = (name, mode = "point") => {
-  // Arabic joins its letters into one cursive run: any tracking at all pulls the
-  // joins apart and reads as a rendering fault. The fitting below still measures
-  // the name — it just spends the territory on glyph size instead of on air.
-  if (containsArabicScript(name)) return 0;
-  const letters = Math.max(1, String(name ?? "").replace(/\s+/g, "").length);
-  const line = mode === "line";
-  // Atlas-style point labels spend territory on larger glyphs first and tracking
-  // second. R3/R4 did the opposite on many states, producing delicate labels
-  // with too much empty air between letters.
-  if (letters <= 5) return line ? 0.50 : 0.36;
-  if (letters <= 7) return line ? 0.38 : 0.28;
-  if (letters <= 10) return line ? 0.28 : 0.20;
-  if (letters <= 14) return line ? 0.20 : 0.14;
-  if (letters <= 20) return line ? 0.13 : 0.10;
-  return line ? 0.08 : 0.07;
-};
-
-const maxLetterSpacing = (name, mode = "point") => {
-  if (containsArabicScript(name)) return 0;
-  const letters = Math.max(1, String(name ?? "").replace(/\s+/g, "").length);
-  if (mode !== "line") {
-    if (letters <= 5) return 0.62;
-    if (letters <= 7) return 0.48;
-    if (letters <= 10) return 0.34;
-    if (letters <= 14) return 0.24;
-    if (letters <= 20) return 0.15;
-    return 0.10;
-  }
-  if (letters <= 5) return 0.78;
-  if (letters <= 7) return 0.62;
-  if (letters <= 10) return 0.46;
-  if (letters <= 14) return 0.34;
-  if (letters <= 20) return 0.22;
-  return 0.13;
-};
-
-const pointMaxLetterSpacing = (name, priorityScale) => {
-  if (containsArabicScript(name)) return 0;
-  const letters = Math.max(1, String(name ?? "").replace(/\s+/g, "").length);
-  // Giant continental names need some atlas-style tracking to span a continent,
-  // but only short names receive it. Normal states stay typographically cohesive.
-  if (priorityScale >= 170000) {
-    if (letters <= 5) return 1.15;
-    if (letters <= 7) return 1.00;
-    if (letters <= 10) return 0.72;
-    if (letters <= 14) return 0.42;
-    return 0.20;
-  }
-  return maxLetterSpacing(name, "point");
-};
+// The spacing lookup, from the shared module (runtime/typographyHelpers.js).
+// Point labels and giant continental names measure the same in both renderers;
+// only the line calibration below is this renderer's own, tuned against the
+// vnext output (see the CP4.x notes in fitLineTypography).
+const { preferredLetterSpacing, maxLetterSpacing, pointMaxLetterSpacing } = createLabelSpacing({
+  linePreferred: [[5, 0.50], [7, 0.38], [10, 0.28], [14, 0.20], [20, 0.13]],
+  linePreferredTail: 0.08,
+  lineMax: [[5, 0.78], [7, 0.62], [10, 0.46], [14, 0.34], [20, 0.22]],
+  lineMaxTail: 0.13,
+});
 
 const fitScaleFromFontPx = (fontPxAtZoom4) => Math.max(1, fontPxAtZoom4 * 4096);
 

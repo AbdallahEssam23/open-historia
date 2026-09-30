@@ -8,8 +8,13 @@ import {
   writeRuntimeJson,
 } from "./assets.js";
 import { getStoredLanguage } from "./i18n.js";
-import { containsArabicScript } from "./fontStacks.js";
-import { translateLabel } from "./translator.js";
+import { translateLabel, peekLabelTranslation } from "./translator.js";
+import {
+  createLabelSpacing,
+  estimatedTextWidthEm,
+  textBaseWidthEm,
+  textGapCount,
+} from "./typographyHelpers.js";
 
 // v3: label features now carry `lat` (globe text-size correction, issue #6) —
 // bumped so returning users' persisted v2 cache (no `lat`) doesn't silently
@@ -21,10 +26,6 @@ const EMPTY_COUNTRY_LABELS = {
   pointLabelData: EMPTY_FEATURE_COLLECTION,
 };
 
-let countryLabelsPromise = null;
-let countryLabelsPromiseKey = null;
-let countryLabelsValue = null;
-let countryLabelsValueKey = null;
 let regionLabelGeometryPromise = null;
 let regionLabelGeometryKey = null;
 
@@ -1045,73 +1046,17 @@ export const curveMinZoomForPolityLabelTier = (tier, band = "standard") => {
 const REFERENCE_ZOOM = 4;
 const REFERENCE_PIXELS_PER_TILE_UNIT = (512 * (2 ** REFERENCE_ZOOM)) / 4096; // 2 px
 
-const nameGlyphWidthEm = (glyph) => {
-  if (glyph === " ") return 0.34;
-  if ("MW@%".includes(glyph)) return 0.82;
-  if ("IJLT1".includes(glyph)) return 0.40;
-  if ("ABCDEFGHKNOPQRSTUVXYZ023456789".includes(glyph)) return 0.60;
-  return 0.56;
-};
-
-const textBaseWidthEm = (name) => Array.from(String(name ?? "").toUpperCase())
-  .reduce((sum, glyph) => sum + nameGlyphWidthEm(glyph), 0);
-
-const textGapCount = (name) => Math.max(0, Array.from(String(name ?? "")).length - 1);
-
-const estimatedTextWidthEm = (name, letterSpacing = 0) =>
-  textBaseWidthEm(name) + textGapCount(name) * Math.max(0, Number(letterSpacing) || 0);
-
-const preferredLetterSpacing = (name, mode = "point") => {
-  // Arabic joins its letters into one cursive run: any tracking at all pulls the
-  // joins apart and reads as a rendering fault. The fitting below still measures
-  // the name — it just spends the territory on glyph size instead of on air.
-  if (containsArabicScript(name)) return 0;
-  const letters = Math.max(1, String(name ?? "").replace(/\s+/g, "").length);
-  const line = mode === "line";
-  // Atlas-style point labels spend territory on larger glyphs first and tracking
-  // second. R3/R4 did the opposite on many states, producing delicate labels
-  // with too much empty air between letters.
-  if (letters <= 5) return line ? 0.70 : 0.36;
-  if (letters <= 7) return line ? 0.55 : 0.28;
-  if (letters <= 10) return line ? 0.40 : 0.20;
-  if (letters <= 14) return line ? 0.28 : 0.14;
-  if (letters <= 20) return line ? 0.18 : 0.10;
-  return line ? 0.10 : 0.07;
-};
-
-const maxLetterSpacing = (name, mode = "point") => {
-  if (containsArabicScript(name)) return 0;
-  const letters = Math.max(1, String(name ?? "").replace(/\s+/g, "").length);
-  if (mode !== "line") {
-    if (letters <= 5) return 0.62;
-    if (letters <= 7) return 0.48;
-    if (letters <= 10) return 0.34;
-    if (letters <= 14) return 0.24;
-    if (letters <= 20) return 0.15;
-    return 0.10;
-  }
-  if (letters <= 5) return 1.10;
-  if (letters <= 7) return 0.90;
-  if (letters <= 10) return 0.68;
-  if (letters <= 14) return 0.46;
-  if (letters <= 20) return 0.28;
-  return 0.16;
-};
-
-const pointMaxLetterSpacing = (name, priorityScale) => {
-  if (containsArabicScript(name)) return 0;
-  const letters = Math.max(1, String(name ?? "").replace(/\s+/g, "").length);
-  // Giant continental names need some atlas-style tracking to span a continent,
-  // but only short names receive it. Normal states stay typographically cohesive.
-  if (priorityScale >= 170000) {
-    if (letters <= 5) return 1.15;
-    if (letters <= 7) return 1.00;
-    if (letters <= 10) return 0.72;
-    if (letters <= 14) return 0.42;
-    return 0.20;
-  }
-  return maxLetterSpacing(name, "point");
-};
+// The spacing lookup, from the shared module (typographyHelpers.js). The tables
+// are the classic atlas's own line calibration: a point label and giant
+// continental names are measured the same everywhere, but a name fitted along a
+// path was tuned here against the country atlas, and again in the vnext polity
+// renderer against its output, so the line numbers are not shared.
+const { preferredLetterSpacing, maxLetterSpacing, pointMaxLetterSpacing } = createLabelSpacing({
+  linePreferred: [[5, 0.70], [7, 0.55], [10, 0.40], [14, 0.28], [20, 0.18]],
+  linePreferredTail: 0.10,
+  lineMax: [[5, 1.10], [7, 0.90], [10, 0.68], [14, 0.46], [20, 0.28]],
+  lineMaxTail: 0.16,
+});
 
 const fitScaleFromFontPx = (fontPxAtZoom4) => Math.max(1, fontPxAtZoom4 * 4096);
 
@@ -2113,146 +2058,175 @@ const isCountryLabelPayload = (value) =>
 const payloadLabelSignature = (value) =>
   typeof value?.labelSignature === "string" ? value.labelSignature : null;
 
-// The translated names the current tile would produce, as a fingerprint. Cheap
-// next to a rebuild: it decodes the same z0 tile and resolves each name, but does
-// none of the geometry a label payload bakes. Two payloads with this same value
-// draw identical names, so one can stand in for the other.
-const countryLabelNameSignature = async (tileData, ownedCodes = null) => {
-  if (!tileData?.data) return "";
-  const tile = await decodeVectorTile(tileData.data);
-  const layer = tile.layers.countries;
-  if (!layer) return "";
-  const filterByOwners = ownedCodes instanceof Set && ownedCodes.size > 0;
-  const names = [];
-  for (let index = 0; index < layer.length; index += 1) {
-    const props = layer.feature(index).properties;
-    const code = props?.GID_0 || props?.gid_0 || props?.ISO_A3 || props?.iso_a3 || "";
-    if (filterByOwners && !ownedCodes.has(code)) continue;
-    const name = translateLabel(resolveCountryDisplayName(
-      props?.Country || props?.NAME || props?.name || props?.COUNTRY,
-      code,
-    ));
-    if (name) names.push(name);
-  }
-  names.sort();
-  let hash = 2166136261;
-  for (const name of names) {
-    for (let index = 0; index < name.length; index += 1) {
-      hash ^= name.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
+// Reads the translated names the current tile would produce, as a fingerprint.
+// Cheap next to a rebuild: it decodes the same z0 tile and resolves each name,
+// but bakes none of the geometry a label payload does. Two payloads with the same
+// value draw identical names, so one can stand in for the other.
+//
+// It reads through `readLabel` (translator.js `peekLabelTranslation`), not
+// `translateLabel`: fingerprinting a scenario's names must not register them as
+// names the map drew, or merely measuring the cache would later look like a
+// label change.
+const createNameSignature = ({ decodeTile, resolveName, readLabel }) =>
+  async (tileData, ownedCodes = null) => {
+    if (!tileData?.data) return "";
+    const tile = await decodeTile(tileData.data);
+    const layer = tile.layers.countries;
+    if (!layer) return "";
+    const filterByOwners = ownedCodes instanceof Set && ownedCodes.size > 0;
+    const names = [];
+    for (let index = 0; index < layer.length; index += 1) {
+      const props = layer.feature(index).properties;
+      const code = props?.GID_0 || props?.gid_0 || props?.ISO_A3 || props?.iso_a3 || "";
+      if (filterByOwners && !ownedCodes.has(code)) continue;
+      const name = readLabel(resolveName(
+        props?.Country || props?.NAME || props?.name || props?.COUNTRY,
+        code,
+      ));
+      if (name) names.push(name);
     }
-    hash = Math.imul(hash ^ 0x1f, 16777619);
-  }
-  return (hash >>> 0).toString(36);
-};
-
-export const loadCountryLabelCollections = async ({ force = false, ownedCodes = null } = {}) => {
-  const tileData = await getCountriesTileData();
-  const baseKey = tileData?.data
-    ? computeCountryLabelCacheKey(tileData.data, PMTILES_ARCHIVES.countries)
-    : COUNTRY_LABELS_CACHE_KEY;
-
-  // A distinct owner set (scenario-specific label filtering) caches separately.
-  let ownersSuffix = "";
-  if (ownedCodes instanceof Set && ownedCodes.size > 0) {
-    const joined = [...ownedCodes].sort().join(",");
+    names.sort();
     let hash = 2166136261;
-    for (let i = 0; i < joined.length; i += 1) {
-      hash ^= joined.charCodeAt(i);
-      hash = Math.imul(hash, 16777619);
+    for (const name of names) {
+      for (let index = 0; index < name.length; index += 1) {
+        hash ^= name.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      hash = Math.imul(hash ^ 0x1f, 16777619);
     }
-    ownersSuffix = `-own${ownedCodes.size}-${(hash >>> 0).toString(36)}`;
-  }
-  const cacheKey = `${baseKey}${ownersSuffix}`;
+    return (hash >>> 0).toString(36);
+  };
 
-  if (!force && countryLabelsValue && countryLabelsValueKey === cacheKey) {
-    return countryLabelsValue;
-  }
+// The country-label loader, with its IO injected so a test can drive it without
+// PMTiles, Cache Storage or a translation provider. The module builds one from
+// the real implementations below and everything else uses that singleton.
+export const createCountryLabelLoader = ({
+  getTileData = getCountriesTileData,
+  decodeTile = decodeVectorTile,
+  readJson = readRuntimeJson,
+  writeJson = writeRuntimeJson,
+  resolveName = resolveCountryDisplayName,
+  readLabel = peekLabelTranslation,
+  build = buildCountryLabelCollections,
+} = {}) => {
+  const nameSignature = createNameSignature({ decodeTile, resolveName, readLabel });
+  let promise = null;
+  let promiseKey = null;
+  let value = null;
+  let valueKey = null;
 
-  if (!force && countryLabelsPromise && countryLabelsPromiseKey === cacheKey) {
-    return countryLabelsPromise;
-  }
+  const load = async ({ force = false, ownedCodes = null } = {}) => {
+    const tileData = await getTileData();
+    const baseKey = tileData?.data
+      ? computeCountryLabelCacheKey(tileData.data, PMTILES_ARCHIVES.countries)
+      : COUNTRY_LABELS_CACHE_KEY;
 
-  const request = (async () => {
-    if (!force) {
-      try {
-        const cached = await readRuntimeJson(cacheKey);
-        if (isCountryLabelPayload(cached)) {
-          countryLabelsValue = cached;
-          countryLabelsValueKey = cacheKey;
-          return countryLabelsValue;
+    // A distinct owner set (scenario-specific label filtering) caches separately.
+    let ownersSuffix = "";
+    if (ownedCodes instanceof Set && ownedCodes.size > 0) {
+      const joined = [...ownedCodes].sort().join(",");
+      let hash = 2166136261;
+      for (let i = 0; i < joined.length; i += 1) {
+        hash ^= joined.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      ownersSuffix = `-own${ownedCodes.size}-${(hash >>> 0).toString(36)}`;
+    }
+    const cacheKey = `${baseKey}${ownersSuffix}`;
+
+    if (!force && value && valueKey === cacheKey) {
+      return value;
+    }
+
+    if (!force && promise && promiseKey === cacheKey) {
+      return promise;
+    }
+
+    const request = (async () => {
+      if (!force) {
+        try {
+          const cached = await readJson(cacheKey);
+          if (isCountryLabelPayload(cached)) {
+            value = cached;
+            valueKey = cacheKey;
+            return value;
+          }
+        } catch {
+          // Cache miss falls through to live generation.
         }
+      } else {
+        // `force` means a label translation arrived, not that the labels actually
+        // changed — every content batch used to send it here and rebuild the whole
+        // atlas. Compare the names this tile would draw now with the ones the
+        // cached payload holds; only a real change costs a regeneration.
+        const cached = await readJson(cacheKey).catch(() => null);
+        const known = value && valueKey === cacheKey ? value : cached;
+        if (isCountryLabelPayload(known)
+          && payloadLabelSignature(known) === await nameSignature(tileData, ownedCodes)) {
+          value = known;
+          valueKey = cacheKey;
+          return value;
+        }
+      }
+
+      const built = await build(tileData, ownedCodes);
+
+      // An empty result is almost always a degraded z0 read (a missing or garbled
+      // tile resolves to undefined rather than throwing), not a genuinely
+      // label-less world. Persisting it is unrecoverable: the payload validator
+      // accepts an empty FeatureCollection, so every later boot serves the empty
+      // cache and the country labels stay gone across reloads. Serve it once,
+      // memoize nothing, and let the next call rebuild.
+      const isEmpty =
+        !built?.pointLabelData?.features?.length && !built?.curvedLabelData?.features?.length;
+      if (isEmpty) {
+        console.warn("Country labels came back empty — not caching, will rebuild.");
+        return built;
+      }
+
+      // Stamp the names these features were built with, so the next forced call
+      // can tell "the names changed" from "something else translated".
+      const stamped = { ...built, labelSignature: await nameSignature(tileData, ownedCodes) };
+      value = stamped;
+      valueKey = cacheKey;
+
+      try {
+        await writeJson(cacheKey, stamped);
       } catch {
-        // Cache miss falls through to live generation.
+        // Runtime cache persistence is best-effort only.
       }
-    } else {
-      // `force` means a label translation arrived, not that the labels actually
-      // changed — every content batch used to send it here and rebuild the whole
-      // atlas. Compare the names this tile would draw now with the ones the
-      // cached payload holds; only a real change costs a regeneration.
-      const cached = await readRuntimeJson(cacheKey).catch(() => null);
-      const known = countryLabelsValue && countryLabelsValueKey === cacheKey
-        ? countryLabelsValue
-        : cached;
-      if (isCountryLabelPayload(known)
-        && payloadLabelSignature(known) === await countryLabelNameSignature(tileData, ownedCodes)) {
-        countryLabelsValue = known;
-        countryLabelsValueKey = cacheKey;
-        return countryLabelsValue;
-      }
-    }
 
-    const built = await buildCountryLabelCollections(tileData, ownedCodes);
+      return value;
+    })()
+      .catch((error) => {
+        console.error("Failed to build country label collections:", error);
+        value = EMPTY_COUNTRY_LABELS;
+        valueKey = cacheKey;
+        return value;
+      })
+      .finally(() => {
+        promise = null;
+        promiseKey = null;
+      });
 
-    // An empty result is almost always a degraded z0 read (a missing or garbled
-    // tile resolves to undefined rather than throwing), not a genuinely
-    // label-less world. Persisting it is unrecoverable: the payload validator
-    // accepts an empty FeatureCollection, so every later boot serves the empty
-    // cache and the country labels stay gone across reloads. Serve it once,
-    // memoize nothing, and let the next call rebuild.
-    const isEmpty =
-      !built?.pointLabelData?.features?.length && !built?.curvedLabelData?.features?.length;
-    if (isEmpty) {
-      console.warn("Country labels came back empty — not caching, will rebuild.");
-      return built;
-    }
+    promise = request;
+    promiseKey = cacheKey;
+    return request;
+  };
 
-    // Stamp the names these features were built with, so the next forced call can
-    // tell "the names changed" from "something else translated".
-    const stamped = { ...built, labelSignature: await countryLabelNameSignature(tileData, ownedCodes) };
-    countryLabelsValue = stamped;
-    countryLabelsValueKey = cacheKey;
-
-    try {
-      await writeRuntimeJson(cacheKey, stamped);
-    } catch {
-      // Runtime cache persistence is best-effort only.
-    }
-
-    return countryLabelsValue;
-  })()
-    .catch((error) => {
-      console.error("Failed to build country label collections:", error);
-      countryLabelsValue = EMPTY_COUNTRY_LABELS;
-      countryLabelsValueKey = cacheKey;
-      return countryLabelsValue;
-    })
-    .finally(() => {
-      countryLabelsPromise = null;
-      countryLabelsPromiseKey = null;
-    });
-
-  countryLabelsPromise = request;
-  countryLabelsPromiseKey = cacheKey;
-  return request;
+  return { load, nameSignature, cacheUrl: () => valueKey || COUNTRY_LABELS_CACHE_KEY };
 };
+
+const countryLabelLoader = createCountryLabelLoader();
+
+export const loadCountryLabelCollections = countryLabelLoader.load;
 
 // No size: it meant serialising both FeatureCollections for a startup label.
 // normalizeTaskResult already treats a missing size as 0.
 export const warmCountryLabelCollections = async (options = {}) => {
-  await loadCountryLabelCollections(options);
+  await countryLabelLoader.load(options);
   return {
     kind: "json",
-    url: countryLabelsValueKey || COUNTRY_LABELS_CACHE_KEY,
+    url: countryLabelLoader.cacheUrl(),
   };
 };
