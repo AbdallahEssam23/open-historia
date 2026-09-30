@@ -21,7 +21,7 @@ import { acceptStructuredModeSuggestion, declineStructuredModeSuggestion, getStr
 import { fallbackStateStore, getResolvedFallbackList } from "../AI/providerConfig.js";
 import { describeUnavailable, fallbackAvailability } from "../AI/fallbackRunner.js";
 import { describeJumpCost, requestDay, savingRequests } from "../AI/requestBudget.js";
-import { logDebugEvent, setDebugLogContext } from "../../runtime/debugLog.js";
+import { flushDebugLog, logDebugEvent, setDebugLogContext } from "../../runtime/debugLog.js";
 import { useFailureReportButton } from "../../runtime/saveDebugLog.js";
 import { EVENT_TAG_ENUM } from "../../runtime/eventTags.js";
 import { documentsForEvent } from "../../runtime/reportDelivery.js";
@@ -2126,8 +2126,18 @@ const DateWidget = ({
     // skip is generated in pieces (AI/jumpSegments.js).
     const [jumpProgress, setJumpProgress] = useState("");
     // A phase of the skip as it starts: "Writing 1 month of events… (part 2 of 3)".
-    const showSkipPhase = ({ label, detail } = {}) =>
+    // The phase the skip is in reaches the log as well as the spinner. A skip
+    // that never comes back leaves the phase it died in unnamed otherwise, and
+    // "Reading the world" versus "Writing the events" is the difference between
+    // a stalled model and a client that stopped. Written through immediately:
+    // the entry worth having is the one logged just before the main thread
+    // stops, and the debounced flush would never get to run.
+    const showSkipPhase = ({ label, detail } = {}) => {
         setJumpProgress(label ? `${label}…${detail ? ` (${detail})` : ""}` : "");
+        if (!label) return;
+        logDebugEvent("turn", `Skip phase: ${label}${detail ? ` (${detail})` : ""}.`);
+        flushDebugLog();
+    };
     // The skip's events as the model writes them (AI/streamedEvents.js): the
     // request already streamed, nothing was reading it. A preview, before the
     // validators sort, clamp and screen; the list goes when the turn does.
