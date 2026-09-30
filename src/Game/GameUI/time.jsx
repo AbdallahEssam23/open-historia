@@ -2874,6 +2874,11 @@ const DateWidget = ({
     // them while a skip outlives a great many renders.
     const visibleEventCountRef = React.useRef(1);
     const streamedEventsRef = React.useRef([]);
+    // The staged reveal's run so far — the world the events shown have left, and
+    // how many of them it holds. Extended as the reveal advances rather than
+    // rebuilt each step; see the staging effect below. Null until the first step,
+    // and replaced whenever the record or its base changes.
+    const revealRunRef = React.useRef(null);
     useEffect(() => { visibleEventCountRef.current = visibleEventCount; }, [visibleEventCount]);
     useEffect(() => { streamedEventsRef.current = streamedEvents; }, [streamedEvents]);
     // Set the moment a watched skip lands, read once by the effect below.
@@ -3148,24 +3153,46 @@ const DateWidget = ({
             return;
         }
         const revealed = record.events.slice(0, Math.max(1, visibleEventCount));
-        const { world: stagedWorld } = applyEventImpactsToWorld({
-            colors: {},
-            events: revealed,
-            // Same motion the persisted turn used (applySimulationResult), or the
-            // reveal would show units teleporting to positions the saved world
-            // never had. The residual advance past the last event is not replayed
-            // here — the reveal is a partial state by definition, and the map's
-            // position tween absorbs the difference when the override clears.
-            //
-            // "Same as the persisted turn" is the whole point, so this mirrors
-            // applySimulationResult's motion exactly.
-            motion: {
-                originDate: record.fromDate || "",
-                round: record.round || 0,
-                tick: 0,
-            },
-            world: stagedBase.world,
-        });
+        // Same motion the persisted turn used (applySimulationResult), or the
+        // reveal would show units teleporting to positions the saved world never
+        // had. The residual advance past the last event is not replayed here —
+        // the reveal is a partial state by definition, and the map's position
+        // tween absorbs the difference when the override clears.
+        //
+        // "Same as the persisted turn" is the whole point, so this mirrors
+        // applySimulationResult's motion exactly.
+        const motion = {
+            originDate: record.fromDate || "",
+            round: record.round || 0,
+            tick: 0,
+        };
+        // The reveal walks forward one event at a time, and each step used to
+        // re-apply ALL events revealed so far — normalizing the whole world again
+        // every click. Step N therefore cost N events plus a full normalization,
+        // so the last step of a long turn is the slowest. The run is cached and
+        // extended instead: the events already applied keep their result, and only
+        // the newly revealed one is applied to it (see `normalized` in
+        // gameState.js). Rewinding or re-staging starts a fresh run.
+        const cache = revealRunRef.current;
+        const continuing = cache
+            && cache.recordId === record.id
+            && cache.baseWorld === stagedBase.world
+            && cache.count <= revealed.length;
+        const run = continuing ? cache : { baseWorld: stagedBase.world, colors: {}, count: 0, recordId: record.id, world: stagedBase.world };
+        for (let index = run.count; index < revealed.length; index += 1) {
+            const step = applyEventImpactsToWorld({
+                colors: run.colors,
+                events: [revealed[index]],
+                motion,
+                normalized: run.count > 0,
+                world: run.world,
+            });
+            run.colors = step.colors;
+            run.world = step.world;
+            run.count = index + 1;
+        }
+        revealRunRef.current = run;
+        const stagedWorld = run.world;
         setWorldStateOverride(stagedWorld);
         setUnitsOverride(stagedWorld.units ?? [], stagedWorld.pendingUnitOrders ?? []);
     }, [latestTurnRecord, liveStageBase, liveTurnRecord, openPanel, skipInFlight, stagedBase, totalVisibleEvents, visibleEventCount]);
