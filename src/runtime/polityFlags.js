@@ -241,6 +241,6 @@ export const setPolityFlag = async ({ polity, world, dataUrl }) => {
   if (value) next[key] = value;
   else delete next[key];
 
-  await writeJson(JSON_URLS.flags, next, { pretty: true });
+  await writeJson(JSON_URLS.flags, next);
   return next;
 };

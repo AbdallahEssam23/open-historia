@@ -1766,13 +1766,13 @@ const LibraryTopBar = () => {
       // leave every other country uncoloured. This is the "Add Country" cheat's path.
       try {
         const colors = await readJson(JSON_URLS.colors, { defaultValue: {}, force: true });
-        await writeJson(JSON_URLS.colors, { ...colors, [name]: hexToRgbArray(hexColor) }, { pretty: true });
+        await writeJson(JSON_URLS.colors, { ...colors, [name]: hexToRgbArray(hexColor) });
       } catch { /* colours are cosmetic — a landless faction paints nothing anyway */ }
 
       if (faction.flag) {
         try {
           const flags = await readJson(JSON_URLS.flags, { defaultValue: {}, force: true });
-          await writeJson(JSON_URLS.flags, { ...flags, [name]: faction.flag }, { pretty: true });
+          await writeJson(JSON_URLS.flags, { ...flags, [name]: faction.flag });
         } catch { /* flag is cosmetic */ }
       }
 

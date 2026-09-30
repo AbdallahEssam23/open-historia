@@ -803,7 +803,7 @@ const CountryEditorView = ({ meta, header, busy, status, polities, refresh, runB
         const rgb = hexToRgb(colorHex);
         if (rgb) {
             const colors = await readJson(JSON_URLS.colors, { defaultValue: {}, force: true });
-            await writeJson(JSON_URLS.colors, { ...colors, [target]: rgb }, { pretty: true });
+            await writeJson(JSON_URLS.colors, { ...colors, [target]: rgb });
         }
 
         const edits = [
@@ -3299,12 +3299,12 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
                         onClick={() => runBusy(async () => {
                             const s = snap.state ?? {};
                             await Promise.all([
-                                writeJson(JSON_URLS.game, s.game ?? {}, { pretty: true }),
-                                writeJson(JSON_URLS.world, s.world ?? {}, { pretty: true }),
-                                writeJson(JSON_URLS.events, s.events ?? [], { pretty: true }),
-                                writeJson(JSON_URLS.actions, s.actions ?? [], { pretty: true }),
-                                writeJson(JSON_URLS.chat, s.chat ?? [], { pretty: true }),
-                                writeJson(JSON_URLS.colors, s.colors ?? {}, { pretty: true }),
+                                writeJson(JSON_URLS.game, s.game ?? {}),
+                                writeJson(JSON_URLS.world, s.world ?? {}),
+                                writeJson(JSON_URLS.events, s.events ?? []),
+                                writeJson(JSON_URLS.actions, s.actions ?? []),
+                                writeJson(JSON_URLS.chat, s.chat ?? []),
+                                writeJson(JSON_URLS.colors, s.colors ?? {}),
                             ]);
                             // Drop this restore point and every newer one — those turns no longer happened.
                             const remaining = snapshots.slice(index + 1);
@@ -3622,7 +3622,7 @@ const ToolView = ({ tool, header, busy, status, game, polities, refresh, runBusy
             const rgb = hexToRgb(colorHex);
             if (rgb) {
                 const colors = await readJson(JSON_URLS.colors, { defaultValue: {}, force: true });
-                await writeJson(JSON_URLS.colors, { ...colors, [code]: rgb }, { pretty: true });
+                await writeJson(JSON_URLS.colors, { ...colors, [code]: rgb });
             }
             if (adding && !world.polityOverrides?.[code]) {
                 await noteGmChange("polity", `Created the polity ${nextOverride.name} by hand; it holds no land until it is given some.`);

@@ -3887,20 +3887,20 @@ export const writeWorldState = async (world, options = {}) => {
   // saved to the server language pack) the moment they're written, not when
   // they first happen to be rendered somewhere.
   enqueueContentStrings(normalized.polityOverrides);
-  return writeJson(JSON_URLS.world, normalized, { pretty: true, ...options });
+  return writeJson(JSON_URLS.world, normalized, options);
 };
 
 export const readGameData = async ({ force = false } = {}) =>
   normalizeGameData(await readJson(JSON_URLS.game, { defaultValue: GAME_DEFAULTS, force }));
 
 export const writeGameData = async (game, options = {}) =>
-  writeJson(JSON_URLS.game, normalizeGameData(game), { pretty: true, ...options });
+  writeJson(JSON_URLS.game, normalizeGameData(game), options);
 
 export const readActionsState = async ({ force = false } = {}) =>
   normalizeActions(await readJson(JSON_URLS.actions, { defaultValue: [], force }));
 
 export const writeActionsState = async (actions, options = {}) =>
-  writeJson(JSON_URLS.actions, normalizeActions(actions), { pretty: true, ...options });
+  writeJson(JSON_URLS.actions, normalizeActions(actions), options);
 
 export const readEventsState = async ({ force = false } = {}) =>
   normalizeEvents(await readJson(JSON_URLS.events, { defaultValue: [], force }));
@@ -3921,7 +3921,7 @@ export const writeEventsState = async (events, options = {}) => {
   // A scenario's own events follow the UI language immediately (see above);
   // the AI's are written in it.
   enqueueEventStrings(normalized);
-  return writeJson(JSON_URLS.events, normalized, { pretty: true, ...writeOptions });
+  return writeJson(JSON_URLS.events, normalized, writeOptions);
 };
 
 // Spy intercepts live in their own asset rather than in world.json: they are
@@ -3933,13 +3933,13 @@ export const readInterceptsState = async ({ force = false } = {}) => {
 };
 
 export const writeInterceptsState = async (intercepts, options = {}) =>
-  writeJson(JSON_URLS.intercepts, intercepts && typeof intercepts === "object" ? intercepts : {}, { pretty: true, ...options });
+  writeJson(JSON_URLS.intercepts, intercepts && typeof intercepts === "object" ? intercepts : {}, options);
 
 export const readChatsState = async ({ force = false } = {}) =>
   normalizeChats(await readJson(JSON_URLS.chat, { defaultValue: [], force }));
 
 export const writeChatsState = async (chats, options = {}) =>
-  writeJson(JSON_URLS.chat, normalizeChats(chats), { pretty: true, ...options });
+  writeJson(JSON_URLS.chat, normalizeChats(chats), options);
 
 export const readCountryStatsBundle = async ({ force = false } = {}) => {
   const [actions, events, game, world] = await Promise.all([

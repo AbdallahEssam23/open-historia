@@ -6134,11 +6134,11 @@ export const rollBackToSnapshot = async (index = 0) => {
       // whole turn ago and carries that turn's unit-system flag, and a setting
       // must not roll back with the turn. See writeGameData in gameState.js.
       writeGameData(s.game ?? {}),
-      writeJson(JSON_URLS.world, worldToRestore, { pretty: true }),
-      writeJson(JSON_URLS.events, s.events ?? [], { pretty: true }),
-      writeJson(JSON_URLS.actions, s.actions ?? [], { pretty: true }),
-      writeJson(JSON_URLS.chat, s.chat ?? [], { pretty: true }),
-      writeJson(JSON_URLS.colors, s.colors ?? {}, { pretty: true }),
+      writeJson(JSON_URLS.world, worldToRestore),
+      writeJson(JSON_URLS.events, s.events ?? []),
+      writeJson(JSON_URLS.actions, s.actions ?? []),
+      writeJson(JSON_URLS.chat, s.chat ?? []),
+      writeJson(JSON_URLS.colors, s.colors ?? {}),
     ]);
     // The agents' file as it stood before the turn — the traffic and the stolen
     // copies the turn filed go with it. Either way, a copy of a document the
@@ -7198,8 +7198,8 @@ const applySimulationResult = async ({
     writeActionsState(nextActions),
     writeEventsState(nextEvents),
     writeGameData(nextGame),
-    writeJson(JSON_URLS.colors, nextColors, { pretty: true }),
-    ...(renamedFlags ? [writeJson(JSON_URLS.flags, renamedFlags, { pretty: true })] : []),
+    writeJson(JSON_URLS.colors, nextColors),
+    ...(renamedFlags ? [writeJson(JSON_URLS.flags, renamedFlags)] : []),
     writeWorldState(nextWorld),
   ]);
   await writeChatsState(chatsToWrite);
@@ -13938,10 +13938,10 @@ export const applyGameMasterPreview = async (preview) => {
     const writes = [writeWorldState(nextWorld)];
     if (touchedEvents) writes.push(writeEventsState(nextEvents, { preserveApprovedEvents: true }));
     if (touchedChats) writes.push(writeChatsState(chatsToWrite));
-    if (touchedColors) writes.push(writeJson(JSON_URLS.colors, nextColors, { pretty: true }));
+    if (touchedColors) writes.push(writeJson(JSON_URLS.colors, nextColors));
     // The one game write the GM console makes: the player's own polity was renamed.
     if (renamedGame) writes.push(writeGameData(renamedGame));
-    if (renamedFlags) writes.push(writeJson(JSON_URLS.flags, renamedFlags, { pretty: true }));
+    if (renamedFlags) writes.push(writeJson(JSON_URLS.flags, renamedFlags));
 
     try {
       await Promise.all(writes);
@@ -13952,9 +13952,9 @@ export const applyGameMasterPreview = async (preview) => {
       const rollbackWrites = [writeWorldState(bundle.world)];
       if (touchedEvents) rollbackWrites.push(writeEventsState(bundle.events, { preserveApprovedEvents: true }));
       if (touchedChats) rollbackWrites.push(writeChatsState(bundle.chats));
-      if (touchedColors) rollbackWrites.push(writeJson(JSON_URLS.colors, colors, { pretty: true }));
+      if (touchedColors) rollbackWrites.push(writeJson(JSON_URLS.colors, colors));
       if (renamedGame) rollbackWrites.push(writeGameData(bundle.game));
-      if (renamedFlags) rollbackWrites.push(writeJson(JSON_URLS.flags, flagsBefore ?? {}, { pretty: true }));
+      if (renamedFlags) rollbackWrites.push(writeJson(JSON_URLS.flags, flagsBefore ?? {}));
       const rollbackResults = await Promise.allSettled(rollbackWrites);
       const rollbackFailed = rollbackResults.some((result) => result.status === "rejected");
       if (rollbackFailed) console.error("[GM] persistence rollback was incomplete.", rollbackResults);

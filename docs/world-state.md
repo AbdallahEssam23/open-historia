@@ -307,7 +307,7 @@ Espionage resolves once per turn in `applySimulationResult`, **after** the stand
 2. Rebuild the maps with blank-key/blank-value filtering: `regionOwnershipOverrides`, `polityOverrides`, `regionClaimants` (≤4), `internationalReputation` (clamped ints), `countryTags` (via `normalizeTagList`).
 3. Normalize the arrays: `units`, `pendingUnitOrders` (pruned against the just-normalized `units`), `markers`, `actionSuggestions`, `simulationHistory`, `consolidatedHistory`, and singletons `activeInteractive`, `interactiveOffer`, `historyDocument`, label config, `notes`, `language`, `simulationRules`, `startingTimelineText`.
 
-`writeWorldState` normalizes, calls `enqueueContentStrings(polityOverrides)` to translate edited names on write, then `writeJson(JSON_URLS.world, …, { pretty:true })`.
+`writeWorldState` normalizes, calls `enqueueContentStrings(polityOverrides)` to translate edited names on write, then `writeJson(JSON_URLS.world, …)`. Game state is written COMPACT: it is machine-read on both ends, and a long campaign's world is 35% smaller without the indentation. Any caller that wants the readable form passes `{ pretty: true }` explicitly (`writeJson` still honours it).
 
 **Namespace caution:** `countryTags`, `internationalReputation`, `polityOverrides`, and `colors` are all keyed by country **NAME verbatim**. An earlier version uppercased `countryTags` keys only, so a single `change.code` could land under two keys (`countryTags["RUSSIA"]` vs `internationalReputation["Russia"]`) — harmless while owners were uppercase GADM codes, a silent desync once owners are names. Keep the casing consistent.
 
@@ -464,7 +464,7 @@ Author starting tags come from `getNationTags` (`assets.js`, the scenario's `tag
 | Function | Line | Notes |
 |---|---|---|
 | `readWorldState({force})` | | `readJson(world)` → `normalizeWorldState`. |
-| `writeWorldState(world, opts)` | | normalize → `enqueueContentStrings(polityOverrides)` → `writeJson(pretty)`. |
+| `writeWorldState(world, opts)` | | normalize → `enqueueContentStrings(polityOverrides)` → `writeJson` (compact). |
 | `readGameData` / `writeGameData` |, | `normalizeGameData` on both ends. |
 | `readActionsState` / `writeActionsState` |, | `normalizeActions`. |
 | `readEventsState` / `writeEventsState` |, | `normalizeEvents`; write enqueues content strings. |
