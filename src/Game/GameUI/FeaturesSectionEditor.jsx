@@ -6,13 +6,14 @@ import {
   normalizeFeatureSettings,
   resolveFeatures,
 } from "../../runtime/gameFeatures.js";
+import ScriptedEventsBuilder from "./ScriptedEventsBuilder.jsx";
 
 // A scenario edits its complete configuration: what every game made from it
 // starts with. A game edits only overrides: each control has a "Scenario
 // default" state that keeps following the scenario, including changes made to
 // the scenario later. `features` is therefore the complete object for a
 // scenario and the sparse override object for a game.
-const FeaturesSectionEditor = ({ kind, features, scenarioFeatures, onChange, styles }) => {
+const FeaturesSectionEditor = ({ kind, features, scenarioFeatures, onChange, styles, suggestions }) => {
   const isGame = kind === "game";
   const base = normalizeFeatureSettings(scenarioFeatures);
   const effective = isGame ? resolveFeatures(scenarioFeatures, features) : normalizeFeatureSettings(features);
@@ -91,21 +92,34 @@ const FeaturesSectionEditor = ({ kind, features, scenarioFeatures, onChange, sty
                       // between two words. The store trims when it saves.
                       const typed = features?.[definition.key]?.[setting.key];
                       const shown = typeof typed === "string" ? typed : value;
+                      // The Scripted events builder owns its own text view, so
+                      // the plain textarea only stands in for other text settings.
+                      const built = setting.editor === "scriptedEvents";
                       return (
                         <div key={setting.key}>
                           <label style={styles.fieldLabelStyle}>{setting.label}</label>
-                          <textarea
-                            data-no-translate
-                            rows={setting.rows || 4}
-                            maxLength={setting.maxLength || 2000}
-                            style={{ ...styles.inputStyle, fontFamily: "inherit", lineHeight: 1.45, minHeight: "5rem", resize: "vertical", width: "100%" }}
-                            value={shown}
-                            placeholder={isGame ? (scenarioText || "Following the scenario, which sets none") : ""}
-                            onChange={(event) => {
-                              const raw = event.target.value;
-                              setFeature(definition.key, { [setting.key]: isGame && raw.trim() === "" ? undefined : raw });
-                            }}
-                          />
+                          {built ? (
+                            <ScriptedEventsBuilder
+                              value={shown}
+                              maxLength={setting.maxLength || 20000}
+                              styles={styles}
+                              suggestions={suggestions}
+                              onChange={(raw) => setFeature(definition.key, { [setting.key]: isGame && String(raw).trim() === "" ? undefined : raw })}
+                            />
+                          ) : (
+                            <textarea
+                              data-no-translate
+                              rows={setting.rows || 4}
+                              maxLength={setting.maxLength || 2000}
+                              style={{ ...styles.inputStyle, fontFamily: "inherit", lineHeight: 1.45, minHeight: "5rem", resize: "vertical", width: "100%" }}
+                              value={shown}
+                              placeholder={isGame ? (scenarioText || "Following the scenario, which sets none") : ""}
+                              onChange={(event) => {
+                                const raw = event.target.value;
+                                setFeature(definition.key, { [setting.key]: isGame && raw.trim() === "" ? undefined : raw });
+                              }}
+                            />
+                          )}
                           {isGame && (
                             <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.3rem" }}>
                               <span style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.74rem" }}>
