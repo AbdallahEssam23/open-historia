@@ -19,6 +19,11 @@ import {
     dateKey,
     ensureScriptedEvents,
     parseScriptedEvents,
+    parseImpactLine,
+    parseImpactBlock,
+    IMPACT_VERBS,
+    serializeScriptedEvents,
+    beatEventIndex,
     scriptedBeatsInSpan,
     territoryTempoAllowance,
     WORLD_SHARE_MIN_EVENTS,
@@ -188,6 +193,136 @@ test("the period is told its beats, dated, and what happens to one it leaves out
     assert.match(text, /- 1914-06-28 — Archduke Franz Ferdinand is assassinated in Sarajevo\./);
     assert.match(text, /written by the engine/);
     assert.equal(buildScriptedEventsInstruction([]), "");
+});
+
+// --- scripted-event impacts ---
+
+test("an impact line is a verb, its subject and its fields", () => {
+    assert.deepEqual(parseImpactLine("transfer Sarajevo -> Austria-Hungary").impacts.regionTransfers,
+        [{ regionName: "Sarajevo", toCode: "Austria-Hungary" }]);
+    assert.deepEqual(parseImpactLine("control Belgium -> Germany note=blitz").impacts.regionControlOps,
+        [{ op: "control", regionName: "Belgium", toCode: "Germany", note: "blitz" }]);
+    assert.deepEqual(parseImpactLine("contest Donbas by Ukraine").impacts.regionControlOps,
+        [{ op: "contest", regionName: "Donbas", actorCode: "Ukraine" }]);
+    assert.deepEqual(parseImpactLine("clear Donbas from Russia").impacts.regionControlOps,
+        [{ op: "clear_contest", regionName: "Donbas", claimantCode: "Russia" }]);
+    assert.deepEqual(parseImpactLine("claim Bosnia by Serbia").impacts.regionClaims,
+        [{ regionName: "Bosnia", claimantCode: "Serbia" }]);
+    assert.deepEqual(parseImpactLine("unclaim Bosnia by Serbia").impacts.regionClaims,
+        [{ regionName: "Bosnia", claimantCode: "Serbia", drop: true }]);
+    assert.deepEqual(parseImpactLine('polity create Poland name="Polish Republic"').impacts.polityChanges,
+        [{ operation: "create", code: "Poland", name: "Polish Republic" }]);
+    assert.deepEqual(parseImpactLine('unit spawn "1st Army" ownerCode=Germany type=armor strength=90 at="western Poland"').impacts.unitOps,
+        [{ op: "spawn", unit: { name: "1st Army", ownerCode: "Germany", type: "armor", strength: 90, at: "western Poland" } }]);
+    assert.deepEqual(parseImpactLine("unit move unit-3 at=Krakow").impacts.unitOps,
+        [{ op: "move", unitId: "unit-3", at: "Krakow" }]);
+    assert.deepEqual(parseImpactLine('marker build "Fort X" kind=fort at=Krakow').impacts.markerOps,
+        [{ op: "build", marker: { name: "Fort X", kind: "fort", at: "Krakow" } }]);
+    assert.deepEqual(parseImpactLine("project complete Bridge").impacts.projectOps,
+        [{ op: "complete", name: "Bridge" }]);
+    assert.deepEqual(parseImpactLine("chat Serbia, Russia title=Terms").impacts.createdChats,
+        [{ countries: ["Serbia", "Russia"], title: "Terms" }]);
+    assert.deepEqual(parseImpactLine('unit spawn "1st Army" note="held in reserve"').impacts.unitOps,
+        [{ op: "spawn", unit: { name: "1st Army", note: "held in reserve" } }]);
+});
+
+test("an impact line that cannot be read is dropped, with a reason", () => {
+    assert.equal(parseImpactLine("teleport Sarajevo -> Mars").impacts, null);
+    assert.match(parseImpactLine("teleport Sarajevo -> Mars").error, /unknown verb/i);
+    assert.equal(parseImpactLine("transfer Sarajevo").impacts, null);
+    assert.match(parseImpactLine("transfer Sarajevo").error, /->/);
+    assert.equal(parseImpactLine("unit explode unit-1").impacts, null);
+    assert.match(parseImpactLine("unit explode unit-1").error, /no operation/i);
+    assert.equal(parseImpactLine("claim Bosnia by").impacts, null);
+    assert.equal(parseImpactLine("transfer Sarajevo -> Austria-Hungary note=").impacts, null);
+    assert.equal(parseImpactLine("").impacts, null);
+    assert.equal(parseImpactLine('transfer "Sarajevo -> Austria').impacts, null, "an unbalanced quote is a bad line, not a silent guess");
+});
+
+test("a block keeps the lines it could read and lists the ones it could not", () => {
+    const { impacts, errors } = parseImpactBlock([
+        "transfer Sarajevo -> Austria-Hungary",
+        "teleport Sarajevo -> Mars",
+        "claim Bosnia by Serbia",
+    ]);
+    assert.equal(impacts.regionTransfers.length, 1);
+    assert.equal(impacts.regionClaims.length, 1);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /teleport/);
+    assert.deepEqual(Object.keys(impacts).sort(), [
+        "createdChats", "markerOps", "polityChanges", "projectOps",
+        "regionClaims", "regionControlOps", "regionTransfers", "unitOps",
+    ]);
+});
+
+test("the verb table is what the parser accepts", () => {
+    for (const verb of ["transfer", "control", "contest", "clear", "claim", "unclaim", "polity", "unit", "marker", "project", "chat"]) {
+        assert.equal(IMPACT_VERBS.has(verb), true, verb);
+    }
+});
+
+test("a beat's indented lines become its impacts; the block ends at the next date or a blank line", () => {
+    const beats = parseScriptedEvents([
+        "1914-06-28 Archduke Franz Ferdinand is assassinated in Sarajevo.",
+        "  transfer Sarajevo -> Austria-Hungary",
+        "  claim Bosnia by Serbia",
+        "",
+        "1914-08-04 Germany invades Belgium.",
+        "  control Belgium -> Germany note=blitz",
+    ].join("\n"));
+    assert.equal(beats.length, 2);
+    assert.deepEqual(beats[0].impacts.regionTransfers, [{ regionName: "Sarajevo", toCode: "Austria-Hungary" }]);
+    assert.deepEqual(beats[0].impacts.regionClaims, [{ regionName: "Bosnia", claimantCode: "Serbia" }]);
+    assert.deepEqual(beats[0].errors, []);
+    assert.deepEqual(beats[1].impacts.regionControlOps, [{ op: "control", regionName: "Belgium", toCode: "Germany", note: "blitz" }]);
+    assert.equal(beats[0].text, "Archduke Franz Ferdinand is assassinated in Sarajevo.");
+});
+
+test("a beat with no impacts is exactly what it was, and an unreadable line is reported not fatal", () => {
+    const plain = parseScriptedEvents("2014-05-02 Clashes in Odesa leave dozens dead.");
+    assert.deepEqual(plain[0].impacts, { regionTransfers: [], regionControlOps: [], regionClaims: [], polityChanges: [], unitOps: [], markerOps: [], createdChats: [], projectOps: [] });
+    assert.deepEqual(plain[0].errors, []);
+    const broken = parseScriptedEvents("2014-05-02 Clashes in Odesa.\n  teleport Odesa -> Mars");
+    assert.equal(broken[0].impacts.regionControlOps.length, 0);
+    assert.equal(broken[0].errors.length, 1);
+    assert.equal(broken[0].text, "Clashes in Odesa.");
+});
+
+test("serializing a parsed text gives the same beats back", () => {
+    const text = [
+        "1914-06-28 Archduke Franz Ferdinand is assassinated in Sarajevo.",
+        "  transfer Sarajevo -> Austria-Hungary",
+        '  unit spawn "1st Army" ownerCode=Germany strength=90 at="western Poland"',
+        "",
+        "1914-08-04 Germany invades Belgium.",
+    ].join("\n");
+    const first = parseScriptedEvents(text);
+    const again = parseScriptedEvents(serializeScriptedEvents(first));
+    assert.deepEqual(again.map((beat) => beat.date), first.map((beat) => beat.date));
+    assert.deepEqual(again.map((beat) => beat.text), first.map((beat) => beat.text));
+    assert.deepEqual(again.map((beat) => beat.impacts), first.map((beat) => beat.impacts));
+});
+
+test("a line the parser could not read survives a round trip, verbatim, attached to nothing", () => {
+    const text = "2014-05-02 Clashes in Odesa.\n  teleport Odesa -> Mars";
+    const once = serializeScriptedEvents(parseScriptedEvents(text));
+    assert.match(once, /teleport Odesa -> Mars/);
+    const twice = parseScriptedEvents(once);
+    assert.equal(twice.length, 1);
+    assert.equal(twice[0].date, "2014-05-02");
+    assert.deepEqual(twice[0].impacts.regionTransfers, []);
+});
+
+test("the event a beat is written as can be found by index; -1 when it is not written", () => {
+    const beat = parseScriptedEvents("2014-05-25 Ukraine holds a presidential election; Petro Poroshenko wins outright.")[0];
+    const events = [
+        { date: "2014-05-20", title: "Unrelated", description: "Nothing here." },
+        { date: "2014-05-26", title: "Poroshenko elected", description: "Petro Poroshenko wins Ukraine's presidential election outright." },
+    ];
+    assert.equal(beatEventIndex(beat, events), 1);
+    assert.equal(beatIsWritten(beat, events), true);
+    assert.equal(beatEventIndex(beat, [{ date: "2014-05-25", title: "Fighting", description: "Separatists seize the airport." }]), -1);
+    assert.equal(beatEventIndex(beat, []), -1);
 });
 
 // --- the map's tempo ---
