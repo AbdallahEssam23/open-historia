@@ -91,13 +91,13 @@ The one place the flag is read at boot is `src/main.jsx:28` (below). Because the
 | State / ref | Meaning | Set by |
 |---|---|---|
 | `startupState` | progress %, current stage, per-task steps | `runStartupPreload` progress callback (`src/runtime/preload.js`) |
-| `preloadFinishedRef` | the 8 preload tasks finished/timed out | preload `.finally` |
+| `preloadFinishedRef` | the gating preload tasks finished/timed out | preload `.finally` |
 | `worldIdleRef` / `hasFirstWorldIdle` | MapLibre fired its **first** `onIdle` (first world frame settled) | `<Map onInitialIdle={handleFirstWorldIdle}>` → `World.jsx:226` |
 | `isReady` | show `<UI>`, hide `<StartupScreen>` | true when **(preload done AND first world idle)**, OR when `STARTUP_TIME_BUDGET_MS` (30 s) elapses |
 
 A `requestAnimationFrame` loop (`src/App.jsx:67`) ticks `elapsedMs` and flips `isReady` when either condition is met. The overlay's last 3% ("Finalizing first world render") is gated on `hasFirstWorldIdle` so the bar never sits at 100% while the map is still blank.
 
-Before the preload even starts, `ensureLibraryCatalog()` (`src/runtime/library.js:187`) loads the games/scenarios catalog so the active game's cache token is known. The **8 preload tasks** (`src/runtime/preload.js:82`) warm: runtime JSON state, ESRI + terrain textures, `countries.pmtiles`, the country index, country labels, `cities.pmtiles`, and `regions.pmtiles`. See [Startup preload](assets-and-data.md).
+Before the preload even starts, `ensureLibraryCatalog()` (`src/runtime/library.js:264`) loads the games/scenarios catalog so the active game's cache token is known. The **7 preload tasks** (`src/runtime/preload.js:102`) warm: runtime JSON state, ESRI + terrain textures, `countries.pmtiles`, the country index, country labels, `cities.pmtiles`, and `regions.pmtiles`. Four of them gate the startup screen; the other three (`countries`, `regions`, `textures`) are `background: true` warms that start with the rest but do not hold the splash, since the map renders without them. See [Startup preload](assets-and-data.md).
 
 Both `<Map>` and `<UI>` are keyed on `activeGameId` (not the library token) so a scenario "Apply & Play" — which writes many assets and bumps the token repeatedly — remounts the map exactly **once** (`src/App.jsx:57`, `:169`).
 
@@ -144,7 +144,7 @@ Both `<Map>` and `<UI>` are keyed on `activeGameId` (not the library token) so a
 | `assets.js` | The asset/endpoint hub: defines `JSON_URLS`, `PMTILES_ARCHIVES`, ESRI basemaps, MapLibre `pmtiles`/`ohbase` protocols, `readJson`/`writeJson`/`warm*`, per-token cache sweeping. §5 |
 | `library.js` | React store (`useSyncExternalStore`) for games/scenarios; wraps `/api/library`, `/api/games`, `/api/scenarios`; wires the active cache token + country-name overrides into `assets.js` |
 | `gameState.js` | `GAME_DEFAULTS` + `WORLD_DEFAULTS`; read/write of the per-game `game.json` and `world.json` runtime state | [World state](world-state.md) |
-| `preload.js` | The 8 startup warm tasks + progress model. §3c |
+| `preload.js` | The 7 startup warm tasks (4 gating) + progress model. §3c |
 | `StartupScreen.jsx` / `ErrorBoundary.jsx` | Loading overlay; render-error recovery |
 | `countryLabels.js`, `countryFlags.js`, `countryTags.js`, `countryNames`/`polityNames.js` | Country label/flag/tag/name resolution from `countries.pmtiles` + overrides |
 | `communityBasemaps.js`, `communityFlags.js`, `basemapLibrary.js`, `flagLibrary.js` | Community/basemap/flag catalogs |

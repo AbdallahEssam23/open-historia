@@ -15,7 +15,7 @@ Every LLM call the game makes is a template in `src/Game/AI/defaultPrompts.json`
 | Task runner, call-time directives, validators, fallbacks, task entry points | `src/Game/AI/gameplay.js` | `runJsonTask`, `buildTemplateVariables`, `simulateTimelineJump`, etc. |
 | JSON Schemas + tools + payload validator | `src/Game/AI/gameplaySchemas.js` | `GAMEPLAY_SCHEMAS`, `GAMEPLAY_TOOLS`, `validateGameplayPayload` |
 | Provider dispatch, `callAI`, advisor/leader assembly | `src/Game/AI/main.jsx` | `callAI`, `buildAdvisorSystemPrompt`, `buildDiplomaticSystemPrompt` |
-| Language directive (appended to *every* call) | `src/runtime/i18n.js` | `languageDirective` at line 137 |
+| Language directive (appended to *every* call) | `src/runtime/i18n.js` | `languageDirective` at line 148 |
 | Difficulty directive (appended to task + leader prompts) | `src/runtime/difficulty.js` | `difficultyDirective` at line 73 |
 | Where the active game's prompt overrides are read from | `src/runtime/assets.js` | `JSON_URLS.prompts = /api/runtime/json/prompts` |
 | Per-scenario / per-game prompt editor UI ("Prompts" tab) | `src/Game/GameUI/libraryBar.jsx` | `PromptSectionEditor`, `handlePromptChange`, `serializePromptPack` on save |

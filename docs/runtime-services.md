@@ -160,21 +160,24 @@ Where the override resolver renames by scenario, `polityNames.js` resolves a **c
 
 ## Language setting — `src/runtime/i18n.js`
 
-Owns the UI-language *choice* and static catalog. The choice is stored on the **server** (shared by every device — desktop browser and the Android app that play through the same server) and mirrored to `localStorage["ui_language"]` so boot doesn't wait on a fetch. `"en"` (the authored language) means no translation happens at all.
+Owns the UI-language *choice* and static catalog. The game ships two languages — Arabic (default) and English (the authored source). The choice is stored on the **server** (shared by every device — desktop browser and the Android app that play through the same server) and mirrored to `localStorage["ui_language"]` so boot doesn't wait on a fetch. `"en"` (the authored language) means no translation happens at all.
 
 | Export | Purpose |
 |---|---|
-| `DEFAULT_LANGUAGE` | `"en"` |
-| `LANGUAGES` | 50-entry array of `{ code, name, native }` (top-50 most-spoken, English name + endonym) |
+| `DEFAULT_LANGUAGE` | `"ar"` — the default UI language |
+| `SOURCE_LANGUAGE` | `"en"` — the language the source is authored in; no pack, no translator |
+| `LANGUAGES` | 2-entry array of `{ code, name, native }`, Arabic first then English |
+| `SHIPPED_PACK_LANGUAGES` | `["ar"]` — the languages with a shipped interface pack |
+| `normalizeLanguage(code)` | Maps any stored/unknown code back to a shipped one (`DEFAULT_LANGUAGE` on a miss) |
 | `getLanguageOptions()` | Returns `LANGUAGES` |
 | `languageDisplayName(code)` | English display name, falls back to the code |
-| `getStoredLanguage()` | Reads localStorage; returns `DEFAULT_LANGUAGE` on miss/error |
+| `getStoredLanguage()` | Reads localStorage through `normalizeLanguage`; returns `DEFAULT_LANGUAGE` on miss/error |
 | `setStoredLanguage(code)` | Writes localStorage **and** PUT `/api/ui-settings` `{ language }` (offline-tolerant) |
 | `syncLanguageFromServer()` | GET `/api/ui-settings`; server wins; returns `true` if the local value changed (caller reloads) |
 | `isRtlLanguage(code)` | Membership in `RTL_LANGUAGES` = `{ ar, he, fa, ur }` |
 | `languageDirective()` | System-prompt fragment appended to every AI call so replies arrive natively in-language |
 
-Storage rule: writing `en` (or empty) **removes** the key rather than storing it (`writeLocalLanguage`, `i18n.js:81`), so "English" is represented by absence. `languageDirective()` returns `""` for English; otherwise it instructs the model to write all natural-language text in the target language while keeping JSON keys/ISO codes/date formats intact — this is why AI output does not need re-translation (see [AI system](ai-overview.md)).
+Storage rule: writing `ar` (or empty) **removes** the key rather than storing it (`writeLocalLanguage`), so "Arabic" (the default) is represented by absence. Because Arabic is the default, `languageDirective()` keys off `SOURCE_LANGUAGE`, not `DEFAULT_LANGUAGE`: it returns `""` for English and otherwise instructs the model to write all natural-language text in the target language while keeping JSON keys/ISO codes/date formats intact — this is why AI output does not need re-translation (see [AI system](ai-overview.md)).
 
 ---
 
@@ -182,7 +185,7 @@ Storage rule: writing `en` (or empty) **removes** the key rather than storing it
 
 Puts the running game into the player's language. The full design (the three kinds of text, the packs, patterns and runs, content, the prompts, regenerating the packs) is in **[Languages & Translation](i18n.md)**. In short:
 
-1. **The interface** comes from the shipped pack (`public/lang/<code>.json`) in the 22 languages that have one (`SHIPPED_PACK_LANGUAGES`), applied to the DOM by a `MutationObserver` as it renders: exact strings, `{{slot}}` patterns and runs of text nodes (`phraseBook.js`). It never costs an AI request there.
+1. **The interface** comes from the shipped pack (`public/lang/<code>.json`) in the languages that have one (`SHIPPED_PACK_LANGUAGES` = Arabic), applied to the DOM by a `MutationObserver` as it renders: exact strings, `{{slot}}` patterns and runs of text nodes (`phraseBook.js`). It never costs an AI request there.
 2. **Content** (what a scenario's author or a player made) is gathered up front, at boot and on every switch of save, and translated by the AI in a few big requests, then saved to the server's pack.
 3. In a language **without** a pack, the interface goes through the AI as well, as content does.
 
@@ -190,21 +193,21 @@ Puts the running game into the player's language. The full design (the three kin
 
 | Export | Purpose |
 |---|---|
-| `startTranslator()` | Called once from `src/main.jsx:24`. Syncs language from server (reload if changed), returns early for English, sets `<html lang>` + RTL `direction`, loads localStorage cache + server pack, waits out the startup screen, then starts the observer and pre-translation pass |
+| `startTranslator()` | Called once from `src/main.jsx`. Syncs language from server (reload if changed), sets `<html lang>` and `<html dir>` (`rtl` for Arabic), returns early for English, adds `.oh-rtl` for RTL, loads localStorage cache + server pack, waits out the startup screen, then starts the observer and pre-translation pass |
 | `stopTranslator()` | Disconnects the observer, clears timers, removes the progress pill |
 
-Boot order inside `startTranslator`: `syncLanguageFromServer()` (reload on change) → bail if `en` → `loadPromptTranslations()` (pack languages) → set `lang`/`direction` → `loadCache()` → `loadServerPack()` → `whenStartupScreenGone()` (polls for `[data-startup-screen]`, 180 s cap) → activate observer + `scan()` → `collectContentStrings()` (again on `oh:active-game-changed`) → show progress if >10 pending → `processQueue()`.
+Boot order inside `startTranslator`: `syncLanguageFromServer()` (reload on change) → set `lang`/`dir`/`.oh-rtl` → bail if `en` → `loadPromptTranslations()` (pack languages) → `loadCache()` → `loadServerPack()` → `whenStartupScreenGone()` (polls for `[data-startup-screen]`, 180 s cap) → activate observer + `scan()` → `collectContentStrings()` (again on `oh:active-game-changed`) → show progress if >10 pending → `processQueue()`.
 
 ### Public lookups (for callers/data outside the DOM)
 
 | Export | Purpose |
 |---|---|
-| `translateLabel(text)` | **Sync** best-effort translate for text drawn outside the DOM (map country labels). Returns the known translation, or the original while queuing the name as content + firing `i18n:updated` when it resolves |
+| `translateLabel(text)` | **Sync** best-effort translate for text drawn outside the DOM (map country labels). Returns the known translation, or the original while queuing the name as content. Every name it is asked for is recorded; a batch that translates one fires `i18n:labels-updated` when it resolves |
 | `enqueueStrings(strings)` | Proactively queue content (e.g. freshly-fetched hub posts); only unknown strings cost a call |
 | `enqueueEventStrings(events)` | An event log as it is written: queues only the scenario's own events (`source` `"scenario"`); the AI's are written in the player's language |
 | `enqueueContentStrings(payload)` | Deep-walk a saved payload (≤6 deep) pulling human-readable fields (`CONTENT_TEXT_KEYS` + `aliases`), skipping `features`/`geometry`/`coordinates`, and enqueue them. Called by `library.js` on `createScenario/saveScenario/createGame/saveGame` so edited names/descriptions translate **and reach the server pack** the moment they're saved |
 
-`countryLabels.js` calls `translateLabel(...)` so map labels follow the UI language; when new translations land, the `"i18n:updated"` event (debounced in `announceUpdate`) tells label builders to rebuild.
+`countryLabels.js` calls `translateLabel(...)` so map labels follow the UI language. Labels bake names into features, so a translation arriving after they were drawn makes them stale — but `"i18n:updated"` fires for interface and panel content too, and rebuilding on every batch froze the map. Instead `translateLabel` records the names asked for and `announceLabelUpdate()` (debounced, same 800 ms) emits **`"i18n:labels-updated"`** only when a batch produced a translation for one of them; `Nations.jsx` listens to that. Since a batch may translate no label, `loadCountryLabelCollections({force:true})` also compares the names it would draw (`countryLabelNameSignature`) against the `labelSignature` stamped on the cached payload and keeps the cache when they match.
 
 ### Server language pack
 
@@ -341,6 +344,8 @@ A report needs settings two ways, and gets both:
 * **Every change, as it happens**, as a `setting` entry in words — "3D Globe turned on.", "Basemap set to World Imagery.", "Gemini model set to gemini-3.5-pro." — through `logSettingChange(label, value, { settle })` (or `logSettingMessage` for a line of its own wording). Fields that save on every keystroke (model names, per-task models, the endpoint, custom parameters, the label font) pass `settle`, so the line is written once the value has been still for 1.5 s, not once per keystroke.
 * **Every setting's value as the file is saved**, in a `-- Settings when this file was saved --` block after the header, by section: Display, Map, AI, This save, Network, Diagnostics. A switch flipped before the log's span, or never touched, is in no log — and "was X on?" is the first question a report gets. `src/runtime/settingsLog.js` registers one reader per section (`registerSettingsSnapshot(section, read)`), each reading through the getter its owner already exports; `buildLoggingFile` calls them all as it builds the file (async ones — the server's LAN setting — within the same 2 s as the Desktop log), and a reader that throws says `(could not be read: …)` rather than vanishing. It is imported by `src/main.jsx` at boot, so the block is there however the file is saved.
 
+* **Main-thread stalls**, in a `-- Performance --` block in the header, just before the settings block: a count, total and worst duration, and the last few stalls with their time and phase. A player's "it froze" is otherwise unactionable — this is the only place the while-what-when of it is written down. `src/runtime/uiStalls.js` is a passive `PerformanceObserver` for `longtask` entries (Chromium only — the WebView and Electron, so desktop and Android; other engines simply record nothing and the block is absent). Nothing is logged per stall: it keeps a rolling list in memory and is read as the file is built, so an idle session adds no noise and a log stays small. The interaction that preceded a stall (`markUiInteraction("country pick")`, called from `CountryPickerMap` on a pick and `CountryPanel` on opening) is attached to it within an 8 s window, which is what turns a bare duration into "1.8 s while choosing a country".
+
 Labels match the Settings panel word for word; `diagnosticsLogGuard.test.js` fails if a switch in the panel is missing from the snapshot. What a line may say is decided per setting: an API key is only ever `set` / `not set` (a change: "set" / "cleared"), custom parameters only their size (they can carry headers), an endpoint only its host (`endpointHostForLog`) — the path, the query and any URL credentials can carry a token. Everything is redacted again as the file is built.
 
 Where changes are logged: `mapSettings.js` (every switch, the basemap and the label font), `providerConfig.js` (provider, every provider field, reasoning, AI profiles saved/updated/deleted), `GameUI/main.jsx` (Fullscreen, 3D Globe, 3D Terrain), `settings.jsx` (both languages, telemetry and ratings — `telemetry.js` imports nothing on purpose — and LAN sharing), `debugLog.js` (its own two switches).
@@ -459,7 +464,7 @@ Detailed mode only (`{ verbose: true }`):
 
 **Prompt fingerprint** (`buildPromptFingerprint`, `src/Game/AI/contextDiagnostics.js`). For one structured AI attempt: the size and an 8-hex-digit FNV-1a hash of the whole system prompt, the prompt template, the instruction, the conversation history (with a message count), and every filled-in section by variable name. No text. Rebuild the prompt from the save, fingerprint it, and a mismatch names the section that differed. Only computed while detailed mode is on.
 
-Tests: `src/runtime/debugLog.test.js` (redaction, buffer, coalescing, report, both switches and their persistence, the size budget, the Desktop log merged into the Logging file, and the settings block and settled change lines), `src/runtime/diagnosticsLogGuard.test.js` (the page never writes to the Desktop log; no whole prompts; every Settings switch is in the snapshot), `src/Game/AI/providerConfig.test.js` (provider changes logged, a key never), `src/Game/AI/contextDiagnostics.test.js` (the fingerprint).
+Tests: `src/runtime/debugLog.test.js` (redaction, buffer, coalescing, report, both switches and their persistence, the size budget, the Desktop log merged into the Logging file, and the settings block and settled change lines), `src/runtime/uiStalls.test.js` (a recorded long task is attributed to the interaction before it, the worst stall sets the headline, and no stall means no report block), `src/runtime/diagnosticsLogGuard.test.js` (the page never writes to the Desktop log; no whole prompts; every Settings switch is in the snapshot), `src/Game/AI/providerConfig.test.js` (provider changes logged, a key never), `src/Game/AI/contextDiagnostics.test.js` (the fingerprint).
 
 ---
 

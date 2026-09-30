@@ -247,7 +247,7 @@ The stock pipeline labels *modern* countries, which is wrong on scenario maps (i
 3. `mergeOwnerClusters` then does a small centroid mop-up (`CLUSTER_JOIN_DEGREES = 10`) to fold islands into nearby mainland and heal adjacency near-misses.
 4. Each cluster becomes a Point feature named by `polityOverrides[owner].name || countryNameByCode.get(owner) || owner`, run through `resolveCountryDisplayName` + `translateLabel`, uppercased. Every owner keeps its largest cluster; extra clusters must clear `MIN_CLUSTER_AREA = 1.5` (deg²).
 
-`ownerLabelData` recomputes as `regionOwnershipOverrides` poll in, so **labels follow conquests**. A `labelEpoch` (bumped on the `i18n:updated` event) forces a rebuild when translations land.
+`ownerLabelData` recomputes as `regionOwnershipOverrides` poll in, so **labels follow conquests**. A `labelEpoch` (bumped on `i18n:labels-updated` — see `docs/i18n.md` for why label rebuilds do not listen to `i18n:updated`) forces a rebuild when a translated label name lands.
 
 ### Label layers & styling
 

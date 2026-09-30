@@ -152,7 +152,7 @@ The client talks only to these same-origin routes (`server/server.js`). In the *
 
 | Route | Handler | Purpose |
 |---|---|---|
-| `GET /api/runtime/json/:assetKey` | `readRuntimeJsonAsset` | Serve a runtime JSON doc; `Cache-Control: no-store` (`server.js:459`) |
+| `GET /api/runtime/json/:assetKey` | `readRuntimeJsonAsset` | Serve a runtime JSON doc; `Cache-Control: no-store` (`server.js:459`). GeoJSON keys (`regionsGeojson`/`citiesGeojson`/`backgroundData`) go out as **verbatim bytes** — the server streams the file (`streamBinaryFile`) and the web interceptor answers with `jsonTextResponse`, neither parsing nor re-serialising. Parsing a 55 MB `regions.geojson` only to stringify it blocked the event loop for seconds; the map's workers parse the body in a worker instead. |
 | `PUT /api/runtime/json/:assetKey` | `writeRuntimeJsonAsset` | Persist to the active game; echoes back the normalized record (`server.js:470`) |
 | `GET /api/runtime/pmtiles/:assetKey` | `resolveRuntimeBinaryAsset` | Stream a pmtiles archive (range-capable via `streamBinaryFile`) (`server.js:481`) |
 | `HEAD /api/runtime/pmtiles/:assetKey` | `resolveRuntimeBinaryAsset` | `Content-Length` for the client freshness check; `Accept-Ranges: bytes` (`server.js:490`) |
@@ -258,17 +258,19 @@ See the [Node network](delivery-and-deploy.md) notes for the swarm/registry arch
 
 ## 8. Startup preload + the ~162 MB prime
 
-`src/runtime/preload.js` warms the map before React fully mounts, inside a **30 s time budget** (`STARTUP_TIME_BUDGET_MS`, `:16`). Tasks run serially, each with an `AbortController` wired to the remaining budget; the budget expiring aborts the current task and leaves the rest to load lazily in-game.
+`src/runtime/preload.js` warms the map before React fully mounts, inside a **30 s time budget** (`STARTUP_TIME_BUDGET_MS`, `:19`). The tasks form a **dependency graph**, not a queue: `deps` names the ids a task waits on and everything else runs concurrently under one shared `AbortController`; the budget expiring aborts the gating set and leaves the rest to load lazily in-game. A task marked `background: true` starts with the rest but does not hold the startup screen open, and carries no abort signal.
 
-| # | id | Label | Weight | Warms | Skipped on custom map? |
+| # | id | Label | Weight | Warms | Gating? | Skipped on custom map? |
 |---|---|---|---|---|---|
-| 1 | `state` | Syncing saves and runtime state | 12 | `game`,`prompts`,`colors`,`actions`,`chat`,`advisor`,`events`,`world` JSON | no |
-| 2 | `textures` | Warming world textures | 20 | ESRI basemap + AWS terrain raster tiles (global z0–2 + initial viewport) | **yes** — a custom `world.background` replaces the basemap entirely |
-| 3 | `countries` | Caching country geometry | 26 | `countries.pmtiles` (~62.7 MB) | **no** — needed for names + labels on every map |
-| 4 | `country-index` | Building country index | 8 | `loadCountryNames()` | no |
-| 5 | `country-labels` | Building country labels | 14 | `warmCountryLabelCollections()` | no |
-| 6 | `cities` | Caching city layer | 10 | `cities.pmtiles` (~1.5 MB) | no |
-| 7 | `regions` | Caching regional borders | 24 | `regions.pmtiles` (~105.8 MB) | **no** — paints owners above z6.5 even on custom maps |
+| 1 | `state` | Syncing saves and runtime state | 12 | `game`,`prompts`,`colors`,`actions`,`chat`,`advisor`,`events`,`world` JSON | yes | no |
+| 2 | `textures` | Warming world textures | 20 | ESRI basemap + AWS terrain raster tiles (global z0–2 + initial viewport) | **no** — a warm the map renders without | **yes** — a custom `world.background` replaces the basemap entirely |
+| 3 | `countries` | Caching country geometry | 26 | `countries.pmtiles` (~62.7 MB) | **no** — the derived catalogs below read only its z0 tile | **no** — needed for names + labels on every map |
+| 4 | `country-index` | Building country index | 8 | `loadCountryNames()` | yes | no |
+| 5 | `country-labels` | Building country labels | 14 | `warmCountryLabelCollections()` | yes | no |
+| 6 | `cities` | Caching city layer | 10 | `cities.pmtiles` (~1.5 MB) | yes | no |
+| 7 | `regions` | Caching regional borders | 24 | `regions.pmtiles` (~105.8 MB) | **no** — nothing on the opening screen reads it | **no** — paints owners above z6.5 even on custom maps |
+
+Four tasks gate the splash (weights total 68); the three warms run alongside it and keep going after the screen dismisses.
 
 **The ~162 MB prime:** warming tasks 3+6+7 pulls all three archives fully into `binaryValueCache` as in-memory `ArrayBuffer`s — the code cites regions ≈101 MB + countries ≈60 MB + cities ≈1.5 MB ≈ **162 MB** resident (`assets.js:231`; on-disk manifest sizes total ~170 MB). This is a deliberate memory-for-latency trade: a fully-warmed `MemorySource` archive answers tile requests without further network I/O. The cost is that this ~162 MB must be **freed on scenario switch** — which is exactly what the PMTiles cache rotation in `setRuntimeAssetEndpoints` (§5) does. See the [RAM & paint audit](architecture.md) notes for the broader memory backlog (the geojson double-store, pinned PMTiles).
 
