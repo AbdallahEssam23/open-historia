@@ -1,10 +1,27 @@
 <!-- Open Historia — portions (mobile viewport & scaling) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). -->
 <!doctype html>
-<!-- Arabic is the default interface language, so the document starts RTL. The
-     translator (runtime/translator.js) flips lang/dir when another is chosen. -->
-<html lang="ar" dir="rtl">
+<!-- The interface ships Arabic (RTL) by default. The inline script below sets
+     lang/dir from this device's stored choice BEFORE the first paint, so an
+     English player never sees the mirrored layout flash for a frame; the
+     translator (runtime/translator.js) keeps lang/dir in step afterwards. -->
+<html>
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Mirrors normalizeLanguage() in runtime/i18n.js: the picker offers Arabic
+      // (the default, RTL) and English, so a stored code that is not "en" is
+      // Arabic. Inline and dependency-free on purpose — it has to run before the
+      // bundle is fetched, and before anything paints.
+      (function () {
+        var code = "ar";
+        try {
+          var stored = localStorage.getItem("ui_language");
+          if (stored && stored.trim() === "en") code = "en";
+        } catch (e) { /* storage blocked: the default stands */ }
+        document.documentElement.lang = code;
+        document.documentElement.dir = code === "ar" ? "rtl" : "ltr";
+      })();
+    </script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-H9EQ4JFZXZ"></script>
     <script>
