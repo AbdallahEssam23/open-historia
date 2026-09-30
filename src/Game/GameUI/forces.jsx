@@ -14,6 +14,7 @@ import { ensurePolityNames, polityDisplayName } from "../../runtime/polityNames.
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_TOP, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
+import { POSTURE_LABEL, strengthColor } from "./unitDisplay.js";
 
 const TYPE_LABEL = {
   infantry: "Infantry",
@@ -30,25 +31,6 @@ const TYPE_GLYPH = {
   naval: "⚓",
   artillery: "💥",
   garrison: "🏰",
-};
-
-// Strength is a percentage of the formation's established strength, so the bands
-// are readable: near full, worn down, or a shell of itself.
-export const strengthColor = (strength) =>
-  strength > 60 ? "#4ade80" : strength > 25 ? "#fbbf24" : "#f87171";
-
-// Intent, in the player's language rather than the schema's. Shared with the unit
-// popup (Selection/Units.jsx), which imports it from here — the two must not
-// disagree about what "massing" is called.
-export const POSTURE_LABEL = {
-  holding: "Holding position",
-  massing: "Massing",
-  patrol: "Patrolling",
-  transit: "In transit",
-  exercise: "On exercise",
-  blockade: "Blockading",
-  withdrawing: "Withdrawing",
-  assaulting: "Assaulting",
 };
 
 const MODE_HINT = {

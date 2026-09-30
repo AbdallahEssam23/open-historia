@@ -22,7 +22,7 @@ import { readEventsState } from "../../runtime/gameState.js";
 // One posture vocabulary and one set of strength bands for the popup and the
 // Forces panel — duplicates of either would drift and describe the same formation
 // two different ways on two screens.
-import { POSTURE_LABEL, strengthColor } from "../GameUI/forces.jsx";
+import { POSTURE_LABEL, strengthColor } from "../GameUI/unitDisplay.js";
 import { haversineKm } from "../../runtime/unitMotion.js";
 import { useCountryDisplayName } from "../../runtime/polityNames.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";

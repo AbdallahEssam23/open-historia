@@ -17,7 +17,7 @@ import {
 } from "../../runtime/assets.js";
 import { canInterveneInLastTurn, declineInteractiveOffer, interveneAfterEvent, loadRollbackSnapshots, maybeGeneratePregameHistory, retryPendingJumpSegment, retryPendingProjectsJump, rollBackToSnapshot, simulateAutoJump, simulateTimelineJump } from "../AI/gameplayLazy.js";
 import { NO_RESPONSE_BODY_NOTE, discardPendingJumpSegment, discardPendingProjectsJump } from "../AI/simulationStatus.js";
-import { acceptStructuredModeSuggestion, declineStructuredModeSuggestion, getStructuredModeSuggestion } from "../AI/main.jsx";
+import { acceptStructuredModeSuggestion, declineStructuredModeSuggestion, getStructuredModeSuggestion } from "../AI/structuredModeSuggestions.js";
 import { fallbackStateStore, getResolvedFallbackList } from "../AI/providerConfig.js";
 import { describeUnavailable, fallbackAvailability } from "../AI/fallbackRunner.js";
 import { describeJumpCost, requestDay, savingRequests } from "../AI/requestBudget.js";
@@ -30,7 +30,7 @@ import { isSceneInProgress } from "../AI/interactiveRewind.js";
 import { offeredEvent } from "../../runtime/interactiveOffer.js";
 import { normalizeMarkdown } from "./markdownText.js";
 import { useUnseenEventIds } from "./useUnseenEvents.js";
-import { isMainMenuOpen, useMainMenuOpen } from "./libraryBar";
+import { isMainMenuOpen, useMainMenuOpen } from "./mainMenu.js";
 import {
     applyEventImpactsToWorld,
     normalizeActions,
@@ -43,6 +43,7 @@ import {
     mergeFeatureParts,
     tileGeometryParts,
 } from "./eventFocus.js";
+import { summarizeEventImpacts } from "./eventImpacts.js";
 import { setWorldStateOverride } from "../Map/useWorldState.js";
 import { getUnitById, setUnitsOverride } from "../Map/unitsController.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
@@ -851,6 +852,13 @@ const EventCard = ({ event, footer = null, lookups, openMapChanges = null, onTog
     );
     const mapChanges = describeEventMapChanges(event, lookups);
     const mapChangeCount = mapChanges.length;
+    // What the event actually moved, from its own impacts (eventImpacts.js):
+    // the card's whole point is to say this plainly, because a fallback turn
+    // narrates a period and changes nothing.
+    const impactSummary = useMemo(() => summarizeEventImpacts(event), [event]);
+    const isFallback = event.source === "fallback";
+    const canOpenMapChanges = mapChangeCount > 0;
+    const impactText = impactSummary.rows.map((row) => `${row.glyph} ${row.text}`).join(" · ");
     const [ownMapChanges, setOwnMapChanges] = useState(false);
     const heldAbove = typeof onToggleMapChanges === "function";
     const showMapChanges = heldAbove ? Boolean(openMapChanges) : ownMapChanges;

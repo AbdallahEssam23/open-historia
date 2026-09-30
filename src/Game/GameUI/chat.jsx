@@ -23,7 +23,8 @@ import { Projects } from "./projects";
 import { DOCK_BOTTOM_REM, DOCK_GAP_REM, DOCK_HEIGHT_REM, DOCK_LEFT_REM, DOCK_WIDTH } from "./hudDock.js";
 import { isDocumentExchange } from "../../runtime/reportDelivery.js";
 import { Presence } from "./presence.jsx";
-import { useMainMenuOpen } from "./libraryBar";
+import { useMainMenuOpen } from "./mainMenu.js";
+import { subscribeDiplomaticChat } from "./diplomaticChat.js";
 import {
     JSON_URLS,
     getNationColors,
@@ -3188,8 +3189,7 @@ const Chat = ({ hovered, setHovered, isOpen, onToggle }) => {
             setPendingDraft(draft || "");
             if (!isOpen) onToggle();
         };
-        _chatOpenSubs.add(handler);
-        return () => _chatOpenSubs.delete(handler);
+        return subscribeDiplomaticChat(handler);
     }, [isOpen, onToggle]);
     const notificationPortal = typeof document !== "undefined" && !mainMenuOpen
         ? ReactDOM.createPortal(
@@ -3536,7 +3536,7 @@ const Toolbar = memo(({ onOpenAdvisor, activePanel, onTogglePanel, mapRef }) => 
     // The dock grows by one button per launcher; its geometry lives in hudDock.js
     // so the Search control beside it moves with it.
     return (
-        <div style={{ position: "fixed", bottom: `calc(${DOCK_BOTTOM_REM}rem + ${SAFE_BOTTOM})`, left: `calc(${DOCK_LEFT_REM}rem + ${SAFE_LEFT})`, height: `${DOCK_HEIGHT_REM}rem`, width: DOCK_WIDTH, gap: `${DOCK_GAP_REM}rem`, padding: "0 0.1rem", backgroundColor: "var(--oh-hud-bg)", backdropFilter: "var(--oh-hud-blur)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontFamily: "sans-serif", borderRadius: "14px", border: "1px solid var(--oh-hud-border)", boxShadow: "var(--oh-hud-shadow-soft)" }}>
+        <div style={{ position: "fixed", bottom: `calc(${DOCK_BOTTOM_REM}rem + ${SAFE_BOTTOM})`, left: `calc(${DOCK_LEFT_REM}rem + ${SAFE_LEFT})`, height: `${DOCK_HEIGHT_REM}rem`, width: DOCK_WIDTH, gap: `${DOCK_GAP_REM}rem`, padding: "0 0.1rem", backgroundColor: "var(--oh-hud-bg)", backdropFilter: "var(--oh-hud-blur)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontFamily: "var(--oh-font-ui)", borderRadius: "14px", border: "1px solid var(--oh-hud-border)", boxShadow: "var(--oh-hud-shadow-soft)" }}>
         <Chat hovered={canHover && hoveredChat} setHovered={setHoveredChat} isOpen={activePanel === "chat"} onToggle={() => onTogglePanel("chat")} />
         <Actions onOpenAdvisor={onOpenAdvisor} hovered={canHover && hoveredActions} setHovered={setHoveredActions} isOpen={activePanel === "actions"} onToggle={() => onTogglePanel("actions")} />
         <Projects onOpenAdvisor={onOpenAdvisor} mapRef={mapRef} hovered={canHover && hoveredProjects} setHovered={setHoveredProjects} isOpen={activePanel === "projects"} onToggle={() => onTogglePanel("projects")} />

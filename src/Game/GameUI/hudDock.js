@@ -10,6 +10,7 @@
 // and that time Search ended up sitting ON TOP of the new button. So the number
 // lives here and both files derive from it: a launcher added or removed moves
 // Search on its own.
+import { SAFE_TOP } from "../../runtime/mobileUi.js";
 
 // The pill itself.
 export const DOCK_BOTTOM_REM = 0.5;
@@ -42,3 +43,11 @@ export const BESIDE_DOCK_LEFT = `${tidy(DOCK_RIGHT_EDGE_REM + 0.5)}rem`;
 // like a mistake when it lines up with nothing.
 export const DOCK_BUTTON_BOTTOM_REM = tidy(DOCK_BOTTOM_REM + (DOCK_HEIGHT_REM - DOCK_BUTTON_REM) / 2);
 export const DOCK_BUTTON_BOTTOM = `${DOCK_BUTTON_BOTTOM_REM}rem`;
+
+// With the full-width in-game bar gone, top-anchored UI (settings ⋮, date widget,
+// forces panel, editor drawer) starts at the screen edge, below a status bar or
+// camera cutout the page is drawn under (Android Chrome in fullscreen, a
+// home-screen app); the inset is 0 everywhere else. It lives here with the rest
+// of the HUD's geometry: read from libraryBar.jsx, it was a static edge from the
+// HUD shell to the whole library for the sake of one CSS length.
+export const TOP_BAR_OFFSET = `calc(0.5rem + ${SAFE_TOP})`;

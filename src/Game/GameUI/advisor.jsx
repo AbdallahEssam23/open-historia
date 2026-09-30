@@ -2,11 +2,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Chart, registerables } from "chart.js";
 import { sendMessage, startChat, loadHistory } from "../AI/main.jsx";
-import { requestDiplomaticChat } from "./chat.jsx";
+import { requestDiplomaticChat } from "./diplomaticChat.js";
 import { JSON_URLS, readJson, writeJson } from "../../runtime/assets.js";
 import { formatReportFields, logDebugEvent } from "../../runtime/debugLog.js";
 import { useFailureReportButton } from "../../runtime/saveDebugLog.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
+import { UI_FONT_STACK } from "../../runtime/fontStacks.js";
 import { SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { chatLanguageDiffersFromUi, isRtlLanguage, resolveChatLanguage } from "../../runtime/i18n.js";
 import { applyProjectOpsToWorld, normalizeActionEntry, readActionsState, readWorldState, viewAsSeen, writeActionsState, writeWorldState } from "../../runtime/gameState.js";

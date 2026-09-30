@@ -1,9 +1,9 @@
 /*! Open Historia — portions (mobile HUD wiring + advisor/forces launchers) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GenerationRatingToast } from "./generationRatingToast.jsx";
-import { SettingsButton, SettingsMenu } from "./settings";
 import { Presence } from "./presence.jsx";
-import { LibraryTopBar, TOP_BAR_OFFSET, openLibraryTab, useMainMenuOpen } from "./libraryBar";
+import { TOP_BAR_OFFSET } from "./hudDock.js";
+import { openLibraryTab, useMainMenuOpen } from "./mainMenu.js";
 import { ApiSetupPrompt } from "./apiSetupPrompt.jsx";
 import { GameLoadingScreen, useGameLoading } from "./gameLoadingScreen.jsx";
 import { useLibraryState } from "../../runtime/library.js";
@@ -98,6 +98,39 @@ const LazyDebugConsole = lazy(() =>
 // Interactive events (interactive.jsx): nothing of them loads until the player takes one up.
 const LazyInteractivePanel = lazy(() =>
   import("./interactive.jsx").then((module) => ({ default: module.InteractivePanel })),
+);
+
+// The HUD's own chrome, split the same way and for the same reason. Statically
+// imported, these are fetched and parsed as part of the shell: loadHud() runs
+// while the startup screen is still counting, so the library (the game/scenario
+// browser and its editors), the chat dock, place search and the settings menu
+// were all competing with the map for the processor during exactly the window the
+// player is waiting through. Dynamic, they join the shell a frame after it paints
+// (the pieces that are always up: the menu bar, the dock, search, the settings
+// button) or when they are first opened (the menu itself).
+//
+// Which costs nothing to do, because the state these pieces SHARE with the shell
+// does not live in them. The menu's open flag is in mainMenu.js, the HUD's
+// geometry in hudDock.js, the diplomatic-chat bridge in diplomaticChat.js and the
+// unit readouts in unitDisplay.js — all leaves, so nothing here has to import a
+// panel to read a flag.
+const LazyLibraryTopBar = lazy(() =>
+  import("./libraryBar").then((module) => ({ default: module.LibraryTopBar })),
+);
+const LazySettingsButton = lazy(() =>
+  import("./settings").then((module) => ({ default: module.SettingsButton })),
+);
+const LazySettingsMenu = lazy(() =>
+  import("./settings").then((module) => ({ default: module.SettingsMenu })),
+);
+const LazyToolbar = lazy(() =>
+  import("./chat").then((module) => ({ default: module.Toolbar })),
+);
+const LazySearch = lazy(() =>
+  import("./search").then((module) => ({ default: module.Search })),
+);
+const LazyForcesPanel = lazy(() =>
+  import("./forces").then((module) => ({ default: module.ForcesPanel })),
 );
 
 const checkWebGL = () => {
@@ -494,20 +527,26 @@ const Main = ({
         dockStyle={advisorDockStyle}
         topOffset={TOP_BAR_OFFSET}
       />
-      <Toolbar
-        onOpenAdvisor={openAdvisor}
-        activePanel={activeBottomPanel}
-        onTogglePanel={toggleBottomPanel}
-        mapRef={mapRef}
-      />
+      <Suspense fallback={null}>
+        <LazyToolbar
+          onOpenAdvisor={openAdvisor}
+          activePanel={activeBottomPanel}
+          onTogglePanel={toggleBottomPanel}
+          mapRef={mapRef}
+        />
+      </Suspense>
       <Other dockStyle={advisorDockStyle} />
-      <Search mapRef={mapRef} />
-      <ForcesPanel
-        mapRef={mapRef}
-        topOffset={TOP_BAR_OFFSET}
-        open={isForcesOpen}
-        onToggle={() => setIsForcesOpen((v) => !v)}
-      />
+      <Suspense fallback={null}>
+        <LazySearch mapRef={mapRef} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <LazyForcesPanel
+          mapRef={mapRef}
+          topOffset={TOP_BAR_OFFSET}
+          open={isForcesOpen}
+          onToggle={() => setIsForcesOpen((v) => !v)}
+        />
+      </Suspense>
       <AdvisorButton
         isAdvisorOpen={isAdvisorOpen}
         dockStyle={advisorDockStyle}
@@ -574,16 +613,19 @@ const Main = ({
           }}
         />
       </Presence>
-      <SettingsButton
-        topOffset={TOP_BAR_OFFSET}
-        hidden={isSettingsOpen}
-        onToggle={() => {
-          setSettingsInitialSection(null);
-          setIsSettingsOpen(!isSettingsOpen);
-        }}
-      />
+      <Suspense fallback={null}>
+        <LazySettingsButton
+          topOffset={TOP_BAR_OFFSET}
+          hidden={isSettingsOpen}
+          onToggle={() => {
+            setSettingsInitialSection(null);
+            setIsSettingsOpen(!isSettingsOpen);
+          }}
+        />
+      </Suspense>
       <Presence open={isSettingsOpen} leaveMs={260}>
-        <SettingsMenu
+        <Suspense fallback={null}>
+        <LazySettingsMenu
           discordUrl={DISCORD_URL}
           redditUrl={REDDIT_URL}
           githubUrl={GITHUB_URL}

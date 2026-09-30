@@ -2,6 +2,8 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP, SCREEN_HEIGHT, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
+import { TOP_BAR_OFFSET } from "./hudDock.js";
+import { isMainMenuOpen, setMainMenuOpen, setOpenLibraryTabHandler } from "./mainMenu.js";
 import { Presence } from "./presence.jsx";
 import {
   PROMPT_EDITOR_SECTIONS,
@@ -117,36 +119,6 @@ const TECHNICAL_OWNER_CODES = new Set([
   "Z08",
   "Z09",
 ]);
-
-// Set by the mounted LibraryTopBar; lets outside callers open the main menu
-// on a specific tab.
-let _openLibraryTab = null;
-export const openLibraryTab = (tab) => {
-  _openLibraryTab?.(tab);
-};
-
-// Whether the main menu is showing. Lives at module scope because the whole UI
-// tree (this component included) remounts whenever the active game changes —
-// per-component state would reset to "open" mid game-start and the menu would
-// pop back over the freshly activated game. The app boots into the menu.
-let menuOpenDefault = true;
-// For background work that should not run for a game the player hasn't
-// actually entered (e.g. pre-game history generation while browsing the menu).
-export const isMainMenuOpen = () => menuOpenDefault;
-// The reactive twin, for HUD pieces that portal to document.body above the
-// menu's own layer (the diplomatic bell and toasts): they follow this rather
-// than juggling z-indexes against the menu.
-const mainMenuListeners = new Set();
-const subscribeMainMenu = (listener) => {
-  mainMenuListeners.add(listener);
-  return () => mainMenuListeners.delete(listener);
-};
-export const useMainMenuOpen = () => useSyncExternalStore(subscribeMainMenu, isMainMenuOpen, isMainMenuOpen);
-// With the full-width in-game bar gone, top-anchored UI (settings ⋮, date
-// widget, forces panel, editor drawer) starts at the screen edge, below a
-// status bar or camera cutout the page is drawn under (Android Chrome in
-// fullscreen, a home-screen app); the inset is 0 everywhere else.
-const TOP_BAR_OFFSET = `calc(0.5rem + ${SAFE_TOP})`;
 
 const DEFAULT_SCENARIO_COVER = "/scenario-placeholder.webp";
 
@@ -1609,7 +1581,7 @@ const LibraryTopBar = () => {
     selectedScenarioId,
   } = useLibraryState();
   const [activeTab, setActiveTab] = useState("games");
-  const [menuOpen, setMenuOpenState] = useState(menuOpenDefault);
+  const [menuOpen, setMenuOpenState] = useState(() => isMainMenuOpen());
   // Whether the menu was opened from inside a game (⌂ Exit Game, or the game
   // menu's Game Management), so that a phone's Back can close it again and
   // return to the game. Opened any other way, above all at boot, the menu is
@@ -1622,10 +1594,9 @@ const LibraryTopBar = () => {
   // Flows that activate a game flip it BEFORE awaiting the request — the
   // remount happens mid-await, and the new instance must mount closed.
   const setMenuOpen = (open) => {
-    menuOpenDefault = open;
+    setMainMenuOpen(open);
     setMenuOpenState(open);
     if (!open) setMenuOverGame(false);
-    mainMenuListeners.forEach((listener) => listener());
   };
   // The ⌂ Exit Game buttons: the menu, over the game the player is in.
   const exitToMenu = () => {
@@ -1633,11 +1604,11 @@ const LibraryTopBar = () => {
     setMenuOpen(true);
   };
   // Bridge for outside callers: open the main menu on a library tab.
-  _openLibraryTab = (tab) => {
+  setOpenLibraryTabHandler((tab) => {
     setActiveTab(tab);
-    if (!menuOpenDefault) setMenuOverGame(true);
+    if (!isMainMenuOpen()) setMenuOverGame(true);
     setMenuOpen(true);
-  };
+  });
   const [editorKind, setEditorKind] = useState(null);
   const [editorDetails, setEditorDetails] = useState(null);
   const [editorState, setEditorState] = useState(null);
@@ -3763,4 +3734,4 @@ const LibraryTopBar = () => {
   );
 };
 
-export { LibraryTopBar, TOP_BAR_OFFSET };
+export { LibraryTopBar };

@@ -8,7 +8,7 @@ import { getWorldStateSnapshot } from "../Map/useWorldState.js";
 import { resolvePolityFlag } from "../../runtime/polityFlags.js";
 import { resolvePolityIdentity } from "../../runtime/polityIdentity.js";
 import { countryGidFromIdentity } from "../../runtime/countryFlags.js";
-import { requestDiplomaticChat } from "../GameUI/chat.jsx";
+import { requestDiplomaticChat } from "../GameUI/diplomaticChat.js";
 import { openCountryPanel } from "./CountryPanel.jsx";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { APP_HEIGHT, MAP_CARD_OPENED, SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP, useShortTouchScreen, useTouchPrimary } from "../../runtime/mobileUi.js";
