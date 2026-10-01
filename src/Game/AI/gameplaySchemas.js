@@ -1,4 +1,5 @@
 import { EVENT_TAG_ENUM, MAX_EVENT_TAGS } from "../../runtime/eventTags.js";
+import { MAX_SHOCKS, MAX_SHOCK_MONTHS, SHOCK_KINDS } from "../../engine/economyShocks.js";
 import {
   TERRITORY_BASIS_DESCRIPTION,
   TERRITORY_BASIS_DESCRIPTION_SHORT,
@@ -992,6 +993,31 @@ export const ACTIONS_SCHEMA = {
   additionalProperties: false,
 };
 
+// The model's ONLY numeric economic input: a classified, bounded shock. It does
+// not set a value, the deterministic engine derives every number from the state
+// it already holds and applies this as a transient modifier. An optional field,
+// so a model that says nothing about the economy is still a valid answer.
+const economicShockSchema = {
+  type: "object",
+  properties: {
+    kind: { type: "string", enum: [...SHOCK_KINDS], description: "Classified shock. Closed list." },
+    severity: { type: "integer", enum: [1, 2, 3], description: "1 is mild, 3 is severe." },
+    durationMonths: {
+      type: "integer",
+      minimum: 1,
+      maximum: MAX_SHOCK_MONTHS,
+      description: "How many months the shock runs.",
+    },
+    scope: {
+      type: "array",
+      items: { type: "string" },
+      description: "Polity names the shock hits. Omit for a world-wide shock.",
+    },
+  },
+  required: ["kind", "severity", "durationMonths"],
+  additionalProperties: false,
+};
+
 export const JUMP_FORWARD_SCHEMA = {
   type: "object",
   description: "A simulated timeline jump containing dated events and the resulting campaign state.",
@@ -1037,6 +1063,15 @@ export const JUMP_FORWARD_SCHEMA = {
     agreementUpdates: {
       type: "string",
       description: "Newline-separated treaty/agreement lifecycle records, format in the prompt. Empty string when none started, changed or ended.",
+    },
+    economicShocks: {
+      type: "array",
+      maxItems: MAX_SHOCKS,
+      description:
+        "Classified shocks the period inflicts on the economy (a blockade, a failed harvest, sanctions, "
+        + "a reconstruction programme). The engine turns each into transient parameters. Do NOT state GDP, "
+        + "growth, inflation or debt as numbers anywhere; those are computed locally from these shocks.",
+      items: economicShockSchema,
     },
   },
   // clearActions is deliberately NOT required: simulateTimelineJump already
