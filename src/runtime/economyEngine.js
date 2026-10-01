@@ -253,6 +253,7 @@ export const advanceWorldEconomy = (
         manpower: state.pools[name]?.manpower ?? 0,
         materiel: state.pools[name]?.materiel ?? 0,
         mobilization: posture[name] ?? DEFAULT_POSTURE,
+        ...(shortfall[name] ? { shortfall: shortfall[name] } : {}),
       },
     }, {
       replaceComponents: true,

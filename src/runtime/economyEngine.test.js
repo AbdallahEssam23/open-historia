@@ -211,3 +211,15 @@ test("an unknown polity declared for mobilization is rejected, not thrown", () =
   });
   assert.equal(result.world.economyEngine.pendingMobilization, undefined);
 });
+
+test("an army the reserves cannot pay writes the shortfall onto the sheet", () => {
+  const base = { ...world(), economyEngine: { version: 1, seed: "s", lastDate: "2026-01-01", lastMonth: 0 } };
+  const result = advance(base, {
+    fromDate: "2026-01-01",
+    toDate: "2026-04-01",
+    upkeep: { Egypt: { manpower: 1e12, materiel: 0 } },
+  });
+  const stored = result.world.economyEngine.upkeepShortfall?.Egypt;
+  assert.ok(stored && stored.manpower > 0);
+  assert.deepEqual(result.world.countryStats.Egypt.forces.shortfall, { manpower: stored.manpower });
+});

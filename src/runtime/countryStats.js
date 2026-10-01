@@ -427,6 +427,18 @@ const copyTextField = (source, target, key) => {
 
 const FORCE_POSTURES = new Set(MOBILIZATION_POSTURES);
 
+// The upkeep a polity's reserves could not pay last month. Sparse by design: an
+// army that paid in full has no entry, so the sheet does not carry a stale zero.
+const normalizeForceShortfall = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const out = {};
+  const manpower = parseStatNumber(value.manpower);
+  if (Number.isFinite(manpower) && manpower > 0) out.manpower = Math.round(manpower);
+  const materiel = parseStatNumber(value.materiel);
+  if (Number.isFinite(materiel) && materiel > 0) out.materiel = Math.round(materiel * 100) / 100;
+  return Object.keys(out).length ? out : undefined;
+};
+
 // The engine's readable mirror of the pools. It is written only through an
 // engine-sourced patch (see the gate in mergeCountryStatPatch), so the model
 // cannot state a reserve, but it is normalized here like any other sheet field
@@ -440,6 +452,8 @@ const normalizeForces = (value) => {
   if (Number.isFinite(materiel)) out.materiel = Math.max(0, Math.round(materiel * 100) / 100);
   const mobilization = clean(value.mobilization).toLowerCase();
   if (FORCE_POSTURES.has(mobilization)) out.mobilization = mobilization;
+  const shortfall = normalizeForceShortfall(value.shortfall);
+  if (shortfall) out.shortfall = shortfall;
   return Object.keys(out).length ? out : undefined;
 };
 
@@ -1022,7 +1036,9 @@ export const mergeCountryStatPatch = (
   // reserve. The schema is the first line of defence; this is the second.
   if (engineSourced === true) {
     const forcesPatch = normalizeForces(patch.forces);
-    if (forcesPatch) merged.forces = { ...(base.forces || {}), ...forcesPatch };
+    // The engine always writes the whole block, so it replaces rather than
+    // merges: a shortfall that has been paid off must clear, not linger.
+    if (forcesPatch) merged.forces = { ...forcesPatch };
   }
 
   const customStatsPatch = normalizeCustomCountryStats(patch.customStats);
