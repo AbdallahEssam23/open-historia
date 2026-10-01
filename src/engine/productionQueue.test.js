@@ -157,6 +157,29 @@ test("an affordable order is paid in full and enqueued with its build time", () 
   assert.equal(result.line.queue[0].monthsTotal, 4);
 });
 
+test("a build-time multiplier shortens the stamped duration", () => {
+  const order = { type: "naval", count: 1 };
+  const base = enqueueOrders({ pools: { manpower: 100000, materiel: 1000 }, orders: [order] });
+  const sped = enqueueOrders({
+    pools: { manpower: 100000, materiel: 1000 },
+    orders: [order],
+    timeMultiplier: 1 / 1.3,
+  });
+  assert.equal(base.line.queue[0].monthsTotal, 6);
+  assert.equal(sped.line.queue[0].monthsTotal, 5);
+});
+
+test("a non-finite or non-positive build-time multiplier is a no-op", () => {
+  for (const bad of [0, -1, Number.NaN, "x"]) {
+    const result = enqueueOrders({
+      pools: { manpower: 100000, materiel: 1000 },
+      orders: [{ type: "naval", count: 1 }],
+      timeMultiplier: bad,
+    });
+    assert.equal(result.line.queue[0].monthsTotal, 6, String(bad));
+  }
+});
+
 test("a full tail is rejected before it can take any money", () => {
   const full = { kind: "unit", type: "infantry", count: 1, monthsTotal: 2 };
   const line = { queue: Array.from({ length: MAX_PRODUCTION_QUEUE }, () => ({ ...full })) };

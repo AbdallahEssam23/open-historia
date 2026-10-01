@@ -193,11 +193,11 @@ export const normalizeProductionQueue = (value) => {
 // What is stored when an order is accepted. `monthsTotal` is stamped here, at
 // the moment the price is paid, so the digest and the panel can state a queued
 // item's duration without importing the table.
-const itemShape = (order) => ({
+const itemShape = (order, timeMultiplier = 1) => ({
   kind: order.kind,
   type: order.type,
   count: Math.max(1, countFor(order.count)),
-  monthsTotal: priceOf(order).months,
+  monthsTotal: Math.max(1, Math.ceil(priceOf(order).months * timeMultiplier)),
   ...(name(order.at) ? { at: name(order.at) } : {}),
   ...(name(order.name) ? { name: name(order.name) } : {}),
 });
@@ -205,12 +205,17 @@ const itemShape = (order) => ({
 // Pay and enqueue one span's orders. Capacity is checked BEFORE the price, so a
 // full line never takes money for an order it will not hold; the zero floor is
 // absolute because the whole price must be present before anything is drawn.
-export const enqueueOrders = ({ pools = null, line = null, orders = [] } = {}) => {
+export const enqueueOrders = ({ pools = null, line = null, orders = [], timeMultiplier = 1 } = {}) => {
   let manpower = Math.max(0, Number(pools?.manpower) || 0);
   let materiel = Math.max(0, Number(pools?.materiel) || 0);
   const active = line?.active ? { ...line.active } : undefined;
   const queue = Array.isArray(line?.queue) ? line.queue.map((item) => ({ ...item })) : [];
   const rejected = [];
+  // A research effect can only shorten a build. A missing, zero, negative or
+  // non-finite multiplier is the no-op, so a caller that forgets the argument
+  // gets today's behavior rather than an immortal or instant order.
+  const rate = Number(timeMultiplier);
+  const buildTime = Number.isFinite(rate) && rate > 0 ? rate : 1;
 
   for (const order of Array.isArray(orders) ? orders : []) {
     if (queue.length >= MAX_PRODUCTION_QUEUE) {
@@ -224,7 +229,7 @@ export const enqueueOrders = ({ pools = null, line = null, orders = [] } = {}) =
     }
     manpower -= price.manpower;
     materiel -= price.materiel;
-    queue.push(itemShape(order));
+    queue.push(itemShape(order, buildTime));
   }
 
   return {
