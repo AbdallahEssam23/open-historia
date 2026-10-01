@@ -189,7 +189,7 @@ export const advanceEconomy = (state, { startDate, months, shocks = [], seed = "
   let polities = { ...(state?.polities ?? {}) };
   let shockedMonths = 0;
 
-  // Shock windows are relative to the moment they were declared, so they are
+  // Shock spans are relative to the moment they were declared, so they are
   // shifted once onto the absolute clock rather than re-based every step.
   const running = (Array.isArray(shocks) ? shocks : []).map((shock) => ({
     ...shock,
@@ -200,7 +200,7 @@ export const advanceEconomy = (state, { startDate, months, shocks = [], seed = "
   for (let step = 1; step <= steps; step += 1) {
     // The month being simulated out of `origin` is `origin` itself: month 0 is
     // the span from origin to origin+1. Using `origin + step` would skip the
-    // opening month of every shock window.
+    // opening month of every shock span.
     const month = origin + step - 1;
     const year = gameDateYear(addGameMonths(startDate, step));
     if (running.some((shock) => month >= shock.startMonth && month < shock.endMonth)) shockedMonths += 1;
