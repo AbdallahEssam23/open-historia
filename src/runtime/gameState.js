@@ -26,6 +26,7 @@ import {
   normalizeUpkeepShortfall,
 } from "../engine/forcePools.js";
 import { normalizeProductionQueue } from "../engine/productionQueue.js";
+import { normalizeResearchEffects } from "../engine/researchEffects.js";
 import { buildPolityIdentityIndex, resolvePolityIdentity } from "./polityIdentity.js";
 import {
   DEFAULT_PATROL_RADIUS_KM,
@@ -3580,6 +3581,11 @@ const normalizeEconomyEngine = (value) => {
   if (pendingProduction.length) out.pendingProduction = pendingProduction;
   const rejectedProduction = normalizeProductionRejections(value.rejectedProduction);
   if (rejectedProduction.length) out.rejectedProduction = rejectedProduction;
+  // The completed-research totals. Sparse, like the pools and the line: an empty
+  // map is omitted, so a campaign with no research keeps the record
+  // byte-identical to the research increment's.
+  const researchEffects = normalizeResearchEffects(value.researchEffects);
+  if (Object.keys(researchEffects).length) out.researchEffects = researchEffects;
   return out;
 };
 

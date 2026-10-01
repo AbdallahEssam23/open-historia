@@ -115,3 +115,30 @@ test("an empty production line is omitted, so an old save keeps its shape", () =
   });
   assert.equal(world.economyEngine.production, undefined);
 });
+
+test("the research-effects field round-trips, clamps and stays sparse", () => {
+  const normalized = normalizeWorldState({
+    economyEngine: {
+      version: 1,
+      seed: "abcdef0123456789",
+      lastDate: "2026-04-01",
+      lastMonth: 3,
+      researchEffects: {
+        Egypt: { production: 99, pools: -2, economy: 1 },
+        "": { production: 3 },
+        Mali: { production: 0, pools: 0, economy: 0 },
+      },
+    },
+  });
+  assert.deepEqual(normalized.economyEngine.researchEffects, {
+    Egypt: { production: 6, pools: 0, economy: 1 },
+  });
+  assert.deepEqual(
+    normalizeWorldState(normalized).economyEngine.researchEffects,
+    normalized.economyEngine.researchEffects,
+  );
+  const without = normalizeWorldState({
+    economyEngine: { version: 1, seed: "abcdef0123456789", lastDate: "2026-04-01", lastMonth: 3 },
+  });
+  assert.equal("researchEffects" in without.economyEngine, false, "an empty field is omitted");
+});
