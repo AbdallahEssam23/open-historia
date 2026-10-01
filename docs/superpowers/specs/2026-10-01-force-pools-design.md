@@ -368,8 +368,13 @@ countryStats[name].forces = {
   manpower: integer,
   materiel: number,      // two decimals
   mobilization: posture, // the posture IN FORCE this period
+  shortfall?: { manpower?: integer, materiel?: number }, // last month, sparse
 }
 ```
+
+The realized sheet also carries the optional sparse `shortfall`, the mirror of
+`upkeepShortfall`, so the panel can show it without reading the engine block; it
+is omitted when the army was paid in full.
 
 It is a mirror, not the source of truth. The engine reads its own
 `economyEngine.pools` and `economyEngine.mobilization` on the next extraction;

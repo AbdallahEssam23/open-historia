@@ -211,6 +211,12 @@ const formatCompactNumber = (value, { digits = 1 } = {}) => {
 };
 
 const formatPopulation = (value) => formatCompactNumber(value);
+const formatShortfall = (shortfall) => {
+    const parts = [];
+    if (Number(shortfall?.manpower) > 0) parts.push(`${formatPopulation(shortfall.manpower)} manpower`);
+    if (Number(shortfall?.materiel) > 0) parts.push(`${Number(shortfall.materiel).toFixed(2)} materiel`);
+    return parts.join(", ");
+};
 const formatEuroTotal = (value) => {
     const text = formatCompactNumber(value);
     return text === "—" ? text : `€${text}`;
@@ -2139,6 +2145,14 @@ const StatsPaneBody = ({ active }) => {
                     sub="Declared through the turn"
                     tone="#22c55e"
                     />
+                    {formatShortfall(sheet.forces.shortfall) && (
+                        <EconomyCard
+                        label="Shortfall"
+                        value={formatShortfall(sheet.forces.shortfall)}
+                        sub="Upkeep unpaid last month"
+                        tone="#f97316"
+                        />
+                    )}
                     </div>
                     </>
                 )}
