@@ -10,6 +10,12 @@ import { ECONOMY_STEP, MAX_STEPS, eraBandFor } from "./economyConstants.js";
 import { DEFAULT_POSTURE, applyMobilization, initialPoolsFor, shortfallPressureFor, stepPolityPools } from "./forcePools.js";
 import { clamp, roundTo, stableOrder } from "./economyMath.js";
 import { normalizeResearchProgrammes, stepResearchMonth } from "./research.js";
+import {
+  economyGrowthBonus,
+  poolRegenMultiplier,
+  productionTimeMultiplier,
+  researchEffectTotalsFor,
+} from "./researchEffects.js";
 import { activeMultipliers, shockAppliesTo } from "./economyShocks.js";
 import { enqueueOrders, normalizeProductionQueue, stepLineMonth } from "./productionQueue.js";
 
@@ -191,7 +197,7 @@ export const stepPolityMonth = (polity, { year, multipliers, growthBonus = 0 }) 
 
 export const advanceEconomy = (
   state,
-  { startDate, months, shocks = [], seed = "", upkeep = {}, posture = {}, orders = [] } = {},
+  { startDate, months, shocks = [], seed = "", upkeep = {}, posture = {}, orders = [], researchEffects = {} } = {},
 ) => {
   const requested = Math.trunc(Number(months)) || 0;
   const steps = Math.max(0, Math.min(MAX_STEPS, requested));
@@ -224,7 +230,13 @@ export const advanceEconomy = (
   }
   for (const polity of stableOrder(Object.keys(ordersByPolity))) {
     const base = pools[polity] ?? initialPoolsFor(polities[polity]);
-    const paid = enqueueOrders({ pools: base, line: production[polity] ?? null, orders: ordersByPolity[polity] });
+    const effects = researchEffectTotalsFor(researchEffects, polity);
+    const paid = enqueueOrders({
+      pools: base,
+      line: production[polity] ?? null,
+      orders: ordersByPolity[polity],
+      timeMultiplier: productionTimeMultiplier(effects.production),
+    });
     pools[polity] = paid.pools;
     if (paid.line) production[polity] = paid.line;
     else delete production[polity];
@@ -255,17 +267,23 @@ export const advanceEconomy = (
     for (const name of stableOrder(Object.keys(polities))) {
       const own = running.filter((shock) => shockAppliesTo(shock, name));
       const postureName = posture?.[name] ?? DEFAULT_POSTURE;
+      const effects = researchEffectTotalsFor(researchEffects, name);
       // The shortfall from LAST month is what drags stability now, so this
       // month's multipliers are a function of committed state, not of the pool
       // step that has not run yet.
       const multipliers = applyMobilization(activeMultipliers(own, month), postureName, {
         shortfallPressure: shortfallPressureFor(shortfall?.[name], upkeep?.[name]),
       });
-      const steppedPolity = stepPolityMonth(polities[name], { year, multipliers });
+      const steppedPolity = stepPolityMonth(polities[name], {
+        year,
+        multipliers,
+        growthBonus: economyGrowthBonus(effects.economy),
+      });
       const steppedPools = stepPolityPools(steppedPolity, {
         pools: pools?.[name] ?? null,
         posture: postureName,
         upkeep: upkeep?.[name] ?? null,
+        regenMultiplier: poolRegenMultiplier(effects.pools),
       });
       next[name] = steppedPolity;
       nextPools[name] = steppedPools.pools;

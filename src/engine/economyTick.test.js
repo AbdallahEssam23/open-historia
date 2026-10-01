@@ -260,3 +260,31 @@ test("a polity with no research state is untouched and collects nothing", () => 
   const out = advanceEconomy(state, { startDate: "2000-01-01", months: 2, seed: "s" });
   assert.deepEqual(out.researchCompletions, []);
 });
+
+test("research effects reach the line, the pools and the growth", () => {
+  const state = {
+    month: 0,
+    polities: { France: polityFixture() },
+    pools: { France: { manpower: 100000, materiel: 1000 } },
+  };
+  const orders = [{ polity: "France", type: "naval", count: 1 }];
+  const plain = advanceEconomy(state, { startDate: "2026-01-01", months: 1, seed: "s", orders });
+  const boosted = advanceEconomy(state, {
+    startDate: "2026-01-01",
+    months: 1,
+    seed: "s",
+    orders,
+    researchEffects: { France: { production: 6, pools: 6, economy: 6 } },
+  });
+  assert.equal(plain.state.production.France.active.monthsTotal, 6);
+  assert.equal(boosted.state.production.France.active.monthsTotal, 5);
+  assert.ok(boosted.state.pools.France.manpower > plain.state.pools.France.manpower);
+  assert.ok(boosted.state.polities.France.gdpGrowth > plain.state.polities.France.gdpGrowth);
+});
+
+test("no research effects leaves the advance unchanged", () => {
+  const state = { month: 0, polities: { France: polityFixture() } };
+  const absent = advanceEconomy(state, { startDate: "2026-01-01", months: 3, seed: "s" });
+  const empty = advanceEconomy(state, { startDate: "2026-01-01", months: 3, seed: "s", researchEffects: {} });
+  assert.deepEqual(absent.state, empty.state);
+});
