@@ -16,7 +16,13 @@ import {
   normalizeUpkeepShortfall,
   postureFor,
 } from "../engine/forcePools.js";
+import {
+  markerKindFor,
+  normalizeProductionOrders,
+  normalizeProductionQueue,
+} from "../engine/productionQueue.js";
 import { applyCountryStatPatchToWorld } from "./gameState.js";
+import { addGameMonths } from "./gameDates.js";
 import { hashSeed } from "./unitMotion.js";
 
 const ENGINE_VERSION = 1;
@@ -78,6 +84,7 @@ export const extractEconomyState = (world, { seed = "" } = {}) => {
     polities,
     pools: normalizePools(world?.economyEngine?.pools),
     shortfall: normalizeUpkeepShortfall(world?.economyEngine?.upkeepShortfall),
+    production: normalizeProductionQueue(world?.economyEngine?.production),
   };
 };
 
@@ -140,6 +147,77 @@ export const buildUpkeepTable = (world) => {
   return table;
 };
 
+// The words a completed unit is named with when the order gave no name. The
+// engine never invents a display name; this is the boundary's own fallback so a
+// spawned unit is readable on the map.
+export const UNIT_LABEL = Object.freeze({
+  infantry: "Infantry", armor: "Armor", air: "Air",
+  naval: "Naval", artillery: "Artillery", garrison: "Garrison",
+});
+
+const unitSiteFor = (world, polity, at) => {
+  if (at) return at;
+  const sheet = world?.countryStats?.[polity];
+  const capital = String(sheet?.capital ?? "").trim();
+  if (capital) return capital;
+  const component = Array.isArray(sheet?.territorialComponents) ? sheet.territorialComponents[0] : null;
+  return String(component?.geography ?? "").trim();
+};
+
+const existingUnitCount = (world, polity, type) =>
+  (Array.isArray(world?.units) ? world.units : []).filter(
+    (unit) => String(unit?.ownerCode ?? "").trim() === polity
+      && String(unit?.type ?? "").toLowerCase() === type,
+  ).length;
+
+// A completion is the engine's statement that an item is done. This turns those
+// statements into the operations the narrator already emits, grouped by the date
+// each item landed, so the event path can resolve and apply them.
+export const completionBatchesFor = (completions, { world = {}, fromDate = "" } = {}) => {
+  const byDate = new Map();
+  const running = new Map();
+  for (const completion of Array.isArray(completions) ? completions : []) {
+    const offset = Math.max(1, Math.trunc(Number(completion?.monthOffset)) || 1);
+    const date = addGameMonths(fromDate, offset);
+    const batch = byDate.get(date) ?? { date, unitOps: [], markerOps: [] };
+    if (completion.kind === "unit") {
+      const site = unitSiteFor(world, completion.polity, completion.at);
+      if (!site) continue;
+      const count = Math.max(1, Math.trunc(Number(completion.count)) || 1);
+      for (let index = 0; index < count; index += 1) {
+        const key = `${completion.polity}|${completion.type}`;
+        const seen = running.get(key) ?? existingUnitCount(world, completion.polity, completion.type);
+        running.set(key, seen + 1);
+        const label = UNIT_LABEL[completion.type] ?? completion.type;
+        batch.unitOps.push({
+          op: "spawn",
+          unit: {
+            type: completion.type,
+            ownerCode: completion.polity,
+            strength: 100,
+            at: site,
+            name: completion.name || `${label} ${seen + 1}`,
+          },
+        });
+      }
+    } else if (completion.at) {
+      const kind = markerKindFor(completion.type);
+      batch.markerOps.push({
+        op: "build",
+        marker: {
+          name: completion.name || kind,
+          kind,
+          ownerCode: completion.polity,
+          status: "active",
+          at: completion.at,
+        },
+      });
+    }
+    byDate.set(date, batch);
+  }
+  return [...byDate.values()];
+};
+
 export const advanceWorldEconomy = (
   world,
   {
@@ -151,6 +229,7 @@ export const advanceWorldEconomy = (
     // period, so the model reacts to the digest it was given instead.
     declaredShocks = [],
     declaredMobilization = [],
+    declaredProduction = [],
     playerPolity = "",
     tracked = [],
     campaignId = "",
@@ -176,6 +255,8 @@ export const advanceWorldEconomy = (
       posture: {},
       shortfall: committed.shortfall,
       declaredMobilization: [],
+      production: committed.production,
+      completionBatches: [],
     };
   }
 
@@ -190,14 +271,20 @@ export const advanceWorldEconomy = (
   const { valid: declaredNow, rejected: declaredMobilizationRejected } =
     normalizeMobilization(declaredMobilization, { knownPolities });
 
+  const { valid: appliedOrders, rejected: pendingProductionRejected } =
+    normalizeProductionOrders(world?.economyEngine?.pendingProduction, { knownPolities });
+  const { valid: declaredProductionNow, rejected: declaredProductionRejected } =
+    normalizeProductionOrders(declaredProduction, { knownPolities });
+
   const upkeepTable = upkeep ?? buildUpkeepTable(world);
-  const { state, journal } = advanceEconomy(committed, {
+  const { state, journal, completions, rejectedProduction } = advanceEconomy(committed, {
     startDate: fromDate,
     months,
     shocks: applied,
     seed,
     upkeep: upkeepTable,
     posture,
+    orders: appliedOrders,
   });
 
   // A shock longer than the period keeps running. Its window is re-based back to
@@ -240,6 +327,8 @@ export const advanceWorldEconomy = (
       lastMonth: state.month,
       ...(pendingShocks.length ? { pendingShocks } : {}),
       ...(Object.keys(state.pools).length ? { pools: state.pools } : {}),
+      ...(Object.keys(state.production).length ? { production: state.production } : {}),
+      ...(declaredProductionNow.length ? { pendingProduction: declaredProductionNow } : {}),
       ...(Object.keys(committedMobilization).length ? { mobilization: committedMobilization } : {}),
       ...(declaredNow.length ? { pendingMobilization: declaredNow } : {}),
       ...(Object.keys(shortfall).length ? { upkeepShortfall: shortfall } : {}),
@@ -276,6 +365,12 @@ export const advanceWorldEconomy = (
 
   const rejectedAll = [...rejected, ...declaredRejected, ...declaredMobilizationRejected];
   if (rejectedAll.length) nextWorld.economyEngine.rejectedShocks = rejectedAll;
+  const rejectedProductionAll = [
+    ...declaredProductionRejected,
+    ...pendingProductionRejected,
+    ...(Array.isArray(rejectedProduction) ? rejectedProduction : []),
+  ];
+  if (rejectedProductionAll.length) nextWorld.economyEngine.rejectedProduction = rejectedProductionAll;
   // What the model should be told is still running: the leftover spans, in the
   // digest's shape (a shock this period's answer just declared is not running yet).
   const shocksRunning = leftovers.map((shock) => ({
@@ -283,6 +378,7 @@ export const advanceWorldEconomy = (
     severity: shock.severity,
     monthsLeft: shock.durationMonths,
   }));
+  const completionBatches = completionBatchesFor(completions, { world: nextWorld, fromDate });
   return {
     world: nextWorld,
     deltas,
@@ -294,5 +390,7 @@ export const advanceWorldEconomy = (
     posture,
     shortfall,
     declaredMobilization: declaredNow,
+    production: state.production,
+    completionBatches,
   };
 };

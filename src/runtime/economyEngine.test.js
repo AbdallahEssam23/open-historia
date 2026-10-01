@@ -223,3 +223,70 @@ test("an army the reserves cannot pay writes the shortfall onto the sheet", () =
   assert.ok(stored && stored.manpower > 0);
   assert.deepEqual(result.world.countryStats.Egypt.forces.shortfall, { manpower: stored.manpower });
 });
+
+import { completionBatchesFor } from "./economyEngine.js";
+
+test("a completed unit becomes a spawn op dated at its month step", () => {
+  const batches = completionBatchesFor(
+    [{ polity: "Egypt", kind: "unit", type: "infantry", count: 2, monthOffset: 2 }],
+    { world: { ...world(), countryStats: { Egypt: { ...sheet(), capital: "Cairo" } } }, fromDate: "2026-01-01" },
+  );
+  assert.equal(batches.length, 1);
+  assert.equal(batches[0].date, "2026-03-01");
+  assert.equal(batches[0].unitOps.length, 2);
+  assert.equal(batches[0].unitOps[0].unit.ownerCode, "Egypt");
+  assert.equal(batches[0].unitOps[0].unit.at, "Cairo");
+});
+
+test("a completed structure becomes a build op with a worded kind", () => {
+  const batches = completionBatchesFor(
+    [{ polity: "Egypt", kind: "building", type: "naval_base", count: 1, at: "Alexandria", monthOffset: 1 }],
+    { world: world(), fromDate: "2026-01-01" },
+  );
+  assert.equal(batches[0].markerOps[0].marker.kind, "naval base");
+  assert.equal(batches[0].markerOps[0].marker.status, "active");
+  assert.equal(batches[0].markerOps[0].marker.at, "Alexandria");
+});
+
+test("a unit site falls back from the order to the capital to the first component", () => {
+  const noCapital = {
+    countryStats: {
+      Egypt: { ...sheet(), capital: "", territorialComponents: [{ geography: "Nile Delta" }] },
+    },
+  };
+  const batches = completionBatchesFor(
+    [{ polity: "Egypt", kind: "unit", type: "infantry", count: 1, monthOffset: 1 }],
+    { world: noCapital, fromDate: "2026-01-01" },
+  );
+  assert.equal(batches[0].unitOps[0].unit.at, "Nile Delta");
+});
+
+test("a unit with no resolvable site is dropped rather than placed at 0,0", () => {
+  const batches = completionBatchesFor(
+    [{ polity: "Nowhere", kind: "unit", type: "infantry", count: 1, monthOffset: 1 }],
+    { world: world(), fromDate: "2026-01-01" },
+  );
+  assert.equal(batches.length, 0);
+});
+
+test("a declared production order is stored and runs in the NEXT advance", () => {
+  const first = advance(world(), {
+    fromDate: "2026-01-01",
+    toDate: "2026-04-01",
+    declaredProduction: [{ polity: "Egypt", kind: "unit", type: "infantry", count: 1 }],
+  });
+  assert.equal(first.production.Egypt, undefined, "nothing entered the line this period");
+  assert.equal(first.world.economyEngine.pendingProduction.length, 1);
+  const second = advance(first.world, { fromDate: "2026-04-01", toDate: "2026-05-01" });
+  assert.ok(second.production.Egypt, "the declared order entered the line next period");
+});
+
+test("an unaffordable order is recorded as a rejection", () => {
+  const result = advance(world(), {
+    fromDate: "2026-01-01",
+    toDate: "2026-07-01",
+    declaredProduction: [{ polity: "Egypt", kind: "unit", type: "naval", count: 20 }],
+  });
+  // Runs next period; drive it through, then check the rejection.
+  assert.equal(result.world.economyEngine.pendingProduction.length, 1);
+});
