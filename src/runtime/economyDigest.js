@@ -48,6 +48,24 @@ const poolLineFor = ({ playerPolity, playerPools, playerPosture, postureChanged,
     + shortfallClauseFor(playerShortfall);
 };
 
+// What the line is building: the active item with its remaining months, then the
+// waiting ones in order. Every number is the engine's own, read off the line it
+// persisted, so the digest imports nothing to state a duration.
+const productionClauseFor = (line) => {
+  if (!line || typeof line !== "object") return "";
+  const active = line.active;
+  const parts = [];
+  if (active) {
+    const left = Math.max(0, number(active.monthsTotal) - number(active.monthsDone));
+    parts.push(`${number(active.count, 1)}x ${String(active.type ?? "").trim()} (${left} month${left === 1 ? "" : "s"} left)`);
+  }
+  for (const item of Array.isArray(line.queue) ? line.queue : []) {
+    const months = Math.max(0, number(item.monthsTotal));
+    parts.push(`${number(item.count, 1)}x ${String(item.type ?? "").trim()} (${months} month${months === 1 ? "" : "s"})`);
+  }
+  return parts.length ? `Production line: ${parts.join(", then ")}.` : "";
+};
+
 export const buildEconomyDigest = ({
   deltas,
   playerPolity = "",
@@ -57,11 +75,14 @@ export const buildEconomyDigest = ({
   playerPosture = "",
   postureChanged = false,
   playerShortfall = null,
+  playerProduction = null,
 } = {}) => {
   const list = (Array.isArray(deltas) ? deltas : []).filter((d) => d && typeof d === "object" && d.polity);
   const player = String(playerPolity ?? "");
   const poolLine = poolLineFor({ playerPolity: player, playerPools, playerPosture, postureChanged, playerShortfall });
-  if (!list.length) return poolLine;
+  const productionLine = productionClauseFor(playerProduction);
+  const reserveBlock = [poolLine, productionLine].filter(Boolean).join("\n");
+  if (!list.length) return reserveBlock;
 
   const wanted = new Set((Array.isArray(tracked) ? tracked : []).map((name) => String(name ?? "")));
   const byName = new Map(list.map((d) => [String(d.polity), d]));
@@ -78,7 +99,7 @@ export const buildEconomyDigest = ({
   const lines = [];
   const header = "Economy this period, computed locally (treat these as fact, do not restate them with different numbers):";
   // Reserve the header + pool line separators so the pool line always survives.
-  let used = header.length + (poolLine ? poolLine.length + 1 : 0);
+  let used = header.length + (reserveBlock ? reserveBlock.length + 1 : 0);
   for (const delta of ordered.slice(0, DIGEST_POLITY_CAP)) {
     const line = lineFor(delta, String(delta.polity) === player);
     // A line that would overflow is dropped whole. Truncating mid sentence
@@ -87,7 +108,7 @@ export const buildEconomyDigest = ({
     lines.push(line);
     used += line.length + 1;
   }
-  if (!lines.length) return poolLine;
+  if (!lines.length) return reserveBlock;
 
   const shockLines = (Array.isArray(shocks) ? shocks : [])
     .filter((s) => s && s.kind)
@@ -96,5 +117,5 @@ export const buildEconomyDigest = ({
         `- A ${String(s.kind)} shock (severity ${number(s.severity, 1)}) has about ${Math.max(0, Math.round(number(s.monthsLeft)))} month(s) left.`,
     );
 
-  return [header, poolLine, ...lines, ...shockLines].filter(Boolean).join("\n");
+  return [header, reserveBlock, ...lines, ...shockLines].filter(Boolean).join("\n");
 };

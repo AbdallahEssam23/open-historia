@@ -137,3 +137,40 @@ test("a fully paid army adds no shortfall clause", () => {
   assert.equal(text, "Your reserves: manpower 10, materiel 1.00. Mobilization: peacetime.");
   assert.doesNotMatch(text, /shortfall/);
 });
+
+test("the production line names the active item and the waiting ones in order", () => {
+  const text = buildEconomyDigest({
+    deltas: [],
+    playerPolity: "Egypt",
+    playerPools: { manpower: 10, materiel: 1 },
+    playerPosture: "peacetime",
+    playerProduction: {
+      active: { kind: "unit", type: "infantry", count: 2, monthsTotal: 4, monthsDone: 3 },
+      queue: [{ kind: "building", type: "fortification", count: 1, monthsTotal: 4 }],
+    },
+  });
+  assert.match(text, /Production line: 2x infantry \(1 month left\), then 1x fortification \(4 months\)\./);
+});
+
+test("an empty line adds nothing, so the digest is byte-identical", () => {
+  const withLine = buildEconomyDigest({
+    deltas: [], playerPolity: "Egypt",
+    playerPools: { manpower: 10, materiel: 1 }, playerPosture: "peacetime",
+    playerProduction: { queue: [] },
+  });
+  const without = buildEconomyDigest({
+    deltas: [], playerPolity: "Egypt",
+    playerPools: { manpower: 10, materiel: 1 }, playerPosture: "peacetime",
+  });
+  assert.equal(withLine, without);
+  assert.doesNotMatch(withLine, /Production/);
+});
+
+test("the production line survives even when there is no economy line", () => {
+  const text = buildEconomyDigest({
+    deltas: [], playerPolity: "Egypt", playerProduction: {
+      queue: [{ kind: "unit", type: "garrison", count: 1, monthsTotal: 1 }],
+    },
+  });
+  assert.equal(text, "Production line: 1x garrison (1 month).");
+});
