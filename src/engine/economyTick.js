@@ -53,7 +53,7 @@ export const makePolityEconomy = (input = {}) => {
   };
 };
 
-export const stepPolityMonth = (polity, { year, multipliers }) => {
+export const stepPolityMonth = (polity, { year, multipliers, growthBonus = 0 }) => {
   const band = eraBandFor(year);
   const inputComponents = Array.isArray(polity.components) ? polity.components : [];
   const total = inputComponents.length
@@ -104,7 +104,12 @@ export const stepPolityMonth = (polity, { year, multipliers }) => {
     ? components.reduce((sum, c) => sum + c.population * c.gdpPerCapita, 0) / Math.max(1, population)
     : stepPerHead({ gdpPerCapita: polity.gdpPerCapita }).gdpPerCapita;
 
-  const annualGrowth = gpcGrowth * 12 * 100;
+  // A research effect adds percentage points of annual growth before the
+  // stability equilibrium is derived, so an expansion research bought also
+  // carries the stability that growth implies. A missing or invalid bonus is the
+  // no-op, so every existing caller computes what it did.
+  const bonus = Number.isFinite(Number(growthBonus)) ? Number(growthBonus) : 0;
+  const annualGrowth = gpcGrowth * 12 * 100 + bonus;
 
   let inflation = polity.inflation
     + ECONOMY_STEP.INFLATION_REVERSION

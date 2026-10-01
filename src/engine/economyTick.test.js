@@ -32,6 +32,21 @@ test("one month of peace moves growth, population and inflation in the right dir
   assert.ok(after.inflation < before.inflation, "inflation reverts toward its target");
 });
 
+test("a growth bonus raises the reported annual growth", () => {
+  const before = polityFixture();
+  const plain = stepPolityMonth(before, { year: 2026, multipliers: noShock });
+  const boosted = stepPolityMonth(before, { year: 2026, multipliers: noShock, growthBonus: 0.5 });
+  assert.ok(boosted.gdpGrowth > plain.gdpGrowth, "the bonus lifts growth");
+  assert.ok(
+    Math.abs((boosted.gdpGrowth - plain.gdpGrowth) - 0.5) < 0.001,
+    "the bonus is applied as percentage points",
+  );
+  assert.equal(
+    stepPolityMonth(before, { year: 2026, multipliers: noShock, growthBonus: 0 }).gdpGrowth,
+    plain.gdpGrowth,
+  );
+});
+
 test("no term can leave a bound, however hostile the shock", () => {
   const before = polityFixture({ publicDebt: 395, unemployment: 58, inflation: -4, stability: 3 });
   const hostile = { population: 0.99, gdp: 0.5, inflation: 50, unemployment: 20, stability: -30 };
