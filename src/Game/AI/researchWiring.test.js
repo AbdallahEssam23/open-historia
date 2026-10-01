@@ -39,3 +39,12 @@ test("the jump applies the engine's research ops as an engine-sourced event", ()
   assert.doesNotMatch(block, /title: ""/);
   assert.match(block, /title: "[^"]+"/);
 });
+
+test("the board-only id the block relies on is declared", () => {
+  // The block references RESEARCH_EVENT_ID as a bare identifier. Nothing else in
+  // the test suite executes this path, so an undeclared name is a ReferenceError
+  // that no behavioural test would catch; this asserts it exists.
+  assert.match(source, /const RESEARCH_EVENT_ID = /);
+  assert.match(source, /id: RESEARCH_EVENT_ID/);
+  assert.match(source, /boardOnlyEventIds: \[RESEARCH_EVENT_ID\]/);
+});

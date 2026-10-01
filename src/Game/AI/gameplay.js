@@ -1398,6 +1398,11 @@ const WORLD_SIMULATION_CONSOLIDATED_HISTORY_MAX_CHARS = 24000;
 const WORLD_SIMULATION_HISTORICAL_ANCHOR_ACTIVATION_CHARS = 24000;
 const WORLD_SIMULATION_HISTORICAL_ANCHOR_MAX_CHARS = 6000;
 const WORLD_SIMULATION_HISTORICAL_ANCHOR_MAX_ITEMS = 18;
+// A stable id for the synthetic event the engine's research completion rides in
+// on. It is board-only, so this id is never stamped into a project's activity
+// feed; it exists only so applyProjectOps has something to look up when deciding
+// not to stamp.
+const RESEARCH_EVENT_ID = "engine-research";
 
 // The deterministic engine owns the standard economy, so the periodic AI stats
 // batch would be a second writer of the same fields. Kept as a named switch
