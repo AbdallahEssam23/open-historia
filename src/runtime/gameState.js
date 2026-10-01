@@ -19,6 +19,12 @@ import { normalizeChatEvents, projectChatThread, withUnloggedMessages } from "./
 import { latestTurnEventIds, unseenEvents, withoutUnseenChats, withoutUnseenEvents, withoutUnseenReports } from "./unseenEvents.js";
 import { mergeCountryStatPatch, normalizeCountryStatSheet } from "./countryStats.js";
 import { normalizeDeclaredShocks } from "../engine/economyShocks.js";
+import {
+  normalizeMobilizationMap,
+  normalizePendingMobilization,
+  normalizePools,
+  normalizeUpkeepShortfall,
+} from "../engine/forcePools.js";
 import { buildPolityIdentityIndex, resolvePolityIdentity } from "./polityIdentity.js";
 import {
   DEFAULT_PATROL_RADIUS_KM,
@@ -3430,6 +3436,17 @@ const normalizeEconomyEngine = (value) => {
   // with nothing pending keeps the record exactly as it was before this field.
   const pendingShocks = normalizeDeclaredShocks(value.pendingShocks);
   if (pendingShocks.length) out.pendingShocks = pendingShocks;
+  // The force pools and the posture that is in force. All four are sparse: an
+  // empty one is omitted, so a campaign that never mobilizes keeps a record
+  // byte-identical to the economy increment's.
+  const pools = normalizePools(value.pools);
+  if (Object.keys(pools).length) out.pools = pools;
+  const mobilization = normalizeMobilizationMap(value.mobilization);
+  if (Object.keys(mobilization).length) out.mobilization = mobilization;
+  const pendingMobilization = normalizePendingMobilization(value.pendingMobilization);
+  if (pendingMobilization.length) out.pendingMobilization = pendingMobilization;
+  const upkeepShortfall = normalizeUpkeepShortfall(value.upkeepShortfall);
+  if (Object.keys(upkeepShortfall).length) out.upkeepShortfall = upkeepShortfall;
   return out;
 };
 

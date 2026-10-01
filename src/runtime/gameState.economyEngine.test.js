@@ -46,3 +46,40 @@ test("a pending shock survives the round trip, a malformed one is dropped", () =
   ]);
   assert.deepEqual(normalizeWorldState(normalized).economyEngine.pendingShocks, normalized.economyEngine.pendingShocks);
 });
+
+test("the force-pool engine fields round-trip through a world normalize", () => {
+  const world = normalizeWorldState({
+    economyEngine: {
+      version: 1,
+      seed: "abc",
+      lastDate: "2026-04-01",
+      lastMonth: 3,
+      pools: { France: { manpower: 1200, materiel: 40.5 } },
+      mobilization: { France: "total" },
+      pendingMobilization: [{ polity: "Germany", posture: "partial" }],
+      upkeepShortfall: { France: { manpower: 30, materiel: 0 } },
+    },
+  });
+  assert.deepEqual(world.economyEngine.pools, { France: { manpower: 1200, materiel: 40.5 } });
+  assert.deepEqual(world.economyEngine.mobilization, { France: "total" });
+  assert.deepEqual(world.economyEngine.pendingMobilization, [{ polity: "Germany", posture: "partial" }]);
+  assert.deepEqual(world.economyEngine.upkeepShortfall, { France: { manpower: 30, materiel: 0 } });
+});
+
+test("an engine block with none of the new fields keeps its old shape", () => {
+  const world = normalizeWorldState({
+    economyEngine: { version: 1, seed: "abc", lastDate: "2026-04-01", lastMonth: 3 },
+  });
+  assert.deepEqual(Object.keys(world.economyEngine).sort(), ["lastDate", "lastMonth", "seed", "version"]);
+});
+
+test("a half-written pool row is dropped, not defaulted", () => {
+  const world = normalizeWorldState({
+    economyEngine: {
+      version: 1,
+      seed: "abc",
+      pools: { France: { manpower: 1200 }, Ghost: null },
+    },
+  });
+  assert.equal(world.economyEngine.pools, undefined);
+});
