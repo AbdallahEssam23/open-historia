@@ -1,5 +1,6 @@
 import { EVENT_TAG_ENUM, MAX_EVENT_TAGS } from "../../runtime/eventTags.js";
 import { MAX_SHOCKS, MAX_SHOCK_MONTHS, SHOCK_KINDS } from "../../engine/economyShocks.js";
+import { MAX_MOBILIZATION, MOBILIZATION_POSTURES } from "../../engine/forcePools.js";
 import {
   TERRITORY_BASIS_DESCRIPTION,
   TERRITORY_BASIS_DESCRIPTION_SHORT,
@@ -1018,6 +1019,19 @@ const economicShockSchema = {
   additionalProperties: false,
 };
 
+// The model's mobilization declaration: a scoped posture, one per polity, from a
+// closed list. Like a shock, it carries no number the model could invent, and a
+// declared posture takes effect in the NEXT period.
+const mobilizationEntrySchema = {
+  type: "object",
+  properties: {
+    polity: { type: "string", description: "Country it applies to." },
+    posture: { type: "string", enum: [...MOBILIZATION_POSTURES], description: "Closed list; peacetime default." },
+  },
+  required: ["polity", "posture"],
+  additionalProperties: false,
+};
+
 export const JUMP_FORWARD_SCHEMA = {
   type: "object",
   description: "A simulated timeline jump containing dated events and the resulting campaign state.",
@@ -1072,6 +1086,14 @@ export const JUMP_FORWARD_SCHEMA = {
         + "a reconstruction programme). The engine turns each into transient parameters. Do NOT state GDP, "
         + "growth, inflation or debt as numbers anywhere; those are computed locally from these shocks.",
       items: economicShockSchema,
+    },
+    mobilization: {
+      type: "array",
+      maxItems: MAX_MOBILIZATION,
+      description:
+        "Mobilization postures for polities: a closed list, effective next period. "
+        + "State no pool numbers; the engine computes them.",
+      items: mobilizationEntrySchema,
     },
   },
   // clearActions is deliberately NOT required: simulateTimelineJump already
