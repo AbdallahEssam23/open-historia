@@ -1915,6 +1915,12 @@ const normalizeProjectOp = (entry) => {
 // {"op":"update","name":"project leviathan"} quietly rename Project Leviathan to
 // lowercase. Renaming goes through an explicit `newName`, the same way a marker
 // rename does.
+//
+// `domain` and `scale` are absent on purpose too: they are the pair the engine
+// prices a research programme from, so letting a mid-flight update shrink the
+// denominator would let a model walk a programme to completion by re-scoping it,
+// which is the very thing the research guard exists to stop. They are set where
+// a programme is first declared and fixed from then on.
 const PROJECT_PATCHABLE_FIELDS = [
   "kind", "ownerCode", "summary", "status", "priority", "progress", "secrecy", "ongoing",
   "startedAt", "targetDate", "lastUpdate", "note", "focus",
@@ -2153,6 +2159,13 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
     if (engineSourced || (PROJECT_KIND_SET.has(kind) ? kind : "project") !== "research") return entry;
     return {
       ...entry,
+      // Resolve the closed pair here as well as in normalizeProjectEntry: the
+      // re-announcement path reassembles the entry WITHOUT re-normalizing it, so
+      // an ordinary project a model re-announces as research would otherwise
+      // keep the empty domain and scale a non-research entry carries, and the
+      // board would hold a research programme the enums never priced.
+      domain: resolveResearchDomain(entry.domain),
+      scale: resolveResearchScale(entry.scale),
       status: resolveProjectStatus(entry.status) === "complete"
         ? (baseline ? baseline.status : "active")
         : entry.status,

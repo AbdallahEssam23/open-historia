@@ -142,6 +142,29 @@ test("promoting an entry into research drops model-authored progress", () => {
   assert.equal(next[0].researchPoints, 0);
 });
 
+test("a re-announcement that promotes an entry to research resolves its pair", () => {
+  // The re-announcement branch reassembles the entry without re-normalizing it,
+  // so the invariant has to resolve the closed pair itself: an ordinary project
+  // carries an empty domain and scale, and a research entry must never do so.
+  const board = normalizeProjects([{ id: "px", name: "Dam", kind: "project", status: "active" }]);
+  const next = applyProjectOps(board, [{ op: "create", name: "Dam", kind: "research" }], {});
+  assert.equal(next[0].kind, "research");
+  assert.equal(next[0].domain, "industrial");
+  assert.equal(next[0].scale, "small");
+  assert.equal(next[0].progress, 0);
+});
+
+test("a model update cannot re-price a running research programme", () => {
+  // Shrinking the denominator would walk the programme to completion by
+  // re-scoping it, which is the completion the guard refuses; the pair is fixed
+  // where the programme is declared.
+  const next = applyProjectOps(researchBoard(), [
+    { op: "update", projectId: "rx", patch: { domain: "industrial", scale: "small" } },
+  ], {});
+  assert.equal(next[0].domain, "nuclear");
+  assert.equal(next[0].scale, "large");
+});
+
 test("a model batch cannot release effects by promoting to research then completing", () => {
   const board = normalizeProjects([
     { id: "px", name: "Dam", kind: "project", status: "active",
