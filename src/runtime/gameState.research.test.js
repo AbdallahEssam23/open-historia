@@ -303,5 +303,12 @@ test("applyEventImpactsToWorld completes research only when engine-sourced", () 
     colors: {}, world: world(), events, engineSourced: true,
   });
   assert.equal(engine.world.projects[0].status, "complete");
-  assert.equal(engine.world.projects[0].onCompleteAppliedAt !== "", true);
+  assert.equal(typeof engine.world.projects[0].onCompleteAppliedAt, "string");
+  assert.notEqual(engine.world.projects[0].onCompleteAppliedAt, "");
+  // The released polity change really landed: its reputation is on the world. The
+  // payload still sitting on the project is not proof - the refused model path
+  // keeps it too - so the assertion is on the effect the release wrote.
+  assert.deepEqual(engine.world.internationalReputation, { France: 60 });
+  assert.equal(model.world.projects[0].onCompleteAppliedAt, "");
+  assert.deepEqual(model.world.internationalReputation, {});
 });

@@ -6685,23 +6685,40 @@ const applySimulationResult = async ({
       ].slice(0, 12),
     },
   });
-  const nextColors = impactMerge.colors;
+  let nextColors = impactMerge.colors;
   let impactedWorld = impactMerge.world;
   // A polity renamed this turn — by an event's polityChanges, or a record whose
   // display name still differed from its key — is re-keyed everywhere the world
   // state does not carry: the game's own polity, the queued orders, the chats
   // (below), the flags, and the stock map's baked regions with no override.
+  // A rename can arrive from the model's own events, or later from the engine's
+  // research completion whose onComplete is released after the economy advances.
+  // Both must re-key every store the world state does not carry - the game's own
+  // polity, the queued orders, the flags and the baked regions - or a country
+  // ends up named one thing in the world and another in its colour or map. The
+  // running `flags` accumulator chains a second rename onto the first.
+  const propagateRenames = async ({ world, game, actions, flags, renames }) => {
+    if (!renames.length) return { world, game, actions, flags };
+    const regions = filterToRenderedRegions(await loadRegionCatalog().catch(() => []), world);
+    for (const { from, to } of renames) {
+      world = expandBakedRegionsForRename(world, regions, from, to);
+      game = renamePolityInGame(game, from, to);
+      actions = renamePolityInActions(actions, from, to);
+    }
+    const flagsBefore = flags ?? await getNationFlags({ force: true }).catch(() => ({}));
+    flags = renames.reduce((acc, { from, to }) => renamePolityInFlags(acc, from, to), flagsBefore);
+    return { world, game, actions, flags };
+  };
   const renamedPolities = normalizeArray(impactMerge.renamedPolities);
   let renamedFlags = null;
   if (renamedPolities.length) {
-    const regions = filterToRenderedRegions(await loadRegionCatalog().catch(() => []), impactedWorld);
-    for (const { from, to } of renamedPolities) {
-      impactedWorld = expandBakedRegionsForRename(impactedWorld, regions, from, to);
-      nextGame = renamePolityInGame(nextGame, from, to);
-      nextActions = renamePolityInActions(nextActions, from, to);
-    }
-    const flagsBefore = await getNationFlags({ force: true }).catch(() => ({}));
-    renamedFlags = renamedPolities.reduce((flags, { from, to }) => renamePolityInFlags(flags, from, to), flagsBefore);
+    const propagated = await propagateRenames({
+      world: impactedWorld, game: nextGame, actions: nextActions, flags: null, renames: renamedPolities,
+    });
+    impactedWorld = propagated.world;
+    nextGame = propagated.game;
+    nextActions = propagated.actions;
+    renamedFlags = propagated.flags;
   }
   // Advance every standing order the model did NOT touch across the whole jump,
   // and drift the patrols. This is what keeps a fleet crossing an ocean moving
@@ -7286,21 +7303,25 @@ const applySimulationResult = async ({
     // close and the programme would sit at 100 percent forever.
     const researchOps = normalizeArray(economy.researchOps);
     if (researchOps.length) {
-      const researchEvent = {
-        date: nextGame.gameDate || "",
-        title: "Research completed",
-        description: "",
-        impacts: { projectOps: researchOps },
-      };
       const applied = applyEventImpactsToWorld({
-        colors: {},
-        events: [researchEvent],
+        colors: nextColors,
+        events: [{ id: RESEARCH_EVENT_ID, date: nextGame.gameDate || "", title: "Research completed", description: "", impacts: { projectOps: researchOps } }],
         world: nextWorld,
         engineSourced: true,
+        boardOnlyEventIds: [RESEARCH_EVENT_ID],
       });
       nextWorld = applied.world;
-      for (const rename of normalizeArray(applied.renamedPolities)) {
-        renamedPolities.push(rename);
+      nextColors = applied.colors;
+      const researchRenames = normalizeArray(applied.renamedPolities);
+      if (researchRenames.length) {
+        const propagated = await propagateRenames({
+          world: nextWorld, game: nextGame, actions: nextActions, flags: renamedFlags, renames: researchRenames,
+        });
+        nextWorld = propagated.world;
+        nextGame = propagated.game;
+        nextActions = propagated.actions;
+        renamedFlags = propagated.flags;
+        renamedPolities.push(...researchRenames);
       }
     }
   } catch (error) {
