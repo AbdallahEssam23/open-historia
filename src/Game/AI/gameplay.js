@@ -1,7 +1,11 @@
 /*! Open Historia — portions (briefing dossiers + timeout/fallback hardening) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import { callAI, providerSupportsBatch, retrieveAIBatch, sendDiplomaticMessageOnceOff, submitAIBatch } from "./main.jsx";
 import { jumpDayStep, jumpTargetDate } from "../../runtime/jumpDates.js";
-import { NATIVE_GAME_MASTER_PROMPT, normalizePromptPack } from "./gameplayPrompts.js";
+import {
+  NATIVE_GAME_MASTER_PROMPT,
+  buildEconomyEngineInstructions,
+  normalizePromptPack,
+} from "./gameplayPrompts.js";
 import { collectFoundedPolities, foundingPolityChange } from "../../runtime/polityFounding.js";
 import { describeBasisAction, screenTerritoryBasis } from "../../runtime/territoryBasis.js";
 import {
@@ -2586,6 +2590,14 @@ This live instruction supersedes older frozen country-stat prompts and all earli
   }
   if (taskKey === "pregameHistory") {
     systemPrompt = `${systemPrompt}\n\n${buildPregameBootstrapDirective(variables)}`;
+  }
+
+  // The deterministic economy: the rule, then the period the engine actually
+  // simulated. Rules only until the engine has run a period, which is the right
+  // answer for a campaign that has no engine data yet.
+  if (jumpTask) {
+    const block = buildEconomyEngineInstructions({ digest: variables?.economyDigest });
+    if (block) systemPrompt = `${systemPrompt}\n\n${block}`;
   }
 
   // The scenario briefing and simulation rules each arrive twice on most

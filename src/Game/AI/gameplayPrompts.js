@@ -1,5 +1,5 @@
 /*! Open Historia — portions (troop & era prompt additions) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
-import DEFAULT_PROMPTS from "./defaultPrompts.json";
+import DEFAULT_PROMPTS from "./defaultPrompts.json" with { type: "json" };
 import {
   localizeGuidanceTree,
   localizedPassages,
@@ -462,3 +462,27 @@ export const materializePromptPack = (rawPack) => ({
   promptModel: PROMPT_MODEL_VERSION,
   guidance: materializePackGuidance(rawPack, PROMPT_GUIDANCE_DEFAULTS),
 });
+
+// The economy block: the rule and the facts. The rule exists because a model
+// that has spent a career inventing plausible GDP figures will keep doing it
+// unless told plainly that the numbers are not its job any more. The digest
+// exists because a narrator who cannot see the engine's numbers would describe
+// a different period than the one that was simulated.
+export const buildEconomyEngineInstructions = ({ digest = "" } = {}) => {
+  const rules = [
+    "[National Economy]",
+    "Every national economic figure is computed locally by a deterministic simulation: output, output per head, "
+    + "growth, inflation, unemployment, public debt and the budget balance. They are already decided by the time "
+    + "you are asked, and they are not yours to invent. Do not state, estimate, imply or restate a numeric "
+    + "economic value in prose or in an event, and never write one into an impact.",
+    "What you DO control is the shocks. When the period's events genuinely inflict or relieve economic pressure, "
+    + "declare it in economicShocks, choosing from this closed list: harvest_failure, sanctions, blockade, "
+    + "industrial_damage, capital_flight, debt_crisis, mobilization, reconstruction, aid_inflow, trade_boom. "
+    + "Give each the severity (1 mild, 2 serious, 3 severe) and how many "
+    + "months it runs. A shock declared now takes effect from the NEXT period, so judge it from this period's "
+    + "cause, not from a number you want to see.",
+    "Declare shocks sparingly and only when the events you are writing justify them. Most periods have none.",
+  ].join("\n\n");
+  const facts = String(digest ?? "").trim();
+  return facts ? `${rules}\n\n[The Period's Economy, as simulated]\n${facts}` : rules;
+};
