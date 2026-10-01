@@ -95,3 +95,83 @@ test("postureFor returns the default for an absent polity", () => {
   assert.equal(postureFor({ Germany: "total" }, "France"), "peacetime");
   assert.equal(postureFor({ Germany: "total" }, "Germany"), "total");
 });
+
+import {
+  FORCE_POOLS,
+  applyMobilization,
+  initialPoolsFor,
+  shortfallPressureFor,
+  stepPolityPools,
+} from "./forcePools.js";
+import { makePolityEconomy } from "./economyTick.js";
+
+const polityFixture = (over = {}) =>
+  makePolityEconomy({
+    population: 100_000_000,
+    gdp: 1_000_000_000_000,
+    gdpPerCapita: 10_000,
+    gdpBreakdown: { agriculture: 10, industry: 35, services: 55 },
+    stability: 60,
+    ...over,
+  });
+
+test("a polity with no committed pools starts from its population and output", () => {
+  const pools = initialPoolsFor(polityFixture());
+  assert.equal(pools.manpower, Math.round(100_000_000 * FORCE_POOLS.INITIAL_MANPOWER_SHARE));
+  assert.ok(pools.materiel > 0);
+});
+
+test("the pools are deterministic for the same inputs", () => {
+  const p = polityFixture();
+  const a = stepPolityPools(p, { pools: { manpower: 1_000_000, materiel: 100 }, posture: "peacetime" });
+  const b = stepPolityPools(p, { pools: { manpower: 1_000_000, materiel: 100 }, posture: "peacetime" });
+  assert.deepEqual(a, b);
+});
+
+test("total mobilization drains faster than peacetime over a year", () => {
+  let war = { manpower: 500_000, materiel: 50 };
+  let peace = { manpower: 500_000, materiel: 50 };
+  const p = polityFixture();
+  const upkeep = { manpower: 2_000_000, materiel: 400 };
+  for (let i = 0; i < 12; i += 1) {
+    war = stepPolityPools(p, { pools: war, posture: "total", upkeep }).pools;
+    peace = stepPolityPools(p, { pools: peace, posture: "peacetime", upkeep }).pools;
+  }
+  assert.ok(war.materiel > peace.materiel, "total allocates more materiel");
+});
+
+test("the zero floor holds when upkeep exceeds the pool, and the shortfall is exact", () => {
+  const p = polityFixture({ population: 1_000, gdp: 1000 });
+  const result = stepPolityPools(p, {
+    pools: { manpower: 100, materiel: 0 },
+    posture: "peacetime",
+    upkeep: { manpower: 50_000, materiel: 900 },
+  });
+  assert.equal(result.pools.manpower, 0, "never negative");
+  assert.equal(result.pools.materiel, 0, "never negative");
+  assert.ok(result.shortfall.manpower > 0);
+  assert.ok(result.shortfall.materiel > 0);
+});
+
+test("a hundred peaceful years stay under the cap", () => {
+  const p = polityFixture();
+  let pools = initialPoolsFor(p);
+  for (let i = 0; i < 1200; i += 1) pools = stepPolityPools(p, { pools, posture: "peacetime" }).pools;
+  assert.ok(pools.manpower <= Math.round(100_000_000 * FORCE_POOLS.MANPOWER_CAP_SHARE));
+  assert.ok(pools.materiel <= 1_000_000_000_000 * FORCE_POOLS.MATERIEL_CAP_SHARE);
+});
+
+test("a shortfall becomes stability pressure, bounded", () => {
+  const pressure = shortfallPressureFor({ manpower: 1_000_000, materiel: 500 }, { manpower: 1_000_000, materiel: 500 });
+  assert.ok(pressure > 0 && pressure <= FORCE_POOLS.STABILITY_UPKEEP_SHORTFALL);
+  assert.equal(shortfallPressureFor(null, { manpower: 1, materiel: 1 }), 0);
+});
+
+test("mobilization folds into the multiplier vector without touching inflation", () => {
+  const base = { population: 1, gdp: 1, inflation: 3, unemployment: 5, stability: 10 };
+  const war = applyMobilization(base, "total", { shortfallPressure: 2 });
+  assert.ok(war.gdp < 1, "the call-up drags output");
+  assert.equal(war.inflation, 3);
+  assert.ok(war.stability < 10, "it costs stability");
+  assert.deepEqual(applyMobilization(base, "peacetime"), base);
+});

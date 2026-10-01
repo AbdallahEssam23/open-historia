@@ -144,3 +144,78 @@ export const normalizeUpkeepShortfall = (value) => {
 export const postureFor = (map, polityName) => map?.[name(polityName)] ?? DEFAULT_POSTURE;
 
 export const clampPercent = (value) => clamp(value, 0, 100);
+
+// A polity's reserves before the first step: drawn from the population and
+// output already committed, so a pre-increment save opens with full reserves
+// rather than an empty ledger.
+export const initialPoolsFor = (polity) => {
+  const population = Math.max(0, Number(polity?.population) || 0);
+  const gdp = Math.max(0, Number(polity?.gdp) || 0);
+  return {
+    manpower: Math.max(0, Math.round(population * FORCE_POOLS.INITIAL_MANPOWER_SHARE)),
+    materiel: Math.max(0, roundTo(gdp * FORCE_POOLS.INITIAL_MATERIEL_SHARE, 2)),
+  };
+};
+
+// One month: production first, then upkeep, with the ABSOLUTE zero floor. A pool
+// is never negative under any input; the unmet remainder is recorded as a
+// shortfall and becomes stability pressure next month, never a unit change.
+export const stepPolityPools = (polity, { pools = null, posture: postureName = DEFAULT_POSTURE, upkeep: cost = null } = {}) => {
+  const effects = MOBILIZATION_EFFECTS[postureName] ?? MOBILIZATION_EFFECTS[DEFAULT_POSTURE];
+  const base = pools ?? initialPoolsFor(polity);
+  const population = Math.max(0, Number(polity?.population) || 0);
+  const gdp = Math.max(0, Number(polity?.gdp) || 0);
+  const industryShare = clamp(Number(polity?.gdpBreakdown?.industry) || 0, 0, 100) / 100;
+
+  let manpower = Math.max(0, Number(base.manpower) || 0)
+    + population * FORCE_POOLS.MANPOWER_PER_CAPITA_MONTHLY * effects.extraction;
+  manpower = Math.min(manpower, population * FORCE_POOLS.MANPOWER_CAP_SHARE);
+
+  let materiel = Math.max(0, Number(base.materiel) || 0)
+    + gdp * industryShare * FORCE_POOLS.MATERIEL_PER_OUTPUT_MONTHLY * effects.allocation;
+  materiel = Math.min(materiel, gdp * FORCE_POOLS.MATERIEL_CAP_SHARE);
+
+  const needManpower = Math.max(0, Number(cost?.manpower) || 0);
+  const needMateriel = Math.max(0, Number(cost?.materiel) || 0);
+  const availableManpower = manpower;
+  const availableMateriel = materiel;
+  manpower = Math.max(0, availableManpower - needManpower);
+  materiel = Math.max(0, availableMateriel - needMateriel);
+
+  return {
+    pools: {
+      manpower: Math.max(0, Math.round(manpower)),
+      materiel: Math.max(0, roundTo(materiel, 2)),
+    },
+    shortfall: {
+      manpower: Math.max(0, needManpower - availableManpower),
+      materiel: Math.max(0, needMateriel - availableMateriel),
+    },
+  };
+};
+
+// The stability cost of an unmet upkeep. Measured against the upkeep that was
+// owed, so a small army whose full cost is unmet is not confused with a huge one.
+export const shortfallPressureFor = (shortfall, upkeep) => {
+  if (!shortfall) return 0;
+  const needManpower = Math.max(0, Number(upkeep?.manpower) || 0);
+  const needMateriel = Math.max(0, Number(upkeep?.materiel) || 0);
+  const ratioManpower = needManpower > 0 ? clamp((Number(shortfall.manpower) || 0) / needManpower, 0, 1) : 0;
+  const ratioMateriel = needMateriel > 0 ? clamp((Number(shortfall.materiel) || 0) / needMateriel, 0, 1) : 0;
+  return FORCE_POOLS.STABILITY_UPKEEP_SHORTFALL * clamp(ratioManpower + ratioMateriel, 0, 1);
+};
+
+// Fold a posture into the month's multiplier vector, in place of a second pass
+// through stepPolityMonth. growthDrag scales output; stabilityDrag and any
+// carried shortfall subtract index points. stepPolityMonth is not touched.
+export const applyMobilization = (multipliers, postureName = DEFAULT_POSTURE, { shortfallPressure = 0 } = {}) => {
+  const effects = MOBILIZATION_EFFECTS[postureName] ?? MOBILIZATION_EFFECTS[DEFAULT_POSTURE];
+  const base = multipliers ?? { population: 1, gdp: 1, inflation: 0, unemployment: 0, stability: 0 };
+  return {
+    population: base.population,
+    gdp: base.gdp * (1 - effects.growthDrag),
+    inflation: base.inflation,
+    unemployment: base.unemployment,
+    stability: base.stability - effects.stabilityDrag - (Number(shortfallPressure) || 0),
+  };
+};
