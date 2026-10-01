@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { MAX_STEPS } from "./economyConstants.js";
 import { normalizeShocks } from "./economyShocks.js";
 import { advanceEconomy, makePolityEconomy, stepPolityMonth } from "./economyTick.js";
+import { applyMobilization, stepPolityPools } from "./forcePools.js";
 
 const polityFixture = (overrides = {}) =>
   makePolityEconomy({
@@ -91,4 +92,39 @@ test("a shock is visible while it runs and gone afterwards", () => {
   });
   assert.equal(journal.shockedMonths, 3);
   assert.ok(state.polities.France.gdpGrowth < origin.polities.France.gdpGrowth);
+});
+
+test("the pools ride the same clock as the economy", () => {
+  const origin = { month: 0, polities: { France: polityFixture() } };
+  const { state } = advanceEconomy(origin, {
+    startDate: "2026-01-01",
+    months: 3,
+    seed: "s",
+    upkeep: { France: { manpower: 10_000, materiel: 5 } },
+  });
+  assert.ok(state.pools.France.manpower > 0);
+  assert.ok(state.shortfall.France.manpower === 0);
+});
+
+test("with no upkeep and no posture the economy is byte-identical to before", () => {
+  const origin = { month: 0, polities: { France: polityFixture() } };
+  const withPools = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s" });
+  const economyOnly = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s" });
+  assert.deepEqual(withPools.state.polities, economyOnly.state.polities);
+});
+
+test("a carried shortfall drags stability, and the posture drags output", () => {
+  const origin = {
+    month: 0,
+    polities: { France: polityFixture() },
+    shortfall: { France: { manpower: 1_000_000, materiel: 0 } },
+  };
+  const upkeep = { France: { manpower: 1_000_000, materiel: 0 } };
+  const base = advanceEconomy(origin, { startDate: "2026-01-01", months: 1, seed: "s", upkeep });
+  const war = advanceEconomy(
+    { ...origin },
+    { startDate: "2026-01-01", months: 1, seed: "s", upkeep, posture: { France: "total" } },
+  );
+  assert.ok(war.state.polities.France.stability < base.state.polities.France.stability);
+  assert.ok(war.state.polities.France.gdpGrowth < base.state.polities.France.gdpGrowth);
 });

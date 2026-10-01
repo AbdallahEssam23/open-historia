@@ -7,6 +7,7 @@
 
 import { addGameMonths, gameDateYear } from "../runtime/gameDates.js";
 import { ECONOMY_STEP, MAX_STEPS, eraBandFor } from "./economyConstants.js";
+import { DEFAULT_POSTURE, applyMobilization, shortfallPressureFor, stepPolityPools } from "./forcePools.js";
 import { clamp, roundTo, stableOrder } from "./economyMath.js";
 import { activeMultipliers, shockAppliesTo } from "./economyShocks.js";
 
@@ -181,12 +182,17 @@ export const stepPolityMonth = (polity, { year, multipliers }) => {
   };
 };
 
-export const advanceEconomy = (state, { startDate, months, shocks = [], seed = "" } = {}) => {
+export const advanceEconomy = (
+  state,
+  { startDate, months, shocks = [], seed = "", upkeep = {}, posture = {} } = {},
+) => {
   const requested = Math.trunc(Number(months)) || 0;
   const steps = Math.max(0, Math.min(MAX_STEPS, requested));
   const capped = requested > steps;
   const origin = state?.month ?? 0;
   let polities = { ...(state?.polities ?? {}) };
+  let pools = { ...(state?.pools ?? {}) };
+  let shortfall = { ...(state?.shortfall ?? {}) };
   let shockedMonths = 0;
 
   // Shock spans are relative to the moment they were declared, so they are
@@ -206,18 +212,34 @@ export const advanceEconomy = (state, { startDate, months, shocks = [], seed = "
     if (running.some((shock) => month >= shock.startMonth && month < shock.endMonth)) shockedMonths += 1;
 
     const next = {};
+    const nextPools = {};
+    const nextShortfall = {};
     for (const name of stableOrder(Object.keys(polities))) {
       const own = running.filter((shock) => shockAppliesTo(shock, name));
-      next[name] = stepPolityMonth(polities[name], {
-        year,
-        multipliers: activeMultipliers(own, month),
+      const postureName = posture?.[name] ?? DEFAULT_POSTURE;
+      // The shortfall from LAST month is what drags stability now, so this
+      // month's multipliers are a function of committed state, not of the pool
+      // step that has not run yet.
+      const multipliers = applyMobilization(activeMultipliers(own, month), postureName, {
+        shortfallPressure: shortfallPressureFor(shortfall?.[name], upkeep?.[name]),
       });
+      const steppedPolity = stepPolityMonth(polities[name], { year, multipliers });
+      const steppedPools = stepPolityPools(steppedPolity, {
+        pools: pools?.[name] ?? null,
+        posture: postureName,
+        upkeep: upkeep?.[name] ?? null,
+      });
+      next[name] = steppedPolity;
+      nextPools[name] = steppedPools.pools;
+      nextShortfall[name] = steppedPools.shortfall;
     }
     polities = next;
+    pools = nextPools;
+    shortfall = nextShortfall;
   }
 
   return {
-    state: { month: origin + steps, polities },
+    state: { month: origin + steps, polities, pools, shortfall },
     journal: { steps, capped, shockedMonths, seed },
   };
 };
