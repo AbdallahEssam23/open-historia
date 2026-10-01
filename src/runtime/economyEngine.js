@@ -25,6 +25,7 @@ import { applyCountryStatPatchToWorld, normalizeProjects } from "./gameState.js"
 import { researchCostFor, researchPointsFor } from "../engine/research.js";
 import { addGameMonths } from "./gameDates.js";
 import { hashSeed } from "./unitMotion.js";
+import { toCountryName } from "./ownerNames.js";
 
 const ENGINE_VERSION = 1;
 const OWNED_ECONOMY_FIELDS = [
@@ -230,6 +231,11 @@ export const buildResearchInput = (world, { playerPolity = "" } = {}) => {
   const input = {};
   const stats = world?.countryStats ?? {};
   const projects = normalizeProjects(world?.projects);
+  // The caller's player token can still be a bare GADM code (the country picker
+  // writes the option's code) while the stat sheet and a project's ownerCode are
+  // keyed by the full name, so canonicalise before the blank-owner comparison or
+  // every one of the player's own programmes is silently dropped from the advance.
+  const player = toCountryName(playerPolity);
   for (const [polity, sheet] of Object.entries(stats)) {
     const facilities = (Array.isArray(world?.markers) ? world.markers : []).filter(
       (marker) => String(marker?.ownerCode ?? "").trim() === polity
@@ -238,7 +244,7 @@ export const buildResearchInput = (world, { playerPolity = "" } = {}) => {
     const population = Number(sheet?.population?.total) || 0;
     const programmes = projects
       .filter((project) => project.kind === "research"
-        && (project.ownerCode === polity || (project.ownerCode === "" && polity === playerPolity)))
+        && (project.ownerCode === polity || (project.ownerCode === "" && polity === player)))
       .map((project) => ({
         id: project.id,
         domain: project.domain,

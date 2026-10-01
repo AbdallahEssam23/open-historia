@@ -44,6 +44,20 @@ test("a blank owner means the player and is attributed to the player polity", ()
   assert.deepEqual(input.France.programmes.map((p) => p.id), ["rx"]);
 });
 
+test("a bare country code as the player token still finds the player's programmes", () => {
+  // game.country can still be "FRA" while the stat sheet and ownerCode are keyed
+  // "France"; without canonicalisation the player's own programme is dropped.
+  const world = {
+    countryStats: { France: { population: { total: 0 } } },
+    markers: [],
+    projects: [
+      { id: "rx", name: "Programme", kind: "research", ownerCode: "", domain: "medical", scale: "small", status: "active" },
+    ],
+  };
+  const input = buildResearchInput(world, { playerPolity: "FRA" });
+  assert.deepEqual(input.France.programmes.map((p) => p.id), ["rx"]);
+});
+
 test("a completion emits both the 100 percent update and the close op", () => {
   // A small but valid sheet: sheetToPolity needs population > 0 and a positive
   // gdpPerCapita. 100m people give 2 capacity points plus the base of 1, so a

@@ -7263,7 +7263,10 @@ const applySimulationResult = async ({
       declaredMobilization: normalizeArray(result.mobilization),
       declaredProduction: normalizeArray(result.productionOrders),
       upkeep: buildUpkeepTable(baseWorld),
-      playerPolity: nextGame.country || "",
+      // Canonicalised for the same reason as the digest dry run: the engine keys
+      // its result by the countryStats name, and a blank-owner programme is the
+      // player's only when the two spell the player the same way.
+      playerPolity: toCountryName(nextGame.country || ""),
       tracked: Object.keys(nextWorld.countryStats ?? {}),
       campaignId,
       scenarioId: nextGame.scenarioId || "",
@@ -12815,10 +12818,14 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
   // to the model's real stopDate. A failure never stops the turn; it only means
   // the model narrates without the engine's numbers that one time.
   try {
+    // game.country can still be a bare GADM code; the engine keys its result by
+    // the countryStats name, so one canonicalisation here makes the input (a
+    // blank owner is the player) AND every lookup below agree with the world.
+    const playerPolity = toCountryName(normalizeString(bundle.game.country));
     const projected = advanceWorldEconomy(bundle.world, {
       fromDate: originDate,
       toDate: targetDate,
-      playerPolity: normalizeString(bundle.game.country),
+      playerPolity,
       tracked: Object.keys(bundle.world?.countryStats ?? {}),
       upkeep: buildUpkeepTable(bundle.world),
       campaignId: activeCampaignId(),
@@ -12826,7 +12833,7 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
     });
     variables.economyDigest = buildEconomyDigest({
       deltas: projected.deltas,
-      playerPolity: normalizeString(bundle.game.country),
+      playerPolity,
       tracked: Object.keys(bundle.world?.countryStats ?? {}),
       shocks: projected.shocksRunning,
     });
@@ -12836,7 +12843,6 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
     // this period, which is the period it actually takes effect. A 0-month jump
     // leaves the whole line out.
     if (projected.months > 0) {
-      const playerPolity = normalizeString(bundle.game.country);
       const committedPosture = bundle.world?.economyEngine?.mobilization?.[playerPolity] || DEFAULT_POSTURE;
       const postureNow = projected.posture?.[playerPolity] || DEFAULT_POSTURE;
       variables.forcePoolsDigest = buildEconomyDigest({
