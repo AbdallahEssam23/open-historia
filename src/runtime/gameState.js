@@ -4622,6 +4622,7 @@ const applyPolityAndTerritoryImpacts = ({
 // keeps the earlier result the caller may already be holding untouched.
 export const applyEventImpactsToWorld = ({
   colors = {}, events = [], world, motion = null, normalized = false, round = 0, boardOnlyEventIds = [],
+  engineSourced = false,
 }) => {
   const boardOnly = new Set(normalizeArray(boardOnlyEventIds).map(normalizeOptionalString).filter(Boolean));
   let nextColors = normalized ? { ...(colors ?? {}) } : cloneValue(colors) ?? {};
@@ -4674,7 +4675,7 @@ export const applyEventImpactsToWorld = ({
     // Folded into local copies only. The event in events.json is never rewritten,
     // so a later replay derives the same effects from the same snapshot rather
     // than finding them baked in and applying them a second time.
-    const released = releaseProjectCompletionEffects(nextWorld.projects, event.impacts.projectOps);
+    const released = releaseProjectCompletionEffects(nextWorld.projects, event.impacts.projectOps, { engineSourced });
 
     // Resolve this event's polity changes first — both to fold the renames they
     // make into the alias map before any owner is read through it, and so a
@@ -4800,7 +4801,7 @@ export const applyEventImpactsToWorld = ({
       nextWorld.projects = applyProjectOps(
         nextWorld.projects,
         event.impacts.projectOps.map((op) => resolveProjectOpOwner(op, resolveOwner)),
-        { date: event.date, eventId: boardOnly.has(event.id) ? "" : event.id, round },
+        { date: event.date, eventId: boardOnly.has(event.id) ? "" : event.id, round, engineSourced },
       );
     }
   }

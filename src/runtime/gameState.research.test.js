@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { applyProjectOps, normalizeProjects, releaseProjectCompletionEffects } from "../runtime/gameState.js";
+import {
+  applyEventImpactsToWorld,
+  applyProjectOps,
+  normalizeProjects,
+  releaseProjectCompletionEffects,
+} from "../runtime/gameState.js";
 
 test("a research project keeps its closed domain and scale and its points", () => {
   const [entry] = normalizeProjects([
@@ -273,4 +278,30 @@ test("a later op cannot change which effects a completion released", () => {
     { op: "update", projectId: "p1", patch: { onComplete: { polityChanges: [{ code: "France", reputation: 99 }] } } },
   ], {});
   assert.deepEqual(replaced.polityChanges.map((change) => change.reputation), [10]);
+});
+
+test("applyEventImpactsToWorld completes research only when engine-sourced", () => {
+  const world = () => ({
+    countryStats: {},
+    projects: [{
+      id: "rx", name: "Reactor", kind: "research", ownerCode: "France",
+      domain: "nuclear", scale: "large", status: "active", progress: 0, researchPoints: 0,
+      onComplete: { polityChanges: [{ code: "France", reputation: 60 }] },
+    }],
+  });
+  const events = [{
+    id: "e", title: "Research completed", description: "",
+    impacts: { projectOps: [{ op: "close", projectId: "rx", status: "complete" }] },
+  }];
+  // The MODEL path refuses it and releases nothing.
+  const model = applyEventImpactsToWorld({
+    colors: {}, world: world(), events,
+  });
+  assert.equal(model.world.projects[0].status, "active");
+  // The ENGINE path completes it and releases the effect.
+  const engine = applyEventImpactsToWorld({
+    colors: {}, world: world(), events, engineSourced: true,
+  });
+  assert.equal(engine.world.projects[0].status, "complete");
+  assert.equal(engine.world.projects[0].onCompleteAppliedAt !== "", true);
 });

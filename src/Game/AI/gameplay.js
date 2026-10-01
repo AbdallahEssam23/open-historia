@@ -7278,6 +7278,31 @@ const applySimulationResult = async ({
         renamedPolities.push(rename);
       }
     }
+
+    // Research progress and completion are the ENGINE's writes: they go through the
+    // event path as a synthetic event with the engine flag, exactly as the
+    // production completions above do. The flag is what let applyProjectOps tell an
+    // engine completion from a narrated one; without it the guard refuses this
+    // close and the programme would sit at 100 percent forever.
+    const researchOps = normalizeArray(economy.researchOps);
+    if (researchOps.length) {
+      const researchEvent = {
+        date: nextGame.gameDate || "",
+        title: "Research completed",
+        description: "",
+        impacts: { projectOps: researchOps },
+      };
+      const applied = applyEventImpactsToWorld({
+        colors: {},
+        events: [researchEvent],
+        world: nextWorld,
+        engineSourced: true,
+      });
+      nextWorld = applied.world;
+      for (const rename of normalizeArray(applied.renamedPolities)) {
+        renamedPolities.push(rename);
+      }
+    }
   } catch (error) {
     console.warn("[engine] the economy step failed; the completed turn is preserved.", error);
   }
