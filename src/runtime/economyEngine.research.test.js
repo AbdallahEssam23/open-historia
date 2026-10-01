@@ -182,11 +182,25 @@ test("a completion folds its modifier once, applied from the next span", () => {
     { Egypt: { production: 0, pools: 1, economy: 0 } },
   );
 
-  const second = advanceWorldEconomy(first.world, {
-    fromDate: "2026-02-01",
-    toDate: "2026-03-01",
+  // The applier stamps the completed programme before the next increment (a
+  // caller step this unit test has to make explicit), so the second span reads
+  // it as finished rather than re-pricing and closing it again.
+  const closed = new Set(first.researchOps.filter((op) => op.op === "close").map((op) => op.projectId));
+  const settled = {
+    ...first.world,
+    projects: first.world.projects.map((project) => (
+      closed.has(project.id) ? { ...project, status: "complete" } : project
+    )),
+  };
+  const second = advanceWorldEconomy(settled, {
+    fromDate: "2026-03-01",
+    toDate: "2026-04-01",
     playerPolity: "Egypt",
   });
+  // A full 31-day span: monthsBetweenDates floors days/30, so a 28-day February
+  // span is 0 months and would take the early return instead of the real advance.
+  assert.equal(second.months, 1, "the second span really advances");
+  assert.ok(!second.researchOps.some((op) => op.op === "close"), "the completed programme does not complete twice");
   assert.equal(second.researchEffects.Egypt.pools, 1, "the effect is applied from the next span");
   assert.deepEqual(
     second.world.economyEngine.researchEffects,
