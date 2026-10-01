@@ -2116,6 +2116,33 @@ const StatsPaneBody = ({ active }) => {
                 )}
                 </div>
 
+                {/* Forces - engine-written reserves. Read-only: the posture is declared through the narration. */}
+                {sheet.forces && (
+                    <>
+                    <div style={sectionTitleStyle}>Forces</div>
+                    <div style={{ display: "grid", gap: "0.55rem", gridTemplateColumns: "1fr 1fr" }}>
+                    <EconomyCard
+                    label="Manpower"
+                    value={formatPopulation(sheet.forces.manpower)}
+                    sub="Reserve pool"
+                    tone="#94a3b8"
+                    />
+                    <EconomyCard
+                    label="Materiel"
+                    value={Number(sheet.forces.materiel || 0).toFixed(2)}
+                    sub="Reserve pool"
+                    tone="#94a3b8"
+                    />
+                    <EconomyCard
+                    label="Mobilization"
+                    value={String(sheet.forces.mobilization || "peacetime")}
+                    sub="Declared through the turn"
+                    tone="#22c55e"
+                    />
+                    </div>
+                    </>
+                )}
+
                 {/* Economy */}
                 <div style={sectionTitleStyle}>📈 Economy</div>
                 <div style={{ display: "grid", gap: "0.55rem", gridTemplateColumns: "1fr 1fr" }}>
