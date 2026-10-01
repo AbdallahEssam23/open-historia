@@ -12607,6 +12607,10 @@ const finishTimelineJump = async ({ context, signal, state }) => {
     clearActions: merged.clearActions,
     events: territoryEvents,
     economicShocks: merged.economicShocks,
+    // Same path as the shocks: the merged, folded posture list must reach
+    // applySimulationResult, or the model's declaration is silently dropped and
+    // the posture can never change.
+    mobilization: merged.mobilization,
     mode,
     outreach: merged.diplomaticOutreach,
     stopDate: merged.stopDate,

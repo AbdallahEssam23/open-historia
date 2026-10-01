@@ -42,3 +42,14 @@ test("the upkeep table is built from the opening world, not the post-impact worl
   const body = bodyOf("const applySimulationResult = async ({");
   assert.match(body, /buildUpkeepTable\(baseWorld\)/);
 });
+
+// The merged segment payload carries the folded mobilization list, but the turn
+// result is assembled field by field. Forgetting to copy it here left the list
+// empty at the one place that consumes it, so the posture could never change
+// even though every producer and consumer test stayed green.
+test("the turn result carries the merged mobilization to the advance", () => {
+  const finish = bodyOf("const finishTimelineJump = async ({");
+  assert.match(finish, /mobilization: merged\.mobilization/);
+  const apply = bodyOf("const applySimulationResult = async ({");
+  assert.match(apply, /declaredMobilization: normalizeArray\(result\.mobilization\)/);
+});
