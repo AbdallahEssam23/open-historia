@@ -1559,7 +1559,7 @@ git commit -m "feat(runtime): tell the model the player's reserves and posture" 
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
-- Produces: `mergeSegmentPayloads(payloads, ...)` returns `mobilization`, folded to one entry per polity, the last segment winning.
+- Produces: `mergeSegmentPayloads(payloads, ...)` returns `mobilization`, folded to one entry per polity, the last VALID segment winning; an entry with a missing, empty or unknown posture is skipped so it cannot erase an earlier valid declaration.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1591,6 +1591,17 @@ Expected: FAIL, `merged.mobilization` is undefined.
 
 - [ ] **Step 3: Add the merge**
 
+At the top of `src/Game/AI/jumpSegments.js`, add the posture list import beside the existing `worldDirection.js` import, and build the valid set once:
+
+```js
+import { MOBILIZATION_POSTURES } from "../../engine/forcePools.js";
+import { scaleEventRange } from "./worldDirection.js";
+
+const normalizeString = (value) => String(value ?? "").trim();
+const asArray = (value) => (Array.isArray(value) ? value : []);
+const MOBILIZATION_POSTURE_SET = new Set(MOBILIZATION_POSTURES);
+```
+
 In `src/Game/AI/jumpSegments.js`, beside `const economicShocks = [];` at line 253, add:
 
 ```js
@@ -1610,13 +1621,18 @@ Before the `return {` in `mergeSegmentPayloads`, add:
 
 ```js
   // Fold to one entry per polity. Map keeps the first insertion position and the
-  // last value, so a later segment overrides without reshuffling the order.
+  // last value, so a later segment overrides without reshuffling the order. A
+  // malformed posture (missing, empty, unknown) is skipped rather than set: it
+  // must not overwrite a valid earlier declaration, or the polity would silently
+  // lose its mobilization when normalizeMobilization drops the bad entry.
   const mobilizationByPolity = new Map();
   for (const entry of mobilization) {
     if (!entry || typeof entry !== "object") continue;
     const polity = normalizeString(entry.polity ?? entry.country);
     if (!polity) continue;
-    mobilizationByPolity.set(polity.toLowerCase(), { polity, posture: normalizeString(entry.posture).toLowerCase() });
+    const posture = normalizeString(entry.posture).toLowerCase();
+    if (!MOBILIZATION_POSTURE_SET.has(posture)) continue;
+    mobilizationByPolity.set(polity.toLowerCase(), { polity, posture });
   }
 ```
 

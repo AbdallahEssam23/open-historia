@@ -276,3 +276,28 @@ test("a segment with no mobilization contributes none", () => {
   const merged = mergeSegmentPayloads([{ events: [] }, { events: [], mobilization: [{ polity: "France", posture: "total" }] }]);
   assert.deepEqual(merged.mobilization, [{ polity: "France", posture: "total" }]);
 });
+
+// A malformed later entry must not erase a valid earlier posture: the engine's
+// normalizeMobilization drops the bad entry, so keeping it would lose the
+// polity's mobilization for the turn where plain concatenation kept the valid one.
+test("a malformed later entry cannot erase a valid posture", () => {
+  const merged = mergeSegmentPayloads([
+    { events: [], mobilization: [{ polity: "France", posture: "total" }] },
+    { events: [], mobilization: [{ polity: "France" }] },
+    { events: [], mobilization: [{ polity: "France", posture: "" }] },
+  ]);
+  assert.deepEqual(merged.mobilization, [{ polity: "France", posture: "total" }]);
+});
+
+test("the same polity in different casing folds to one entry", () => {
+  const merged = mergeSegmentPayloads([
+    { events: [], mobilization: [{ polity: "France", posture: "partial" }] },
+    { events: [], mobilization: [{ polity: "france", posture: "total" }] },
+  ]);
+  assert.deepEqual(merged.mobilization, [{ polity: "france", posture: "total" }]);
+});
+
+test("an uppercase valid posture is lowercased", () => {
+  const merged = mergeSegmentPayloads([{ events: [], mobilization: [{ polity: "France", posture: "TOTAL" }] }]);
+  assert.deepEqual(merged.mobilization, [{ polity: "France", posture: "total" }]);
+});

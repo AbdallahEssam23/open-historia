@@ -23,10 +23,12 @@
 // jsonSalvage.js, providerErrors.js and geminiSchema.js — the arithmetic and the
 // merge rules are exactly what wants direct tests.
 
+import { MOBILIZATION_POSTURES } from "../../engine/forcePools.js";
 import { scaleEventRange } from "./worldDirection.js";
 
 const normalizeString = (value) => String(value ?? "").trim();
 const asArray = (value) => (Array.isArray(value) ? value : []);
+const MOBILIZATION_POSTURE_SET = new Set(MOBILIZATION_POSTURES);
 
 // Below this, one request is comfortably fast enough and splitting would only add
 // round trips and re-send the prompt for nothing.
@@ -276,13 +278,18 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
   }
 
   // Fold to one entry per polity. Map keeps the first insertion position and the
-  // last value, so a later segment overrides without reshuffling the order.
+  // last value, so a later segment overrides without reshuffling the order. A
+  // malformed posture (missing, empty, unknown) is skipped rather than set: it
+  // must not overwrite a valid earlier declaration, or the polity would silently
+  // lose its mobilization when normalizeMobilization drops the bad entry.
   const mobilizationByPolity = new Map();
   for (const entry of mobilization) {
     if (!entry || typeof entry !== "object") continue;
     const polity = normalizeString(entry.polity ?? entry.country);
     if (!polity) continue;
-    mobilizationByPolity.set(polity.toLowerCase(), { polity, posture: normalizeString(entry.posture).toLowerCase() });
+    const posture = normalizeString(entry.posture).toLowerCase();
+    if (!MOBILIZATION_POSTURE_SET.has(posture)) continue;
+    mobilizationByPolity.set(polity.toLowerCase(), { polity, posture });
   }
 
   return {
