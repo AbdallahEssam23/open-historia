@@ -127,3 +127,57 @@ test("a shock that expires within the period is not carried forward", () => {
   assert.equal(result.shocksRunning.length, 0);
   assert.equal(result.world.economyEngine.pendingShocks ?? null, null);
 });
+
+import { buildUpkeepTable, advanceWorldEconomy as advance } from "./economyEngine.js";
+
+const roster = () => ({
+  countryStats: { Egypt: sheet() },
+  units: [
+    { ownerCode: "Egypt", type: "infantry", strength: 100, lng: 1, lat: 1 },
+    { ownerCode: "Egypt", type: "armor", strength: 100, lng: 1, lat: 1 },
+  ],
+});
+
+test("the upkeep table groups by owner and is order-independent", () => {
+  const a = buildUpkeepTable(roster());
+  const b = buildUpkeepTable({ ...roster(), units: [...roster().units].reverse() });
+  assert.deepEqual(a, b);
+  assert.ok(a.Egypt.materiel > 0);
+  assert.ok(a.Egypt.manpower > 0);
+});
+
+test("the advance writes pools, a forces mirror and the committed posture", () => {
+  const world = { ...roster(), economyEngine: { version: 1, seed: "s", lastDate: "2026-01-01", lastMonth: 0 } };
+  const result = advance(world, {
+    fromDate: "2026-01-01",
+    toDate: "2026-04-01",
+    declaredMobilization: [{ polity: "Egypt", posture: "total" }],
+  });
+  assert.ok(result.world.economyEngine.pools.Egypt.manpower > 0);
+  assert.equal(result.world.economyEngine.mobilization, undefined);
+  assert.deepEqual(result.world.economyEngine.pendingMobilization, [{ polity: "Egypt", posture: "total" }]);
+  assert.equal(result.world.countryStats.Egypt.forces.mobilization, "peacetime");
+});
+
+test("the declared posture runs in the NEXT advance, not this one", () => {
+  const world = { ...roster(), economyEngine: { version: 1, seed: "s", lastDate: "2026-01-01", lastMonth: 0 } };
+  const first = advance(world, {
+    fromDate: "2026-01-01",
+    toDate: "2026-04-01",
+    declaredMobilization: [{ polity: "Egypt", posture: "total" }],
+  });
+  const second = advance(first.world, { fromDate: "2026-04-01", toDate: "2026-07-01" });
+  assert.equal(second.world.countryStats.Egypt.forces.mobilization, "total");
+  assert.equal(second.world.economyEngine.mobilization.Egypt, "total");
+  assert.equal(second.world.economyEngine.pendingMobilization, undefined);
+});
+
+test("an unknown polity declared for mobilization is rejected, not thrown", () => {
+  const world = { ...roster(), economyEngine: { version: 1, seed: "s", lastDate: "2026-01-01", lastMonth: 0 } };
+  const result = advance(world, {
+    fromDate: "2026-01-01",
+    toDate: "2026-04-01",
+    declaredMobilization: [{ polity: "Atlantis", posture: "total" }],
+  });
+  assert.equal(result.world.economyEngine.pendingMobilization, undefined);
+});

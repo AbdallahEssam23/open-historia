@@ -5,8 +5,16 @@
 // else in the game needs to know the engine exists.
 
 import { advanceEconomy, makePolityEconomy } from "../engine/economyTick.js";
-import { jitterFor, monthsBetweenDates, roundTo } from "../engine/economyMath.js";
+import { jitterFor, monthsBetweenDates, roundTo, stableOrder } from "../engine/economyMath.js";
 import { MAX_SHOCKS, normalizeShocks } from "../engine/economyShocks.js";
+import {
+  DEFAULT_POSTURE,
+  UNIT_UPKEEP,
+  normalizeMobilization,
+  normalizeMobilizationMap,
+  normalizePools,
+  normalizeUpkeepShortfall,
+} from "../engine/forcePools.js";
 import { applyCountryStatPatchToWorld } from "./gameState.js";
 import { hashSeed } from "./unitMotion.js";
 
@@ -64,7 +72,12 @@ export const extractEconomyState = (world, { seed = "" } = {}) => {
     if (polity) polities[name] = polity;
   }
   const fromDate = String(world?.economyEngine?.lastDate ?? "");
-  return { month: monthsBetweenDates("2000-01-01", fromDate), polities };
+  return {
+    month: monthsBetweenDates("2000-01-01", fromDate),
+    polities,
+    pools: normalizePools(world?.economyEngine?.pools),
+    shortfall: normalizeUpkeepShortfall(world?.economyEngine?.upkeepShortfall),
+  };
 };
 
 // The engine's patch. Only the fields the engine owns are written, so an index
@@ -95,6 +108,24 @@ const polityToPatch = (polity) => ({
     : {}),
 });
 
+// What the roster costs every month, grouped by owner. Read only: a unit is
+// never edited, moved or disbanded here. Summed in a stable key order so the
+// arithmetic cannot depend on roster order.
+export const buildUpkeepTable = (world) => {
+  const table = {};
+  for (const unit of Array.isArray(world?.units) ? world.units : []) {
+    const owner = String(unit?.ownerCode ?? "").trim();
+    if (!owner) continue;
+    const cost = UNIT_UPKEEP[String(unit?.type ?? "").toLowerCase()];
+    if (!cost) continue;
+    const row = table[owner] ?? { manpower: 0, materiel: 0 };
+    row.manpower += cost.manpower;
+    row.materiel += cost.materiel;
+    table[owner] = row;
+  }
+  return table;
+};
+
 export const advanceWorldEconomy = (
   world,
   {
@@ -105,10 +136,14 @@ export const advanceWorldEconomy = (
     // exactly the race the one-period lag removes. It is stored and runs next
     // period, so the model reacts to the digest it was given instead.
     declaredShocks = [],
+    declaredMobilization = [],
     playerPolity = "",
     tracked = [],
     campaignId = "",
     scenarioId = "",
+    // The period's OPENING roster cost, built by the caller so the dry run and
+    // the authoritative advance charge the same army. Absent, it is built here.
+    upkeep = null,
   } = {},
 ) => {
   const seed = String(world?.economyEngine?.seed ?? economySeedFor(campaignId, scenarioId));
@@ -116,17 +151,40 @@ export const advanceWorldEconomy = (
   const months = monthsBetweenDates(fromDate, toDate);
   const knownPolities = Object.keys(committed.polities);
   if (months <= 0 || knownPolities.length === 0) {
-    return { world, deltas: [], months: 0, journal: { steps: 0, capped: false, shockedMonths: 0, seed }, seed };
+    return {
+      world,
+      deltas: [],
+      months: 0,
+      journal: { steps: 0, capped: false, shockedMonths: 0, seed },
+      seed,
+      shocksRunning: [],
+      pools: committed.pools,
+      posture: {},
+      shortfall: committed.shortfall,
+      declaredMobilization: [],
+    };
   }
 
-  // The shocks the PREVIOUS turn declared. This advance is where they run, which
-  // is what makes the lag real rather than nominal.
   const { valid: applied, rejected } = normalizeShocks(world?.economyEngine?.pendingShocks, { knownPolities });
-  // What this turn's answer wants to run next period, validated against the
-  // world so a shock naming a polity that does not exist cannot be applied later.
   const { valid: declared, rejected: declaredRejected } = normalizeShocks(declaredShocks, { knownPolities });
 
-  const { state, journal } = advanceEconomy(committed, { startDate: fromDate, months, shocks: applied, seed });
+  // The posture in force this period: committed, overridden by last turn's
+  // pending declaration. This turn's declaration is stored for next period.
+  const posture = { ...normalizeMobilizationMap(world?.economyEngine?.mobilization) };
+  const { valid: pendingNow } = normalizeMobilization(world?.economyEngine?.pendingMobilization, { knownPolities });
+  for (const entry of pendingNow) posture[entry.polity] = entry.posture;
+  const { valid: declaredNow, rejected: declaredMobilizationRejected } =
+    normalizeMobilization(declaredMobilization, { knownPolities });
+
+  const upkeepTable = upkeep ?? buildUpkeepTable(world);
+  const { state, journal } = advanceEconomy(committed, {
+    startDate: fromDate,
+    months,
+    shocks: applied,
+    seed,
+    upkeep: upkeepTable,
+    posture,
+  });
 
   // A shock longer than the period keeps running. Its window is re-based back to
   // the declared shape so the next advance starts it from month zero again, in
@@ -150,6 +208,14 @@ export const advanceWorldEconomy = (
     })),
   ].slice(0, MAX_SHOCKS);
 
+  // Only non-default postures are stored, so an absent name reads as peacetime.
+  const committedMobilization = Object.fromEntries(
+    stableOrder(Object.keys(posture))
+      .filter((name) => posture[name] && posture[name] !== DEFAULT_POSTURE)
+      .map((name) => [name, posture[name]]),
+  );
+  const shortfall = normalizeUpkeepShortfall(state.shortfall);
+
   const nextWorld = {
     ...world,
     countryStats: { ...(world?.countryStats ?? {}) },
@@ -159,12 +225,23 @@ export const advanceWorldEconomy = (
       lastDate: toDate,
       lastMonth: state.month,
       ...(pendingShocks.length ? { pendingShocks } : {}),
+      ...(Object.keys(state.pools).length ? { pools: state.pools } : {}),
+      ...(Object.keys(committedMobilization).length ? { mobilization: committedMobilization } : {}),
+      ...(declaredNow.length ? { pendingMobilization: declaredNow } : {}),
+      ...(Object.keys(shortfall).length ? { upkeepShortfall: shortfall } : {}),
     },
   };
 
   const deltas = [];
   for (const [name, polity] of Object.entries(state.polities)) {
-    applyCountryStatPatchToWorld(nextWorld, name, polityToPatch(polity), {
+    applyCountryStatPatchToWorld(nextWorld, name, {
+      ...polityToPatch(polity),
+      forces: {
+        manpower: state.pools[name]?.manpower ?? 0,
+        materiel: state.pools[name]?.materiel ?? 0,
+        mobilization: posture[name] ?? DEFAULT_POSTURE,
+      },
+    }, {
       replaceComponents: true,
       engineSourced: true,
     });
@@ -182,7 +259,7 @@ export const advanceWorldEconomy = (
     });
   }
 
-  const rejectedAll = [...rejected, ...declaredRejected];
+  const rejectedAll = [...rejected, ...declaredRejected, ...declaredMobilizationRejected];
   if (rejectedAll.length) nextWorld.economyEngine.rejectedShocks = rejectedAll;
   // What the model should be told is still running: the leftover spans, in the
   // digest's shape (a shock this period's answer just declared is not running yet).
@@ -191,5 +268,16 @@ export const advanceWorldEconomy = (
     severity: shock.severity,
     monthsLeft: shock.durationMonths,
   }));
-  return { world: nextWorld, deltas, months, journal, seed, shocksRunning };
+  return {
+    world: nextWorld,
+    deltas,
+    months,
+    journal,
+    seed,
+    shocksRunning,
+    pools: state.pools,
+    posture,
+    shortfall,
+    declaredMobilization: declaredNow,
+  };
 };
