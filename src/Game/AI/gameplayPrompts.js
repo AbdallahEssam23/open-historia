@@ -526,6 +526,10 @@ export const buildProductionInstructions = ({ digest = "" } = {}) => {
     + "in the queue, narrate it and emit NO unitOps spawn or markerOps build for it. unitOps and markerOps "
     + "remain for moving, reinforcing, renaming and removing, and for anything the queue does not own. "
     + "Most periods have no order at all.",
+    "A research programme is a project with kind \"research\" and a domain and scale; "
+    + "the engine advances it by the country's research points and completes it, so "
+    + "do not state its progress and do not mark it complete. Narrate the queue the "
+    + "digest reports.",
   ].join("\n\n");
   const facts = String(digest ?? "").trim();
   return facts ? `${rules}\n\n[The Period's Production, as simulated]\n${facts}` : rules;

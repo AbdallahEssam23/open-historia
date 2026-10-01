@@ -7,6 +7,7 @@ import {
   MAX_UNIT_COUNT,
   PRODUCTION_UNIT_TYPES,
 } from "../../engine/productionQueue.js";
+import { RESEARCH_DOMAINS, RESEARCH_SCALES } from "../../engine/research.js";
 import {
   TERRITORY_BASIS_DESCRIPTION,
   TERRITORY_BASIS_DESCRIPTION_SHORT,
@@ -607,8 +608,10 @@ const projectSchema = {
     kind: {
       type: "string",
       description: "operation for a military, intelligence or covert undertaking; project for a programme, build or civil effort.",
-      enum: ["project", "operation"],
+      enum: ["project", "operation", "research"],
     },
+    domain: { type: "string", enum: [...RESEARCH_DOMAINS], description: "For kind research only: what field the programme is in. Omit otherwise." },
+    scale: { type: "string", enum: [...RESEARCH_SCALES], description: "For kind research only: how large the programme is. Omit otherwise." },
     ownerCode: textSchema(
       "Running polity's FULL country name (\"Spain\"), never a country code. Leave empty "
       + "for the player's own - and this field decides who controls the entry, so getting "
@@ -785,6 +788,8 @@ const projectOpSchema = {
     // above (a create names a new project, an update identifies an existing
     // one), and `id` is spelled projectId here.
     kind: projectSchema.properties.kind,
+    domain: projectSchema.properties.domain,
+    scale: projectSchema.properties.scale,
     ownerCode: projectSchema.properties.ownerCode,
     summary: textSchema("What this is and what it is meant to achieve. Required when opening one; on an update send it only if it changed."),
     status: projectSchema.properties.status,
