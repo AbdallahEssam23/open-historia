@@ -289,7 +289,7 @@ import {
 } from "./worldDirection.js";
 import { addGameDays, compareGameDates, diffGameDays, gameDateDayNumber, normalizeGameDate, parseGameDate } from "../../runtime/gameDates.js";
 import { authoredImpactTargets, stampResolvedImpacts, withAuthorImpacts, withoutAuthorImpacts } from "../../runtime/scriptedImpacts.js";
-import { advanceWorldEconomy } from "../../runtime/economyEngine.js";
+import { advanceWorldEconomy, buildUpkeepTable } from "../../runtime/economyEngine.js";
 import { buildEconomyDigest } from "../../runtime/economyDigest.js";
 import {
   NO_RESPONSE_BODY_NOTE,
@@ -7221,6 +7221,9 @@ const applySimulationResult = async ({
       // This turn's shocks run NEXT period, so the period the model just
       // narrated is not rewritten by the shock it declared for it.
       declaredShocks: normalizeArray(result.economicShocks),
+      // Declared mobilizations run NEXT period, exactly like the shocks.
+      declaredMobilization: normalizeArray(result.mobilization),
+      upkeep: buildUpkeepTable(baseWorld),
       playerPolity: nextGame.country || "",
       tracked: Object.keys(nextWorld.countryStats ?? {}),
       campaignId,
@@ -12709,6 +12712,7 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
       toDate: targetDate,
       playerPolity: normalizeString(bundle.game.country),
       tracked: Object.keys(bundle.world?.countryStats ?? {}),
+      upkeep: buildUpkeepTable(bundle.world),
       campaignId: activeCampaignId(),
       scenarioId: normalizeString(bundle.game.scenarioId),
     });
@@ -12717,6 +12721,13 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
       playerPolity: normalizeString(bundle.game.country),
       tracked: Object.keys(bundle.world?.countryStats ?? {}),
       shocks: projected.shocksRunning,
+    });
+    const playerPolity = normalizeString(bundle.game.country);
+    variables.forcePoolsDigest = buildEconomyDigest({
+      deltas: [],
+      playerPolity,
+      playerPools: projected.pools?.[playerPolity] ?? null,
+      playerPosture: projected.posture?.[playerPolity] ?? "peacetime",
     });
   } catch (error) {
     console.warn("[engine] the projected economy digest could not be built; the turn continues without it.", error);
