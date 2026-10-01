@@ -486,3 +486,23 @@ export const buildEconomyEngineInstructions = ({ digest = "" } = {}) => {
   const facts = String(digest ?? "").trim();
   return facts ? `${rules}\n\n[The Period's Economy, as simulated]\n${facts}` : rules;
 };
+
+// The force-pools block: the rule and the facts. Like the economy, the pools
+// are computed locally and are not the model's to invent; what it controls is
+// the mobilization posture, declared sparingly and taking effect next period.
+export const buildForcePoolsInstructions = ({ digest = "" } = {}) => {
+  const rules = [
+    "[National Forces]",
+    "Every polity keeps a manpower pool and a materiel pool, computed locally by the same deterministic "
+    + "simulation that runs the economy. They are already decided by the time you are asked, and they are not "
+    + "yours to invent. Never state, estimate, imply or restate a manpower or materiel number in prose or in "
+    + "an event.",
+    "What you control is the mobilization posture. When the period's events genuinely call up or stand down "
+    + "forces, declare one for each named polity in mobilization, choosing from this closed list: "
+    + "demobilized, peacetime, partial, total. A posture takes effect from the NEXT period, and total "
+    + "mobilization raises production at the cost of output and stability.",
+    "Declare a posture sparingly and only when the events you are writing justify it. Most periods have none.",
+  ].join("\n\n");
+  const facts = String(digest ?? "").trim();
+  return facts ? `${rules}\n\n[The Period's Reserves, as simulated]\n${facts}` : rules;
+};

@@ -4,6 +4,7 @@ import { jumpDayStep, jumpTargetDate } from "../../runtime/jumpDates.js";
 import {
   NATIVE_GAME_MASTER_PROMPT,
   buildEconomyEngineInstructions,
+  buildForcePoolsInstructions,
   normalizePromptPack,
 } from "./gameplayPrompts.js";
 import { collectFoundedPolities, foundingPolityChange } from "../../runtime/polityFounding.js";
@@ -2607,6 +2608,13 @@ This live instruction supersedes older frozen country-stat prompts and all earli
   if (jumpTask) {
     const block = buildEconomyEngineInstructions({ digest: variables?.economyDigest });
     if (block) systemPrompt = `${systemPrompt}\n\n${block}`;
+  }
+
+  // The deterministic force pools: the rule, then the reserves the engine
+  // actually simulated. Guarded because older saves carry no digest yet.
+  if (jumpTask) {
+    const forceBlock = buildForcePoolsInstructions({ digest: variables?.forcePoolsDigest });
+    if (forceBlock) systemPrompt = `${systemPrompt}\n\n${forceBlock}`;
   }
 
   // The scenario briefing and simulation rules each arrive twice on most
