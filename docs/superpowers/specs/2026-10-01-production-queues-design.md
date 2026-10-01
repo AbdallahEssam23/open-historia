@@ -140,8 +140,10 @@ economyEngine = {
   // The committed lines. Sparse: a polity with no line is absent.
   production?: {
     [polityName]: {
-      active?: { kind, type, count, at?, name?, monthsDone, monthsTotal },
-      queue:  [ { kind, type, count, at?, name? }, ... ],   // waiting, FIFO, possibly empty
+      active?: { kind, type, count, monthsTotal, at?, name?, monthsDone },
+      // Waiting, FIFO, possibly empty. `monthsTotal` is stamped when the item is
+      // paid for, so the digest can state its duration without importing the table.
+      queue:  [ { kind, type, count, monthsTotal, at?, name? }, ... ],
     },
   },
 
@@ -257,8 +259,8 @@ normalizeProductionOrders(value, { knownPolities }) -> { valid, rejected }
 
 Rejections, each with a reason: not an object; unknown polity; unknown `kind`;
 `kind`/`type` disagreement; `count` out of range; more than `MAX_PRODUCTION_ORDERS`
-(20) orders in one period (a new polity is refused past the cap, duplicates do
-not consume it); a structure with `count > 1`.
+(20) accepted orders in one period (the cap counts accepted orders, and an
+already-rejected entry does not consume a slot); a structure with `count > 1`.
 
 The committed line is validated separately and without a world, so a corrupted
 save costs the entry, never the world:
