@@ -28,12 +28,24 @@ const lineFor = (delta, isPlayer) => {
 
 const thousands = (value) => Math.max(0, Math.round(number(value))).toLocaleString("en-US");
 
-const poolLineFor = ({ playerPolity, playerPools, playerPosture, postureChanged }) => {
+// What the army could not pay last month. It is the engine's own number and the
+// reason stability is slipping, so it is named only when it exists; manpower is
+// grouped like the pool line above and materiel keeps its two decimals.
+const shortfallClauseFor = (shortfall) => {
+  if (!shortfall || typeof shortfall !== "object") return "";
+  const parts = [];
+  if (number(shortfall.manpower) > 0) parts.push(`${thousands(shortfall.manpower)} manpower`);
+  if (number(shortfall.materiel) > 0) parts.push(`${number(shortfall.materiel).toFixed(2)} materiel`);
+  return parts.length ? ` Upkeep shortfall last month: ${parts.join(", ")}.` : "";
+};
+
+const poolLineFor = ({ playerPolity, playerPools, playerPosture, postureChanged, playerShortfall }) => {
   if (!playerPolity || !playerPools) return "";
   const posture = String(playerPosture ?? "").trim() || "peacetime";
   const clause = postureChanged ? " (changed this period)" : "";
   return `Your reserves: manpower ${thousands(playerPools.manpower)}, `
-    + `materiel ${number(playerPools.materiel).toFixed(2)}. Mobilization: ${posture}${clause}.`;
+    + `materiel ${number(playerPools.materiel).toFixed(2)}. Mobilization: ${posture}${clause}.`
+    + shortfallClauseFor(playerShortfall);
 };
 
 export const buildEconomyDigest = ({
@@ -44,10 +56,11 @@ export const buildEconomyDigest = ({
   playerPools = null,
   playerPosture = "",
   postureChanged = false,
+  playerShortfall = null,
 } = {}) => {
   const list = (Array.isArray(deltas) ? deltas : []).filter((d) => d && typeof d === "object" && d.polity);
   const player = String(playerPolity ?? "");
-  const poolLine = poolLineFor({ playerPolity: player, playerPools, playerPosture, postureChanged });
+  const poolLine = poolLineFor({ playerPolity: player, playerPools, playerPosture, postureChanged, playerShortfall });
   if (!list.length) return poolLine;
 
   const wanted = new Set((Array.isArray(tracked) ? tracked : []).map((name) => String(name ?? "")));

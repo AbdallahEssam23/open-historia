@@ -114,3 +114,26 @@ test("a posture changed this period is named", () => {
   });
   assert.match(text, /Mobilization: total \(changed this period\)\./);
 });
+
+test("the player shortfall is named on the pool line when present", () => {
+  const text = buildEconomyDigest({
+    deltas: [],
+    playerPolity: "Egypt",
+    playerPools: { manpower: 10, materiel: 1 },
+    playerPosture: "total",
+    playerShortfall: { manpower: 42_000, materiel: 3.2 },
+  });
+  assert.match(text, /Upkeep shortfall last month: 42,000 manpower, 3\.20 materiel\./);
+});
+
+test("a fully paid army adds no shortfall clause", () => {
+  const text = buildEconomyDigest({
+    deltas: [],
+    playerPolity: "Egypt",
+    playerPools: { manpower: 10, materiel: 1 },
+    playerPosture: "peacetime",
+    playerShortfall: { manpower: 0, materiel: 0 },
+  });
+  assert.equal(text, "Your reserves: manpower 10, materiel 1.00. Mobilization: peacetime.");
+  assert.doesNotMatch(text, /shortfall/);
+});

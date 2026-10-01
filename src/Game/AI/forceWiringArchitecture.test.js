@@ -31,6 +31,11 @@ test("the projection builds the upkeep table and the pool digest before the mode
   const body = bodyOf("export const simulateTimelineJump = async (");
   assert.match(body, /buildUpkeepTable\(bundle\.world\)/);
   assert.match(body, /variables\.forcePoolsDigest = buildEconomyDigest\(/);
+  // The pool digest names the posture in force this period and the shortfall the
+  // army could not pay, and it is built only when a month actually advanced.
+  assert.match(body, /playerShortfall: projected\.shortfall/);
+  assert.match(body, /postureChanged:/);
+  assert.match(body, /if \(projected\.months > 0\)/);
 });
 
 test("the upkeep table is built from the opening world, not the post-impact world", () => {

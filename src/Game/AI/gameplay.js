@@ -291,6 +291,7 @@ import { addGameDays, compareGameDates, diffGameDays, gameDateDayNumber, normali
 import { authoredImpactTargets, stampResolvedImpacts, withAuthorImpacts, withoutAuthorImpacts } from "../../runtime/scriptedImpacts.js";
 import { advanceWorldEconomy, buildUpkeepTable } from "../../runtime/economyEngine.js";
 import { buildEconomyDigest } from "../../runtime/economyDigest.js";
+import { DEFAULT_POSTURE } from "../../engine/forcePools.js";
 import {
   NO_RESPONSE_BODY_NOTE,
   beginSimulation,
@@ -12722,13 +12723,24 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
       tracked: Object.keys(bundle.world?.countryStats ?? {}),
       shocks: projected.shocksRunning,
     });
-    const playerPolity = normalizeString(bundle.game.country);
-    variables.forcePoolsDigest = buildEconomyDigest({
-      deltas: [],
-      playerPolity,
-      playerPools: projected.pools?.[playerPolity] ?? null,
-      playerPosture: projected.posture?.[playerPolity] ?? "peacetime",
-    });
+    // The pool digest states the posture already in force this period (last
+    // turn's declaration has just been applied) and the shortfall the army could
+    // not pay. A posture that differs from the committed one is named as changed
+    // this period, which is the period it actually takes effect. A 0-month jump
+    // leaves the whole line out.
+    if (projected.months > 0) {
+      const playerPolity = normalizeString(bundle.game.country);
+      const committedPosture = bundle.world?.economyEngine?.mobilization?.[playerPolity] || DEFAULT_POSTURE;
+      const postureNow = projected.posture?.[playerPolity] || DEFAULT_POSTURE;
+      variables.forcePoolsDigest = buildEconomyDigest({
+        deltas: [],
+        playerPolity,
+        playerPools: projected.pools?.[playerPolity] ?? null,
+        playerPosture: postureNow,
+        postureChanged: postureNow !== committedPosture,
+        playerShortfall: projected.shortfall?.[playerPolity] ?? null,
+      });
+    }
   } catch (error) {
     console.warn("[engine] the projected economy digest could not be built; the turn continues without it.", error);
   }
