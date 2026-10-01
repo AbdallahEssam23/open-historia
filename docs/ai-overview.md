@@ -659,6 +659,13 @@ The model's only economic authority is the optional `economicShocks` array on th
 - **A one-period lag**: a shock declared this turn runs in the **next** period. It is stored on the world's `economyEngine.pendingShocks` and applied by the following turn's advance, so the period the model just narrated is never retroactively rewritten by the shock it declared for it. A shock longer than one period is carried forward, re-based, until it expires; the digest names the ones still in force.
 - **The one rule that replaces free estimates**: the model states no GDP, growth, inflation or debt anywhere. It narrates what the engine computed and declares shocks named from the enum; the numbers stay the engine's.
 
+The model's other lever is `mobilization`, and it works the same way: a posture, never a reserve. It is an optional array on the same jump payload, one scoped declaration per polity:
+
+- **Closed enum**: `demobilized`, `peacetime`, `partial`, `total` (`MOBILIZATION_POSTURES`, `src/engine/forcePools.js`); `peacetime` is the default. Each posture maps to a fixed vector in `MOBILIZATION_EFFECTS`: `extraction` and `allocation` multiply manpower and materiel production, `growthDrag` scales output and `stabilityDrag` subtracts index points every month.
+- **Bounded and forgiving**: at most `MAX_MOBILIZATION` (20) entries of `{polity, posture}`. An unknown polity or posture is dropped entry by entry, and duplicate polities fold last-one-wins, so a malformed declaration never fails the turn.
+- **A one-period lag**: a posture declared this turn is stored on `economyEngine.pendingMobilization` and becomes the posture in force in the **next** period, merged over the committed `mobilization` - the same lag, for the same reason, as a shock. A polity with no pending declaration keeps running the posture it is already at; `peacetime` is the default.
+- **No numbers**: the model states no manpower or materiel figure. The reserves live on the country stat sheet's `forces` block and in the player's period digest (`runtime/economyDigest.js`: `Your reserves: manpower <n>, materiel <n>. Mobilization: <posture>.`), both written by the engine. Every unit in `world.units` costs manpower and materiel each month (`UNIT_UPKEEP`, summed by `buildUpkeepTable`), read from the roster and never written back to it; a pool is floored at zero and an unpaid remainder drags stability instead of removing a unit.
+
 Because the economy does not depend on the provider, a stalled turn is a narration problem, not a simulation one: if a request never reaches a model, the economy still advances and a stalled provider costs prose, not progress.
 
 ---

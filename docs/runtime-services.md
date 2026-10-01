@@ -35,6 +35,8 @@ That rule is the feature, not tidiness. The economy is the game's source of trut
 
 `src/runtime/economyEngine.js` is the **adapter** and the only place that knows both shapes: it reads `world.countryStats`, calls the pure core, and writes the result back through `mergeCountryStatPatch` with `engineSourced: true`. `src/runtime/economyDigest.js` is the import-free string transform that turns the adapter's deltas into the short period block the prompt is given.
 
+The same core holds `src/engine/forcePools.js`: a polity's manpower and materiel reserves, the closed mobilization postures (`demobilized`, `peacetime`, `partial`, `total`) and the validation for both. The pool step runs **inside the economy clock**, not on a second one: `advanceEconomy` (`economyTick.js`) walks whole months and, for each month, steps the economy first and then the pools from the population and output that step just produced, so the reserves and the economy can never be advanced a different number of months. Within the pool step, production is added first and upkeep is paid from what is on hand, which stops a polity that earns enough this month from paying one month late. Upkeep comes from the adapter's `buildUpkeepTable(world)` (`economyEngine.js`), which sums `UNIT_UPKEEP` per unit type over `world.units` for each owner in a stable type order, so the floating-point total does not depend on roster order; the engine reads the roster and never writes it. `economyDigest.js` also renders the player's reserve line (`Your reserves: manpower <n>, materiel <n>. Mobilization: <posture>.`), kept ahead of the tracked-polity lines so the digest's character cap cannot drop it.
+
 ---
 
 ## Library store — `src/runtime/library.js`

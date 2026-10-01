@@ -223,6 +223,7 @@ Also used for `autoJumpForward`. This is the largest task.
 | `summary` | string | Concise period summary | **yes** |
 | `clearActions` | boolean | Were queued player actions resolved | **yes** |
 | `diplomaticOutreach` | `createdChatSchema[]` | Polities reaching out on their own initiative, not tied to any event | no |
+| `mobilization` | `{ polity, posture }[]` (`maxItems: MAX_MOBILIZATION`) | Scoped mobilization postures, the sibling of `economicShocks`: `posture` is a closed enum (`demobilized`, `peacetime`, `partial`, `total`) and a declaration takes effect **next** period. The model states a posture, never a manpower or materiel number | no |
 
 `eventSchema` (`:322`): `id`, `date`* , `title`* , `description`* , `importance`, `kind`, `notable` (bool), `playerRelated` (bool), `impacts` (`impactsSchema`).
 
