@@ -9,6 +9,7 @@ import { addGameMonths, gameDateYear } from "../runtime/gameDates.js";
 import { ECONOMY_STEP, MAX_STEPS, eraBandFor } from "./economyConstants.js";
 import { DEFAULT_POSTURE, applyMobilization, initialPoolsFor, shortfallPressureFor, stepPolityPools } from "./forcePools.js";
 import { clamp, roundTo, stableOrder } from "./economyMath.js";
+import { normalizeResearchProgrammes, stepResearchMonth } from "./research.js";
 import { activeMultipliers, shockAppliesTo } from "./economyShocks.js";
 import { enqueueOrders, normalizeProductionQueue, stepLineMonth } from "./productionQueue.js";
 
@@ -195,7 +196,15 @@ export const advanceEconomy = (
   let pools = { ...(state?.pools ?? {}) };
   let shortfall = { ...(state?.shortfall ?? {}) };
   let production = normalizeProductionQueue(state?.production);
+  let research = {};
+  for (const [name, entry] of Object.entries(state?.research ?? {})) {
+    research[name] = {
+      points: Math.max(0, Math.trunc(Number(entry?.points)) || 0),
+      programmes: normalizeResearchProgrammes(entry?.programmes),
+    };
+  }
   const completions = [];
+  const researchCompletions = [];
   const rejectedProduction = [];
   let shockedMonths = 0;
 
@@ -236,6 +245,7 @@ export const advanceEconomy = (
     const next = {};
     const nextPools = {};
     const nextProduction = {};
+    const nextResearch = {};
     const nextShortfall = {};
     for (const name of stableOrder(Object.keys(polities))) {
       const own = running.filter((shock) => shockAppliesTo(shock, name));
@@ -260,16 +270,34 @@ export const advanceEconomy = (
       for (const completion of steppedLine.completions) {
         completions.push({ polity: name, ...completion });
       }
+      const steppedResearch = stepResearchMonth(research[name] ?? { points: 0, programmes: [] }, {
+        monthOffset: step,
+      });
+      if (steppedResearch.programmes.length) {
+        // A completed programme leaves the active queue, so a later month in the
+        // same span does not report the same completion again.
+        const finished = new Set(steppedResearch.completions.map((entry) => entry.id));
+        nextResearch[name] = {
+          points: research[name]?.points ?? 0,
+          programmes: steppedResearch.programmes.map((programme) =>
+            (finished.has(programme.id) ? { ...programme, status: "complete" } : programme)),
+        };
+      }
+      for (const completion of steppedResearch.completions) {
+        researchCompletions.push({ polity: name, ...completion });
+      }
     }
     polities = next;
     pools = nextPools;
     shortfall = nextShortfall;
     production = nextProduction;
+    research = nextResearch;
   }
 
   return {
-    state: { month: origin + steps, polities, pools, shortfall, production },
+    state: { month: origin + steps, polities, pools, shortfall, production, research },
     completions,
+    researchCompletions,
     rejectedProduction,
     journal: { steps, capped, shockedMonths, seed },
   };

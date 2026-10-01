@@ -212,3 +212,36 @@ test("an order the pool cannot pay is rejected and never enters the line", () =>
   assert.equal(result.rejectedProduction.length, 1);
   assert.match(result.rejectedProduction[0].reason, /cannot afford/);
 });
+
+test("research advances the same number of months as the economy", () => {
+  const state = {
+    month: 0,
+    polities: { France: makePolityEconomy({ population: 50000000, gdp: 1000, gdpPerCapita: 20 }) },
+    pools: {},
+    shortfall: {},
+    research: {
+      France: {
+        points: 12,
+        programmes: [{ id: "r1", domain: "industrial", scale: "small", points: 0, priority: "high", startedAt: "", status: "active" }],
+      },
+    },
+  };
+  const out = advanceEconomy(state, { startDate: "2000-01-01", months: 3, seed: "s" });
+  // 12 points a month for 3 months is 36; a small industrial programme costs 24,
+  // so it completes, and the run is exactly 3 months for both.
+  assert.equal(out.journal.steps, 3);
+  assert.equal(out.state.research.France.programmes[0].accumulated, 24);
+  assert.equal(out.researchCompletions.length, 1);
+  assert.equal(out.researchCompletions[0].id, "r1");
+  assert.equal(out.researchCompletions[0].polity, "France");
+});
+
+test("a polity with no research state is untouched and collects nothing", () => {
+  const state = {
+    month: 0,
+    polities: { France: makePolityEconomy({ population: 1000000, gdp: 10, gdpPerCapita: 10 }) },
+    pools: {}, shortfall: {},
+  };
+  const out = advanceEconomy(state, { startDate: "2000-01-01", months: 2, seed: "s" });
+  assert.deepEqual(out.researchCompletions, []);
+});
