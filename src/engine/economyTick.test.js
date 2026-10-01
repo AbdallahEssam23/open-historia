@@ -1,0 +1,94 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { MAX_STEPS } from "./economyConstants.js";
+import { normalizeShocks } from "./economyShocks.js";
+import { advanceEconomy, makePolityEconomy, stepPolityMonth } from "./economyTick.js";
+
+const polityFixture = (overrides = {}) =>
+  makePolityEconomy({
+    population: 100_000_000,
+    gdp: 1_000_000_000_000,
+    gdpPerCapita: 10_000,
+    gdpGrowth: 2,
+    inflation: 4,
+    unemployment: 8,
+    publicDebt: 90,
+    budgetBalance: -4,
+    stability: 60,
+    gdpBreakdown: { agriculture: 10, industry: 35, services: 55 },
+    ...overrides,
+  });
+
+const noShock = { population: 1, gdp: 1, inflation: 0, unemployment: 0, stability: 0 };
+
+test("one month of peace moves growth, population and inflation in the right direction", () => {
+  const before = polityFixture();
+  const after = stepPolityMonth(before, { year: 2026, multipliers: noShock });
+  assert.ok(after.population > before.population, "population grows");
+  assert.ok(after.gdpPerCapita > before.gdpPerCapita, "output per head grows");
+  assert.ok(after.gdpGrowth > 0);
+  assert.ok(after.inflation < before.inflation, "inflation reverts toward its target");
+});
+
+test("no term can leave a bound, however hostile the shock", () => {
+  const before = polityFixture({ publicDebt: 395, unemployment: 58, inflation: -4, stability: 3 });
+  const hostile = { population: 0.99, gdp: 0.5, inflation: 50, unemployment: 20, stability: -30 };
+  let next = before;
+  for (let i = 0; i < 60; i += 1) next = stepPolityMonth(next, { year: 2026, multipliers: hostile });
+  assert.ok(next.population > 0);
+  assert.ok(next.gdpPerCapita > 0);
+  assert.ok(next.publicDebt <= 400);
+  assert.ok(next.unemployment >= 0 && next.unemployment <= 60);
+  assert.ok(next.inflation >= -5 && next.inflation <= 2000);
+  assert.ok(next.stability >= 0 && next.stability <= 100);
+  const sectors = next.gdpBreakdown.agriculture + next.gdpBreakdown.industry + next.gdpBreakdown.services;
+  assert.ok(Math.abs(sectors - 100) < 0.001, `sectors sum to ${sectors}`);
+});
+
+test("a component ledger is stepped per component and its sum is the polity total", () => {
+  const before = polityFixture({
+    population: 0,
+    gdp: 0,
+    components: [
+      { geography: "core", group: "core", population: 60_000_000, gdpPerCapita: 12_000 },
+      { geography: "island", group: "overseas/dependent", population: 40_000_000, gdpPerCapita: 7_000 },
+    ],
+  });
+  const after = stepPolityMonth(before, { year: 2026, multipliers: noShock });
+  assert.equal(after.components.length, 2);
+  const summed = after.components.reduce((total, c) => total + c.population * c.gdpPerCapita, 0);
+  assert.ok(Math.abs(summed - after.gdp) < 1, "GDP is the ledger sum");
+});
+
+test("the advance is idempotent and recomputable", () => {
+  const origin = { month: 0, polities: { France: polityFixture() } };
+  const once = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s" });
+  const twice = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s" });
+  assert.deepEqual(once.state, twice.state, "same inputs, same state");
+
+  const firstThree = advanceEconomy(origin, { startDate: "2026-01-01", months: 3, seed: "s" });
+  const threeThenThree = advanceEconomy(firstThree.state, { startDate: "2026-04-01", months: 3, seed: "s" });
+  const six = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s" });
+  assert.deepEqual(threeThenThree.state.polities, six.state.polities, "3 then 3 equals 6 from the origin");
+});
+
+test("the step count is capped and the journal says so", () => {
+  const origin = { month: 0, polities: { France: polityFixture() } };
+  const { journal } = advanceEconomy(origin, { startDate: "2026-01-01", months: 10_000, seed: "s" });
+  assert.equal(journal.steps, MAX_STEPS);
+  assert.equal(journal.capped, true);
+});
+
+test("a shock is visible while it runs and gone afterwards", () => {
+  const origin = { month: 0, polities: { France: polityFixture() } };
+  const { valid } = normalizeShocks([{ kind: "sanctions", severity: 3, durationMonths: 3 }]);
+  const { state, journal } = advanceEconomy(origin, {
+    startDate: "2026-01-01",
+    months: 6,
+    seed: "s",
+    shocks: valid,
+  });
+  assert.equal(journal.shockedMonths, 3);
+  assert.ok(state.polities.France.gdpGrowth < origin.polities.France.gdpGrowth);
+});
