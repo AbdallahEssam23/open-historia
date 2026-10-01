@@ -142,3 +142,55 @@ test("a non-default programme reports progress against its own cost", () => {
   assert.equal(update.patch.researchPoints, 3);
   assert.equal(update.patch.progress, 1);
 });
+
+test("a completion folds its modifier once, applied from the next span", () => {
+  const world = {
+    countryStats: {
+      Egypt: {
+        stability: 60,
+        economy: { gdp: 1e12, gdpPerCapita: 10_000 },
+        population: { total: 100_000_000 },
+        territorialComponents: [
+          { geography: "core", group: "core", population: 100_000_000, gdpPerCapita: 10_000 },
+        ],
+      },
+    },
+    projects: [
+      {
+        id: "rx",
+        name: "Programme",
+        kind: "research",
+        ownerCode: "Egypt",
+        domain: "military",
+        scale: "small",
+        researchPoints: 29,
+        status: "active",
+      },
+    ],
+  };
+  const first = advanceWorldEconomy(world, {
+    fromDate: "2026-01-01",
+    toDate: "2026-02-01",
+    playerPolity: "Egypt",
+  });
+  assert.ok(first.researchOps.some((op) => op.op === "close"), "the programme completes");
+  // The returned map is sparse: nothing is committed yet this span, so Egypt is
+  // absent. Assert "not applied" without dereferencing an absent row.
+  assert.equal(first.researchEffects?.Egypt?.pools ?? 0, 0, "the effect is not applied in the span that produced it");
+  assert.deepEqual(
+    first.world.economyEngine.researchEffects,
+    { Egypt: { production: 0, pools: 1, economy: 0 } },
+  );
+
+  const second = advanceWorldEconomy(first.world, {
+    fromDate: "2026-02-01",
+    toDate: "2026-03-01",
+    playerPolity: "Egypt",
+  });
+  assert.equal(second.researchEffects.Egypt.pools, 1, "the effect is applied from the next span");
+  assert.deepEqual(
+    second.world.economyEngine.researchEffects,
+    { Egypt: { production: 0, pools: 1, economy: 0 } },
+    "and is not folded twice",
+  );
+});

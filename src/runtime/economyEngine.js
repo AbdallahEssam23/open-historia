@@ -23,6 +23,7 @@ import {
 } from "../engine/productionQueue.js";
 import { applyCountryStatPatchToWorld, normalizeProjects } from "./gameState.js";
 import { researchCostFor, researchPointsFor } from "../engine/research.js";
+import { foldResearchEffect, normalizeResearchEffects } from "../engine/researchEffects.js";
 import { addGameMonths } from "./gameDates.js";
 import { hashSeed } from "./unitMotion.js";
 import { toCountryName } from "./ownerNames.js";
@@ -282,6 +283,7 @@ export const advanceWorldEconomy = (
 ) => {
   const seed = String(world?.economyEngine?.seed ?? economySeedFor(campaignId, scenarioId));
   const committed = extractEconomyState(world, { seed });
+  const appliedResearchEffects = normalizeResearchEffects(world?.economyEngine?.researchEffects);
   const months = monthsBetweenDates(fromDate, toDate);
   const knownPolities = Object.keys(committed.polities);
   if (months <= 0 || knownPolities.length === 0) {
@@ -300,6 +302,7 @@ export const advanceWorldEconomy = (
       completionBatches: [],
       researchOps: [],
       research: {},
+      researchEffects: appliedResearchEffects,
     };
   }
 
@@ -321,6 +324,9 @@ export const advanceWorldEconomy = (
 
   const upkeepTable = upkeep ?? buildUpkeepTable(world);
   const researchInput = buildResearchInput(world, { playerPolity });
+  // The totals in force THIS span. The fold below produces next span's, so a
+  // programme completed here takes effect from the next span on - the same
+  // one-period lag the shocks, the posture and the facilities already have.
   const { state, journal, completions, rejectedProduction, researchCompletions } = advanceEconomy(
     { ...committed, research: researchInput },
     {
@@ -331,6 +337,7 @@ export const advanceWorldEconomy = (
       upkeep: upkeepTable,
       posture,
       orders: appliedOrders,
+      researchEffects: appliedResearchEffects,
     },
   );
 
@@ -364,6 +371,22 @@ export const advanceWorldEconomy = (
   );
   const shortfall = normalizeUpkeepShortfall(state.shortfall);
 
+  // Fold this span's completions into the committed totals, using the pair the
+  // input still carries (normalizeResearchProgrammes has already shed domain and
+  // scale). normalizeResearchEffects drops a row that ends up all-zero, so a
+  // campaign with no research keeps the record byte-identical.
+  const foldedResearchEffects = { ...appliedResearchEffects };
+  for (const completion of researchCompletions) {
+    const programme = researchInput[completion.polity]?.programmes
+      .find((entry) => entry.id === completion.id);
+    if (!programme) continue;
+    foldedResearchEffects[completion.polity] = foldResearchEffect(
+      foldedResearchEffects[completion.polity],
+      programme,
+    );
+  }
+  const researchEffectsNext = normalizeResearchEffects(foldedResearchEffects);
+
   const nextWorld = {
     ...world,
     countryStats: { ...(world?.countryStats ?? {}) },
@@ -379,6 +402,7 @@ export const advanceWorldEconomy = (
       ...(Object.keys(committedMobilization).length ? { mobilization: committedMobilization } : {}),
       ...(declaredNow.length ? { pendingMobilization: declaredNow } : {}),
       ...(Object.keys(shortfall).length ? { upkeepShortfall: shortfall } : {}),
+      ...(Object.keys(researchEffectsNext).length ? { researchEffects: researchEffectsNext } : {}),
     },
   };
 
@@ -468,5 +492,6 @@ export const advanceWorldEconomy = (
     completionBatches,
     researchOps,
     research: state.research,
+    researchEffects: appliedResearchEffects,
   };
 };
