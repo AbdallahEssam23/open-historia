@@ -506,3 +506,27 @@ export const buildForcePoolsInstructions = ({ digest = "" } = {}) => {
   const facts = String(digest ?? "").trim();
   return facts ? `${rules}\n\n[The Period's Reserves, as simulated]\n${facts}` : rules;
 };
+
+// The production block: the rule and the facts. The rule exists because the
+// narrator would otherwise spawn the same formation it just queued, or build the
+// same structure twice; the digest exists so the model can see what the line
+// already holds before it adds to it.
+export const buildProductionInstructions = ({ digest = "" } = {}) => {
+  const rules = [
+    "[National Production]",
+    "Each polity builds from its reserves through one production line, computed locally by the same "
+    + "deterministic simulation that runs the economy. The price of an order, its build time and the "
+    + "draw on manpower and materiel are not yours to invent: never state a cost or a duration in prose "
+    + "or in an event.",
+    "What you control is the order. When the period's events genuinely start building a formation or a "
+    + "structure - a ship laid down, a division raised, a factory or airfield begun - declare it in "
+    + "productionOrders: a polity, a kind (unit or building), a type from the closed list, and optionally "
+    + "a count, a site and a name. An order takes effect from the NEXT period.",
+    "The line is the building authority for what it lists: when an event raises or opens something already "
+    + "in the queue, narrate it and emit NO unitOps spawn or markerOps build for it. unitOps and markerOps "
+    + "remain for moving, reinforcing, renaming and removing, and for anything the queue does not own. "
+    + "Most periods have no order at all.",
+  ].join("\n\n");
+  const facts = String(digest ?? "").trim();
+  return facts ? `${rules}\n\n[The Period's Production, as simulated]\n${facts}` : rules;
+};
