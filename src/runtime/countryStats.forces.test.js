@@ -85,6 +85,7 @@ const completeSheet = () => ({
     currency: "EGP",
   },
   gdpBreakdown: { agriculture: 10, industry: 30, services: 60 },
+  continuity: { assessedDate: "2026-01-01", engineSourced: true },
 });
 
 test("the model-facing schema rejects the engine-only block", () => {
@@ -94,14 +95,24 @@ test("the model-facing schema rejects the engine-only block", () => {
   assert.match(verdict.error, /\$\.forces is not allowed/);
 });
 
-test("stripping the engine-only block lets a native sheet validate", () => {
+test("stripping the engine-only fields lets an engine-advanced sheet validate", () => {
   const sheet = normalizeCountryStatSheet({ ...completeSheet(), forces });
+  assert.equal(sheet.continuity.engineSourced, true);
   const stripped = stripEngineOnlyStatFields(sheet);
   const verdict = validateGameplayPayload("countryStatSheet", stripped);
   assert.equal(verdict.valid, true, verdict.error);
-  // Nothing else is touched.
+  // The block and the last-writer mark are gone; everything else is intact.
   assert.equal(stripped.forces, undefined);
+  assert.equal(stripped.continuity.engineSourced, undefined);
+  assert.equal(stripped.continuity.assessedDate, "2026-01-01");
   const expected = { ...sheet };
   delete expected.forces;
+  expected.continuity = { ...sheet.continuity };
+  delete expected.continuity.engineSourced;
   assert.deepEqual(stripped, expected);
+});
+
+test("a continuity with only the last-writer mark is dropped entirely", () => {
+  const stripped = stripEngineOnlyStatFields({ capital: "Cairo", continuity: { engineSourced: true } });
+  assert.deepEqual(stripped, { capital: "Cairo" });
 });

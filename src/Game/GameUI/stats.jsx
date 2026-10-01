@@ -94,8 +94,8 @@ const isValidStatSheet = (value, definition) => {
     if (definition?.custom) {
         return isCompleteCustomCountryStatSheet(sheet, statSheetKeys(definition));
     }
-    // The engine-written block is not in the model-facing schema, so validate the
-    // native sheet the way the model would see it.
+    // The engine-written block and last-writer mark are not in the model-facing
+    // schema, so validate the native sheet the way the model would see it.
     return isCompleteCountryStatSheet(sheet) && validateGameplayPayload("countryStatSheet", stripEngineOnlyStatFields(sheet)).valid;
 };
 
