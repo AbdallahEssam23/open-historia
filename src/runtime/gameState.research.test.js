@@ -153,3 +153,16 @@ test("a model batch cannot release effects by promoting to research then complet
   assert.notEqual(next[0].status, "complete");
   assert.equal(next[0].onCompleteAppliedAt, "");
 });
+
+test("a model batch cannot release effects by demoting research then completing", () => {
+  const ops = [
+    { op: "update", projectId: "rx", patch: { kind: "project" } },
+    { op: "close", projectId: "rx", status: "complete" },
+  ];
+  const released = releaseProjectCompletionEffects(researchBoard(), ops, {});
+  assert.deepEqual(released.projectIds, []);
+  const next = applyProjectOps(researchBoard(), ops, {});
+  assert.equal(next[0].kind, "research");
+  assert.equal(next[0].status, "active");
+  assert.equal(next[0].onCompleteAppliedAt, "");
+});

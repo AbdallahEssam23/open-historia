@@ -2052,12 +2052,20 @@ export const releaseProjectCompletionEffects = (projects, ops, { engineSourced =
         : findProjectIndexForOp(list, op);
       if (targetIndex !== -1) {
         const targetId = list[targetIndex].id;
+        // Mirror the applier's freeze: on the model path a research programme's
+        // kind is engine-owned, so a model demotion must not move the tracker
+        // either. If the tracked kind is research it stays research, and the
+        // completing op is skipped exactly as applyProjectOps skips it.
+        const trackKind = (requested) => {
+          if (kindOf(targetId, list[targetIndex].kind) === "research") return;
+          kinds.set(targetId, normalizeKind(requested));
+        };
         if (op.op === "create") {
-          if (op.provided?.includes("kind")) kinds.set(targetId, normalizeKind(op.project.kind));
+          if (op.provided?.includes("kind")) trackKind(op.project.kind);
         } else if (op.op === "update") {
           const patch = op.patch && typeof op.patch === "object" ? op.patch : {};
           const alias = patchedAlias(patch, "kind");
-          if (alias) kinds.set(targetId, normalizeKind(patch[alias]));
+          if (alias) trackKind(patch[alias]);
         }
       }
     }
