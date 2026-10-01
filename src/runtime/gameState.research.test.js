@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { normalizeProjects } from "../runtime/gameState.js";
+import { applyProjectOps, normalizeProjects, releaseProjectCompletionEffects } from "../runtime/gameState.js";
 
 test("a research project keeps its closed domain and scale and its points", () => {
   const [entry] = normalizeProjects([
@@ -27,8 +27,6 @@ test("a non-research project carries no research fields", () => {
   assert.equal(entry.scale, "");
   assert.equal(entry.researchPoints, 0);
 });
-
-import { applyProjectOps, releaseProjectCompletionEffects } from "../runtime/gameState.js";
 
 const researchBoard = () => normalizeProjects([
   {
@@ -108,4 +106,33 @@ test("a re-announced research programme cannot be demoted or forged either", () 
   assert.equal(next[0].progress, 0);
   assert.equal(next[0].status, "active");
   assert.equal(next[0].onCompleteAppliedAt, "");
+});
+
+test("the model cannot complete a research programme through create or re-announce", () => {
+  const fresh = applyProjectOps([], [
+    { op: "create", name: "New Reactor", kind: "research", domain: "nuclear", scale: "large", status: "complete" },
+  ], {});
+  assert.notEqual(fresh[0].status, "complete");
+  assert.equal(fresh[0].onCompleteAppliedAt, "");
+
+  const reannounced = applyProjectOps(researchBoard(), [
+    { op: "create", name: "Reactor", status: "complete" },
+  ], {});
+  assert.equal(reannounced[0].status, "active");
+  assert.equal(reannounced[0].onCompleteAppliedAt, "");
+  // And the engine can still complete it later.
+  const engine = applyProjectOps(reannounced, [{ op: "close", projectId: "rx", status: "complete" }], { engineSourced: true });
+  assert.equal(engine[0].status, "complete");
+});
+
+test("promoting an entry into research drops model-authored progress", () => {
+  const board = normalizeProjects([
+    { id: "px", name: "Dam", kind: "project", progress: 99 },
+  ]);
+  const next = applyProjectOps(board, [
+    { op: "update", projectId: "px", patch: { kind: "research", domain: "industrial", scale: "small" } },
+  ], {});
+  assert.equal(next[0].kind, "research");
+  assert.equal(next[0].progress, 0);
+  assert.equal(next[0].researchPoints, 0);
 });

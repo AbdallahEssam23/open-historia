@@ -2146,6 +2146,25 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
       : project.eventIds,
   });
 
+  // The invariant the model may never break, on ANY path that assembles a
+  // research entry - create, re-announce, update or promotion: a research
+  // programme's status must never resolve to "complete", and its progress and
+  // researchPoints must be the engine's last values. `baseline` is the engine's
+  // existing research entry to inherit from, or null for a fresh or newly
+  // promoted one, which starts at zero. Stated once here so a future assembly
+  // path cannot be added without it.
+  const holdResearchInvariant = (entry, baseline = null) => {
+    if (engineSourced || entry.kind !== "research") return entry;
+    return {
+      ...entry,
+      status: resolveProjectStatus(entry.status) === "complete"
+        ? (baseline ? baseline.status : "active")
+        : entry.status,
+      progress: baseline ? baseline.progress : 0,
+      researchPoints: baseline ? baseline.researchPoints : 0,
+    };
+  };
+
   // Normalize defensively. Ops arriving from applyEventImpactsToWorld have been
   // through normalizeEventImpacts already, but the advisor feeds this function a
   // freshly parsed ```projects block that has not -- and normalizeProjectOp is
@@ -2175,18 +2194,16 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
           if (field === "name") continue; // matched BY the name; never rewrite it here
           merged[field] = op.project[field];
         }
-        // A re-announcement cannot forge a running research programme's
-        // engine-owned numbers or launder its kind either: restore them from the
-        // entry we already hold, whatever the op restated. See the create path
-        // below and the kind guard in the update branch.
+        // A re-announcement cannot launder a running research programme's kind
+        // either (this is a model update in disguise); the invariant below then
+        // restores its engine-owned numbers and refuses a completion.
         if (existing.kind === "research" && !engineSourced) {
           merged.kind = existing.kind;
-          merged.researchPoints = existing.researchPoints;
-          merged.progress = existing.progress;
         }
+        const reassembled = holdResearchInvariant(merged, existing.kind === "research" ? existing : null);
         next = next.map((project, index) => (index === existingIndex
           ? touch({
-            ...merged,
+            ...reassembled,
             id: existing.id,
             createdAt: existing.createdAt,
             // A restatement rarely repeats the history, so keep what we had.
@@ -2195,14 +2212,8 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
           : project));
         continue;
       }
-      // A research programme opens at zero points and zero percent: the engine
-      // owns both numbers, and a create op that carried its own would otherwise
-      // let the model open one already paid for. The engine path is exempt in
-      // case it ever creates one (it does not today).
-      const startsAtZero = op.project.kind === "research" && !engineSourced;
       next = [...next, touch({
-        ...op.project,
-        ...(startsAtZero ? { researchPoints: 0, progress: 0 } : {}),
+        ...holdResearchInvariant(op.project),
         startedAt: op.project.startedAt || date,
         createdAt: stamp,
       })];
@@ -2230,23 +2241,11 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
         const alias = patchedAlias(patch, field);
         if (alias) merged[field] = patch[alias];
       }
-      // A model may move a research programme between proposed, active, paused,
-      // stalled, failed and cancelled, but it may not COMPLETE one - by the
-      // explicit close op above OR by a plain status patch here. Reverting the
-      // status keeps applyProjectOps and releaseProjectCompletionEffects in
-      // agreement (the release pre-scan already refuses the same case) and stops
-      // a model status patch from stamping the one-way latch, which would
-      // permanently block the engine from ever releasing the effects.
-      if (current.kind === "research" && !engineSourced) {
-        const statusAlias = patchedAlias(patch, "status");
-        if (statusAlias && resolveProjectStatus(patch[statusAlias]) === "complete") {
-          merged.status = current.status;
-        }
-      }
       // A model may not change a research programme's kind: demoting it to
-      // "project" would launder it past the status/progress guards above and let
-      // it complete while its effects are permanently withheld. The kind is the
-      // predicate the whole guard rests on, so it is engine-owned here.
+      // "project" would launder it past the guard and let it complete while its
+      // effects are permanently withheld. The kind is the predicate the whole
+      // guard rests on, so it is engine-owned here. Freezing it before the
+      // invariant below is what keeps that invariant looking at a research entry.
       if (current.kind === "research" && !engineSourced) {
         merged.kind = current.kind;
       }
@@ -2261,8 +2260,17 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
       if (renamed) merged.name = renamed;
       if (Array.isArray(patch.tags)) merged.tags = patch.tags;
       if (Array.isArray(patch.milestones)) merged.milestones = patch.milestones;
+      // The invariant: a model update may move a research programme between
+      // proposed, active, paused, stalled, failed and cancelled, but not to
+      // COMPLETE, and may not author its engine-owned progress or points; a
+      // promotion INTO research starts those at zero. `current` is the baseline
+      // when it is already a research programme, and null on the promotion path.
       const normalized = normalizeProjectEntry(
-        { ...merged, id: current.id, createdAt: current.createdAt },
+        {
+          ...holdResearchInvariant(merged, current.kind === "research" ? current : null),
+          id: current.id,
+          createdAt: current.createdAt,
+        },
         index,
       );
       if (!normalized) continue;
