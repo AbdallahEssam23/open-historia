@@ -136,3 +136,79 @@ test("a carried shortfall drags stability, and the posture drags output", () => 
   assert.ok(war.state.polities.France.stability < base.state.polities.France.stability);
   assert.ok(war.state.polities.France.gdpGrowth < base.state.polities.France.gdpGrowth);
 });
+
+const clockState = () => ({
+  month: 0,
+  polities: {
+    France: {
+      population: 60_000_000,
+      gdp: 2e12,
+      gdpPerCapita: 33_000,
+      gdpGrowth: 0,
+      inflation: 2,
+      unemployment: 8,
+      publicDebt: 90,
+      budgetBalance: 0,
+      stability: 60,
+      gdpBreakdown: { agriculture: 5, industry: 40, services: 55 },
+      components: [],
+      jitter: 0,
+    },
+  },
+  pools: { France: { manpower: 5_000_000, materiel: 50_000 } },
+  shortfall: {},
+});
+
+test("no orders leaves the economy advance additive", () => {
+  const withField = advanceEconomy(clockState(), { startDate: "2026-01-01", months: 3 });
+  assert.deepEqual(withField.state.production, {});
+  assert.deepEqual(withField.completions, []);
+  assert.deepEqual(withField.rejectedProduction, []);
+});
+
+test("an order is paid before the first month and completes on its month step", () => {
+  const result = advanceEconomy(clockState(), {
+    startDate: "2026-01-01",
+    months: 3,
+    orders: [{ polity: "France", kind: "unit", type: "garrison", count: 1 }],
+  });
+  // 3000 manpower and 3 materiel were drawn from the opening pool.
+  assert.ok(result.completions.length === 1);
+  assert.equal(result.completions[0].polity, "France");
+  assert.equal(result.completions[0].type, "garrison");
+  assert.equal(result.completions[0].monthOffset, 1);
+  assert.deepEqual(result.state.production, {});
+});
+
+test("a line that cannot finish in the span is persisted for the next span", () => {
+  const first = advanceEconomy(clockState(), {
+    startDate: "2026-01-01",
+    months: 1,
+    orders: [{ polity: "France", kind: "building", type: "industrial_plant", count: 1, at: "Lyon" }],
+  });
+  assert.equal(first.completions.length, 0);
+  assert.equal(first.state.production.France.active.monthsDone, 1);
+  assert.equal(first.state.production.France.active.monthsTotal, 8);
+
+  const second = advanceEconomy(
+    { ...clockState(), production: first.state.production, pools: first.state.pools },
+    { startDate: "2026-02-01", months: 7 },
+  );
+  assert.equal(second.completions.length, 1);
+  assert.equal(second.completions[0].type, "industrial_plant");
+  assert.equal(second.completions[0].at, "Lyon");
+});
+
+test("an order the pool cannot pay is rejected and never enters the line", () => {
+  const result = advanceEconomy(
+    { ...clockState(), pools: { France: { manpower: 5_000_000, materiel: 1_000 } } },
+    {
+      startDate: "2026-01-01",
+      months: 3,
+      orders: [{ polity: "France", kind: "unit", type: "naval", count: 20 }],
+    },
+  );
+  assert.equal(result.completions.length, 0);
+  assert.equal(result.rejectedProduction.length, 1);
+  assert.match(result.rejectedProduction[0].reason, /cannot afford/);
+});

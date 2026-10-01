@@ -7,9 +7,10 @@
 
 import { addGameMonths, gameDateYear } from "../runtime/gameDates.js";
 import { ECONOMY_STEP, MAX_STEPS, eraBandFor } from "./economyConstants.js";
-import { DEFAULT_POSTURE, applyMobilization, shortfallPressureFor, stepPolityPools } from "./forcePools.js";
+import { DEFAULT_POSTURE, applyMobilization, initialPoolsFor, shortfallPressureFor, stepPolityPools } from "./forcePools.js";
 import { clamp, roundTo, stableOrder } from "./economyMath.js";
 import { activeMultipliers, shockAppliesTo } from "./economyShocks.js";
+import { enqueueOrders, normalizeProductionQueue, stepLineMonth } from "./productionQueue.js";
 
 const num = (value, fallback = 0) => {
   const n = Number(value);
@@ -184,7 +185,7 @@ export const stepPolityMonth = (polity, { year, multipliers }) => {
 
 export const advanceEconomy = (
   state,
-  { startDate, months, shocks = [], seed = "", upkeep = {}, posture = {} } = {},
+  { startDate, months, shocks = [], seed = "", upkeep = {}, posture = {}, orders = [] } = {},
 ) => {
   const requested = Math.trunc(Number(months)) || 0;
   const steps = Math.max(0, Math.min(MAX_STEPS, requested));
@@ -193,7 +194,28 @@ export const advanceEconomy = (
   let polities = { ...(state?.polities ?? {}) };
   let pools = { ...(state?.pools ?? {}) };
   let shortfall = { ...(state?.shortfall ?? {}) };
+  let production = normalizeProductionQueue(state?.production);
+  const completions = [];
+  const rejectedProduction = [];
   let shockedMonths = 0;
+
+  // Pay and enqueue this span's opening orders BEFORE the first month, so the
+  // reserves a polity opens the period with are the ones it spends. The pool
+  // base is the same base the month step reads, so the two cannot disagree.
+  const ordersByPolity = {};
+  for (const order of Array.isArray(orders) ? orders : []) {
+    const polity = String(order?.polity ?? "").trim();
+    if (!polity) continue;
+    (ordersByPolity[polity] ??= []).push(order);
+  }
+  for (const polity of stableOrder(Object.keys(ordersByPolity))) {
+    const base = pools[polity] ?? initialPoolsFor(polities[polity]);
+    const paid = enqueueOrders({ pools: base, line: production[polity] ?? null, orders: ordersByPolity[polity] });
+    pools[polity] = paid.pools;
+    if (paid.line) production[polity] = paid.line;
+    else delete production[polity];
+    rejectedProduction.push(...paid.rejected.map((entry) => ({ polity, ...entry })));
+  }
 
   // Shock spans are relative to the moment they were declared, so they are
   // shifted once onto the absolute clock rather than re-based every step.
@@ -213,6 +235,7 @@ export const advanceEconomy = (
 
     const next = {};
     const nextPools = {};
+    const nextProduction = {};
     const nextShortfall = {};
     for (const name of stableOrder(Object.keys(polities))) {
       const own = running.filter((shock) => shockAppliesTo(shock, name));
@@ -232,14 +255,22 @@ export const advanceEconomy = (
       next[name] = steppedPolity;
       nextPools[name] = steppedPools.pools;
       nextShortfall[name] = steppedPools.shortfall;
+      const steppedLine = stepLineMonth(production[name] ?? null, { monthOffset: step });
+      if (steppedLine.line) nextProduction[name] = steppedLine.line;
+      for (const completion of steppedLine.completions) {
+        completions.push({ polity: name, ...completion });
+      }
     }
     polities = next;
     pools = nextPools;
     shortfall = nextShortfall;
+    production = nextProduction;
   }
 
   return {
-    state: { month: origin + steps, polities, pools, shortfall },
+    state: { month: origin + steps, polities, pools, shortfall, production },
+    completions,
+    rejectedProduction,
     journal: { steps, capped, shockedMonths, seed },
   };
 };
