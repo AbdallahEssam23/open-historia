@@ -186,3 +186,24 @@ test("a model batch cannot dodge the invariant with a non-canonical kind spellin
   assert.notEqual(afterComplete[0].status, "complete");
   assert.equal(afterComplete[0].onCompleteAppliedAt, "");
 });
+
+test("a model batch cannot release effects by renaming then promoting to research", () => {
+  // The rename makes the promoted entry addressable by a NEW name later in the
+  // batch. The scan must follow the rename, or it judges the completion against
+  // the pre-batch name/kind and releases effects the applier withholds.
+  const board = normalizeProjects([{
+    id: "p1", name: "Alpha", kind: "project", status: "active",
+    onComplete: { polityChanges: [{ code: "France", reputation: 60 }] },
+  }]);
+  const ops = [
+    { op: "update", projectId: "p1", patch: { newName: "Beta" } },
+    { op: "update", name: "Beta", patch: { kind: "research", domain: "industrial", scale: "small" } },
+    { op: "close", projectId: "p1", status: "complete" },
+  ];
+  const released = releaseProjectCompletionEffects(board, ops, {});
+  assert.deepEqual(released.projectIds, []);
+  const next = applyProjectOps(board, ops, {});
+  assert.equal(next[0].kind, "research");
+  assert.equal(next[0].status, "active");
+  assert.equal(next[0].onCompleteAppliedAt, "");
+});

@@ -2024,15 +2024,19 @@ export const releaseProjectCompletionEffects = (projects, ops, { engineSourced =
   const projectIds = [];
   const fired = new Set();
 
-  // The batch applies in order, so a later op acts on a kind an earlier op
-  // changed. Reading `project.kind` off the pre-batch list would let one op
-  // promote a project to `research` and the next op complete it, releasing
-  // effects the applier then refuses to release, because by then the kind IS
-  // research. That is exactly the disagreement this scan exists to prevent, so
-  // the effective kind is tracked as the batch is walked. Only the model path
-  // needs it; the engine is trusted.
-  const kinds = new Map(list.map((project) => [project.id, project.kind]));
-  const kindOf = (id, fallback) => kinds.get(id) ?? fallback;
+  // The batch applies in order, so a later op acts on a kind AND a name an earlier
+  // op changed. Reading the pre-batch list would let one op promote a project to
+  // `research` - or rename it so a later op can address it at all - and the next
+  // op complete it, releasing effects the applier then refuses to release, because
+  // by then the kind IS research. That is exactly the disagreement this scan exists
+  // to prevent, so the effective kind and name are tracked as the batch is walked.
+  // Only the model path needs it; the engine is trusted.
+  //
+  // This is a view the SHARED matcher can address: applyProjectOps resolves each op
+  // against the list it has already mutated, so a rename must move here too or the
+  // scan would match a different entry than the applier, or none at all.
+  const tracked = list.map((project) => ({ id: project.id, kind: project.kind, name: project.name }));
+  const kindOf = (id, fallback) => tracked.find((entry) => entry.id === id)?.kind ?? fallback;
   // The same kind-normalization normalizeProjectEntry applies.
   const normalizeKind = (value) => {
     const kind = normalizeOptionalString(value).toLowerCase();
@@ -2043,29 +2047,40 @@ export const releaseProjectCompletionEffects = (projects, ops, { engineSourced =
     const op = normalizeProjectOp(raw);
     if (!op) continue;
 
-    // Record a kind this op changes BEFORE completion is judged, so a later op
-    // in the same batch sees it. A create op's target is matched the same way
-    // applyProjectOps matches it; every other op goes through the shared matcher.
+    // Record the kind or name this op changes BEFORE completion is judged, so a
+    // later op in the same batch sees it. A create op's target is matched the same
+    // way applyProjectOps matches it; every other op goes through the shared
+    // matcher, against the evolving view rather than the pre-batch list.
     if (!engineSourced) {
-      const targetIndex = op.op === "create"
-        ? findProjectIndexForOp(list, { projectId: op.project.id, name: op.project.name })
-        : findProjectIndexForOp(list, op);
-      if (targetIndex !== -1) {
-        const targetId = list[targetIndex].id;
-        // Mirror the applier's freeze: on the model path a research programme's
-        // kind is engine-owned, so a model demotion must not move the tracker
-        // either. If the tracked kind is research it stays research, and the
-        // completing op is skipped exactly as applyProjectOps skips it.
-        const trackKind = (requested) => {
-          if (kindOf(targetId, list[targetIndex].kind) === "research") return;
-          kinds.set(targetId, normalizeKind(requested));
-        };
-        if (op.op === "create") {
-          if (op.provided?.includes("kind")) trackKind(op.project.kind);
-        } else if (op.op === "update") {
+      const matchOp = op.op === "create"
+        ? { projectId: op.project.id, name: op.project.name }
+        : op;
+      const targetIndex = findProjectIndexForOp(tracked, matchOp);
+      if (op.op === "create") {
+        if (targetIndex === -1) {
+          // A brand-new project joins the batch under this name, so a later op can
+          // address it. Mirrors the applier appending it rather than replacing one.
+          tracked.push({ id: op.project.id, kind: normalizeKind(op.project.kind), name: op.project.name });
+        } else if (tracked[targetIndex].kind !== "research" && op.provided?.includes("kind")) {
+          // Re-announce is a merge, and the applier freezes a research programme's
+          // kind. The name is what the op matched BY, so it never moves here.
+          tracked[targetIndex].kind = normalizeKind(op.project.kind);
+        }
+      } else if (targetIndex !== -1) {
+        const entry = tracked[targetIndex];
+        if (op.op === "update") {
           const patch = op.patch && typeof op.patch === "object" ? op.patch : {};
-          const alias = patchedAlias(patch, "kind");
-          if (alias) trackKind(patch[alias]);
+          // Mirror the applier's freeze: on the model path a research programme's
+          // kind is engine-owned, so a model demotion must not move the tracker.
+          const kindAlias = patchedAlias(patch, "kind");
+          if (kindAlias && entry.kind !== "research") entry.kind = normalizeKind(patch[kindAlias]);
+          // A rename later in the batch changes what the next op matches, so it
+          // moves here exactly as the applier moves it.
+          const renamed = normalizeOptionalString(patch.newName || patch.rename);
+          if (renamed) entry.name = renamed;
+        } else if (op.op === "remove") {
+          // The applier drops it, so a later op cannot address it there either.
+          tracked.splice(targetIndex, 1);
         }
       }
     }
