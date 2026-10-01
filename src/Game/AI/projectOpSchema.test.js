@@ -147,7 +147,14 @@ test("the board no longer costs the jump anything", () => {
   // REQUEST may raise it, on purpose, here — which is what reports did
   // (26,363: ~1,450 chars for impacts.reports, against a whole request per turn
   // if documents had taken a call of their own, as the board did).
-  assert.ok(jumpChars < 28000, `the jump schema grew back to ${jumpChars} chars`);
+  // 28,000 -> 29,000: the production queue joined the jump contract. The engine
+  // owns the price and the build time, so the model declares an order and never a
+  // number; the field is a closed-list array with a union type enum, ~800 chars.
+  // 29,000 -> 29,500: the field cost ~1,160 chars, not ~800, because `at` now
+  // spells out that a structure's site is required (the engine rejects a building
+  // order without one) rather than the brief's one-line placeholder. Measured at
+  // 29,154; the guard is a prompt-size guard, not a provider limit.
+  assert.ok(jumpChars < 29500, `the jump schema grew back to ${jumpChars} chars`);
 
   // ...and the game master, which has no second pass to hand the board to, keeps
   // it on its authored events (the provider sees a shallow transport; the
@@ -157,4 +164,19 @@ test("the board no longer costs the jump anything", () => {
     true,
     "the game master lost its board access",
   );
+});
+
+import { GAMEPLAY_TOOLS as TOOLS } from "./gameplaySchemas.js";
+
+test("the jump carries a closed production-orders field", () => {
+  const impacts = null; // the field is top level, beside mobilization
+  const schema = TOOLS.jumpForward.schema;
+  const field = schema.properties.productionOrders;
+  assert.ok(field, "productionOrders is on the jump contract");
+  assert.equal(field.items.additionalProperties, false);
+  assert.equal(field.items.properties.kind.enum.includes("building"), true);
+  assert.equal(field.items.properties.type.enum.includes("infantry"), true);
+  assert.equal(field.items.properties.type.enum.includes("naval_base"), true);
+  assert.equal(field.items.properties.count.maximum >= 1, true);
+  assert.equal(impacts === null, true);
 });

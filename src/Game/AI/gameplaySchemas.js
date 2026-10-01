@@ -2,6 +2,12 @@ import { EVENT_TAG_ENUM, MAX_EVENT_TAGS } from "../../runtime/eventTags.js";
 import { MAX_SHOCKS, MAX_SHOCK_MONTHS, SHOCK_KINDS } from "../../engine/economyShocks.js";
 import { MAX_MOBILIZATION, MOBILIZATION_POSTURES } from "../../engine/forcePools.js";
 import {
+  BUILDING_TYPES,
+  MAX_PRODUCTION_ORDERS,
+  MAX_UNIT_COUNT,
+  PRODUCTION_UNIT_TYPES,
+} from "../../engine/productionQueue.js";
+import {
   TERRITORY_BASIS_DESCRIPTION,
   TERRITORY_BASIS_DESCRIPTION_SHORT,
   TERRITORY_BASIS_ENUM,
@@ -1032,6 +1038,32 @@ const mobilizationEntrySchema = {
   additionalProperties: false,
 };
 
+// The model's production and construction orders: a polity, a closed kind and a
+// closed type. Like a shock it carries no number the model could invent; the
+// engine owns the price, the build time and the draw on the reserves.
+const productionOrderSchema = {
+  type: "object",
+  properties: {
+    polity: { type: "string", description: "Country the order belongs to." },
+    kind: { type: "string", enum: ["unit", "building"], description: "Closed list." },
+    type: {
+      type: "string",
+      enum: [...PRODUCTION_UNIT_TYPES, ...BUILDING_TYPES],
+      description: "A unit type for kind unit, a structure type for kind building.",
+    },
+    count: { type: "integer", minimum: 1, maximum: MAX_UNIT_COUNT, description: "How many; one line builds them in series." },
+    at: {
+      type: "string",
+      description:
+        "Required for a structure: where it is built. For a unit, an optional site; "
+        + "without one the unit is placed at the polity's capital.",
+    },
+    name: { type: "string", description: "What a completed unit or structure is called; optional." },
+  },
+  required: ["polity", "kind", "type"],
+  additionalProperties: false,
+};
+
 export const JUMP_FORWARD_SCHEMA = {
   type: "object",
   description: "A simulated timeline jump containing dated events and the resulting campaign state.",
@@ -1094,6 +1126,14 @@ export const JUMP_FORWARD_SCHEMA = {
         "Mobilization postures for polities: a closed list, effective next period. "
         + "State no manpower/materiel numbers; the engine computes them.",
       items: mobilizationEntrySchema,
+    },
+    productionOrders: {
+      type: "array",
+      maxItems: MAX_PRODUCTION_ORDERS,
+      description:
+        "Production and construction orders for next period: a closed kind and type, effective next period. "
+        + "State no cost and no build time; the engine computes both from the reserves.",
+      items: productionOrderSchema,
     },
   },
   // clearActions is deliberately NOT required: simulateTimelineJump already
