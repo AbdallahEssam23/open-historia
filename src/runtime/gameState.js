@@ -1999,7 +1999,7 @@ const resolveProjectOpOwner = (raw, resolveOwner) => {
 };
 
 // The effects a batch of ops is about to release, worked out BEFORE anything is
-// applied. Pure.
+// applied.
 //
 // This exists because of an ordering constraint that cannot be worked around any
 // other way. applyEventImpactsToWorld applies an event's polityChanges and
@@ -2010,113 +2010,45 @@ const resolveProjectOpOwner = (raw, resolveOwner) => {
 // event's OWN polityChanges/regionTransfers before either list is touched — which
 // means knowing, in advance, which projects this batch completes.
 //
-// The purity is load-bearing, not stylistic. The staged event reveal in time.jsx
-// replays a turn's impacts against the pre-turn rollback snapshot to build a
-// display-only world, and it must reproduce exactly what the real apply did. It
-// does, because identical inputs go in. NOTHING may be written back into the
-// event: an effect cached onto events.json impacts would be applied a second time
-// by any later replay, which is precisely the bug the latch exists to prevent.
+// The determinism is load-bearing, not stylistic. The staged event reveal in
+// time.jsx replays a turn's impacts against the pre-turn rollback snapshot to
+// build a display-only world, and it must reproduce exactly what the real apply
+// did. It does, because identical inputs go in and the released data is a pure
+// function of them. NOTHING may be written back into the event: an effect cached
+// onto events.json impacts would be applied a second time by any later replay,
+// which is precisely the bug the latch exists to prevent.
+//
+// Which projects complete is decided by ASKING THE APPLIER, in a dry run, rather
+// than by re-deriving its matching, kind and latch rules here. Those rules used to
+// be duplicated and drifted: a model batch that promoted a project to research, or
+// renamed it so a later op addressed it, or removed and recreated it, made this
+// scan release effects the applier then refused to release — a research
+// programme's onComplete granted without the engine, and the pre-scan and applier
+// disagreeing, which is exactly what this function exists to prevent. A dry run
+// cannot drift because it IS the applier. The run reads the clock only to stamp
+// timestamps, never to decide which projects complete, so the returned data stays
+// a pure function of (projects, ops).
 export const releaseProjectCompletionEffects = (projects, ops, { engineSourced = false } = {}) => {
-  const list = normalizeProjects(projects);
+  const before = normalizeProjects(projects);
+  const after = applyProjectOps(before, ops, { engineSourced });
+  const priorById = new Map(before.map((project) => [project.id, project]));
+
   const polityChanges = [];
   const regionClaims = [];
   const regionTransfers = [];
   const projectIds = [];
-  const fired = new Set();
 
-  // The batch applies in order, so a later op acts on a kind AND a name an earlier
-  // op changed. Reading the pre-batch list would let one op promote a project to
-  // `research` - or rename it so a later op can address it at all - and the next
-  // op complete it, releasing effects the applier then refuses to release, because
-  // by then the kind IS research. That is exactly the disagreement this scan exists
-  // to prevent, so the effective kind and name are tracked as the batch is walked.
-  // Only the model path needs it; the engine is trusted.
-  //
-  // This is a view the SHARED matcher can address: applyProjectOps resolves each op
-  // against the list it has already mutated, so a rename must move here too or the
-  // scan would match a different entry than the applier, or none at all.
-  const tracked = list.map((project) => ({ id: project.id, kind: project.kind, name: project.name }));
-  const kindOf = (id, fallback) => tracked.find((entry) => entry.id === id)?.kind ?? fallback;
-  // The same kind-normalization normalizeProjectEntry applies.
-  const normalizeKind = (value) => {
-    const kind = normalizeOptionalString(value).toLowerCase();
-    return PROJECT_KIND_SET.has(kind) ? kind : "project";
-  };
-
-  for (const raw of normalizeArray(ops)) {
-    const op = normalizeProjectOp(raw);
-    if (!op) continue;
-
-    // Record the kind or name this op changes BEFORE completion is judged, so a
-    // later op in the same batch sees it. A create op's target is matched the same
-    // way applyProjectOps matches it; every other op goes through the shared
-    // matcher, against the evolving view rather than the pre-batch list.
-    if (!engineSourced) {
-      const matchOp = op.op === "create"
-        ? { projectId: op.project.id, name: op.project.name }
-        : op;
-      const targetIndex = findProjectIndexForOp(tracked, matchOp);
-      if (op.op === "create") {
-        if (targetIndex === -1) {
-          // A brand-new project joins the batch under this name, so a later op can
-          // address it. Mirrors the applier appending it rather than replacing one.
-          tracked.push({ id: op.project.id, kind: normalizeKind(op.project.kind), name: op.project.name });
-        } else if (tracked[targetIndex].kind !== "research" && op.provided?.includes("kind")) {
-          // Re-announce is a merge, and the applier freezes a research programme's
-          // kind. The name is what the op matched BY, so it never moves here.
-          tracked[targetIndex].kind = normalizeKind(op.project.kind);
-        }
-      } else if (targetIndex !== -1) {
-        const entry = tracked[targetIndex];
-        if (op.op === "update") {
-          const patch = op.patch && typeof op.patch === "object" ? op.patch : {};
-          // Mirror the applier's freeze: on the model path a research programme's
-          // kind is engine-owned, so a model demotion must not move the tracker.
-          const kindAlias = patchedAlias(patch, "kind");
-          if (kindAlias && entry.kind !== "research") entry.kind = normalizeKind(patch[kindAlias]);
-          // A rename later in the batch changes what the next op matches, so it
-          // moves here exactly as the applier moves it.
-          const renamed = normalizeOptionalString(patch.newName || patch.rename);
-          if (renamed) entry.name = renamed;
-        } else if (op.op === "remove") {
-          // The applier drops it, so a later op cannot address it there either.
-          tracked.splice(targetIndex, 1);
-        }
-      }
-    }
-
-    // Two ways a project reaches `complete`, and the second is the one a model
-    // reaches for at least as often: an explicit close op, and a plain update
-    // carrying status "complete" (status is in PROJECT_PATCHABLE_FIELDS, so it
-    // lands). Handling only the first would make this fire about half the time,
-    // which is worse than not shipping it — an annexation that transfers the
-    // border on some completions and not others is unreadable to the player.
-    let completing = op.op === "close" && op.status === "complete";
-    if (!completing && op.op === "update") {
-      const patch = op.patch && typeof op.patch === "object" ? op.patch : {};
-      const alias = patchedAlias(patch, "status");
-      completing = Boolean(alias) && resolveProjectStatus(patch[alias]) === "complete";
-    }
-    if (!completing) continue;
-
-    const index = findProjectIndexForOp(list, op);
-    if (index === -1) continue;
-    const project = list[index];
-
-    // A research programme's completion is the engine's to give. A model op that
-    // closes one is ignored here exactly as it is ignored in applyProjectOps, so
-    // its onComplete effects can never be granted by narration. The kind is the
-    // effective one at this point in the batch, not the pre-batch kind.
-    if (completing && kindOf(project.id, project.kind) === "research" && !engineSourced) continue;
-
-    if (fired.has(project.id)) continue;
+  for (const project of after) {
+    const prior = priorById.get(project.id);
+    // A project that did not exist before this batch (a fresh create) releases
+    // nothing here — its effects, if any, are the applier's to grant, exactly as
+    // they were before this scan asked the applier directly.
+    if (!prior) continue;
+    // Only the TRANSITION into complete releases, and only once. A project already
+    // latched has spent its effects; one whose latch the applier did not stamp did
+    // not complete (refused as research on the model path, cancelled, or failed).
+    if (prior.onCompleteAppliedAt || !project.onCompleteAppliedAt) continue;
     if (!project.onComplete) continue;
-    // Only the TRANSITION fires. A project that is already closed is a
-    // restatement, and one already latched has spent its effects.
-    if (!PROJECT_OPEN_STATUSES.has(project.status)) continue;
-    if (project.onCompleteAppliedAt) continue;
-
-    fired.add(project.id);
     projectIds.push(project.id);
     polityChanges.push(...project.onComplete.polityChanges);
     regionClaims.push(...project.onComplete.regionClaims);
@@ -2129,12 +2061,11 @@ export const releaseProjectCompletionEffects = (projects, ops, { engineSourced =
 // Stamps the onComplete latch on the transition into `complete`.
 //
 // The invariant a future edit will break if it is not stated: this fires under
-// EXACTLY the predicate releaseProjectCompletionEffects fires under — the project
-// was open, it carries effects, it is not already latched, and it is completing
-// (not cancelled, not failed). The two agree by construction because they are
-// handed the same list, the same op and the same matcher; if you change the
-// condition in one, change it in the other or a completion will either transfer
-// its regions twice or never transfer them at all.
+// EXACTLY the predicate releaseProjectCompletionEffects detects — the project was
+// open, it carries effects, it is not already latched, and it is completing (not
+// cancelled, not failed). The two agree by construction because the release scan
+// derives its answer from a dry run of THIS applier; if you change the completion
+// condition here, the scan follows automatically.
 //
 // Stamped whether or not THIS caller applied the effects. Both call sites
 // (applyEventImpactsToWorld and applyProjectOpsToWorld) run the release first, and

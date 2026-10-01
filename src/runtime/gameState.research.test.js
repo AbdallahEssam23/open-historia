@@ -207,3 +207,49 @@ test("a model batch cannot release effects by renaming then promoting to researc
   assert.equal(next[0].status, "active");
   assert.equal(next[0].onCompleteAppliedAt, "");
 });
+
+test("a model batch cannot release a research programme's effects by removing and recreating it", () => {
+  // The removed research entry's id is reused by a non-research replacement. The
+  // scan must agree with the applier: the replacement completes, so ITS effect is
+  // released and the research programme's is not.
+  const board = normalizeProjects([{
+    id: "p1", name: "Reactor", kind: "research", status: "active", domain: "nuclear", scale: "large",
+    onComplete: { polityChanges: [{ code: "France", reputation: 77 }] },
+  }]);
+  const ops = [
+    { op: "remove", projectId: "p1" },
+    { op: "create", project: {
+      id: "p1", name: "Reactor", kind: "project", status: "active",
+      onComplete: { polityChanges: [{ code: "France", reputation: 55 }] },
+    } },
+    { op: "close", projectId: "p1", status: "complete" },
+  ];
+  const released = releaseProjectCompletionEffects(board, ops, {});
+  assert.deepEqual(released.projectIds, ["p1"]);
+  assert.deepEqual(released.polityChanges.map((change) => change.reputation), [55]);
+  const next = applyProjectOps(board, ops, {});
+  assert.equal(next.length, 1);
+  assert.equal(next[0].kind, "project");
+  assert.equal(next[0].status, "complete");
+});
+
+test("a rename cannot make the scan release a different project than the applier completes", () => {
+  // The renamed research entry collides with the non-research entry's name. The
+  // applier resolves the completing op to the research entry and refuses it, so
+  // the scan must release nothing rather than the non-research entry's effects.
+  const board = normalizeProjects([
+    { id: "a1", name: "Rho", kind: "research", status: "active", domain: "nuclear", scale: "large",
+      onComplete: { polityChanges: [{ code: "France", reputation: 90 }] } },
+    { id: "b1", name: "Alpha", kind: "project", status: "active",
+      onComplete: { polityChanges: [{ code: "France", reputation: 42 }] } },
+  ]);
+  const ops = [
+    { op: "update", projectId: "a1", patch: { newName: "Alpha" } },
+    { op: "close", name: "Alpha", status: "complete" },
+  ];
+  const released = releaseProjectCompletionEffects(board, ops, {});
+  assert.deepEqual(released.projectIds, []);
+  assert.deepEqual(released.polityChanges, []);
+  const next = applyProjectOps(board, ops, {});
+  assert.equal(next.every((project) => project.status !== "complete"), true);
+});
