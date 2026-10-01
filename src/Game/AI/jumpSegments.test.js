@@ -260,3 +260,19 @@ test("mergeSegmentPayloads carries each segment's economic shocks through the me
   ]);
   assert.deepEqual(merged.economicShocks.map((shock) => shock.kind), ["blockade", "reconstruction"]);
 });
+
+test("mobilization merges across segments, one entry per polity, last wins", () => {
+  const merged = mergeSegmentPayloads([
+    { events: [], mobilization: [{ polity: "France", posture: "partial" }] },
+    { events: [], mobilization: [{ polity: "France", posture: "total" }, { polity: "Germany", posture: "partial" }] },
+  ]);
+  assert.deepEqual(merged.mobilization, [
+    { polity: "France", posture: "total" },
+    { polity: "Germany", posture: "partial" },
+  ]);
+});
+
+test("a segment with no mobilization contributes none", () => {
+  const merged = mergeSegmentPayloads([{ events: [] }, { events: [], mobilization: [{ polity: "France", posture: "total" }] }]);
+  assert.deepEqual(merged.mobilization, [{ polity: "France", posture: "total" }]);
+});

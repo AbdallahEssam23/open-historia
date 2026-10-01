@@ -251,6 +251,10 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
   // the engine's own normalizer caps the total and drops a bad entry, so a
   // segment can never lose the turn over one shock.
   const economicShocks = [];
+  // The model's mobilization declarations. Like the shocks they concatenate, but
+  // a posture is one value per polity, so the list is folded below, last segment
+  // winning, rather than stacked.
+  const mobilization = [];
   const summaries = [];
   let clearActions = true;
   let stopDate = "";
@@ -263,11 +267,22 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     agreementUpdates.push(...asLedgerRecords(payload.agreementUpdates));
     storylineUpdates.push(...asLedgerRecords(payload.storylineUpdates));
     economicShocks.push(...asArray(payload.economicShocks));
+    mobilization.push(...asArray(payload.mobilization));
     const summary = normalizeString(payload.summary);
     if (summary) summaries.push(summary);
     clearActions = payload.clearActions !== false;
     const segmentStop = normalizeString(payload.stopDate);
     if (segmentStop) stopDate = segmentStop;
+  }
+
+  // Fold to one entry per polity. Map keeps the first insertion position and the
+  // last value, so a later segment overrides without reshuffling the order.
+  const mobilizationByPolity = new Map();
+  for (const entry of mobilization) {
+    if (!entry || typeof entry !== "object") continue;
+    const polity = normalizeString(entry.polity ?? entry.country);
+    if (!polity) continue;
+    mobilizationByPolity.set(polity.toLowerCase(), { polity, posture: normalizeString(entry.posture).toLowerCase() });
   }
 
   return {
@@ -276,6 +291,7 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     diplomaticOutreach,
     economicShocks,
     events,
+    mobilization: [...mobilizationByPolity.values()],
     relationUpdates,
     stopDate: stopDate || normalizeString(targetDate),
     storylineUpdates,
