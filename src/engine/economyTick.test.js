@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { MAX_STEPS } from "./economyConstants.js";
 import { normalizeShocks } from "./economyShocks.js";
 import { advanceEconomy, makePolityEconomy, stepPolityMonth } from "./economyTick.js";
-import { applyMobilization, stepPolityPools } from "./forcePools.js";
+import { addGameMonths, gameDateYear } from "../runtime/gameDates.js";
 
 const polityFixture = (overrides = {}) =>
   makePolityEconomy({
@@ -109,8 +109,16 @@ test("the pools ride the same clock as the economy", () => {
 test("with no upkeep and no posture the economy is byte-identical to before", () => {
   const origin = { month: 0, polities: { France: polityFixture() } };
   const withPools = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s" });
-  const economyOnly = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s" });
-  assert.deepEqual(withPools.state.polities, economyOnly.state.polities);
+
+  // Baseline: the same six per-polity steps driven directly, without the pools
+  // path, on the identity shock multipliers. If the default posture or the
+  // shortfall composition ever stopped being the identity, this would diverge.
+  let expected = origin.polities.France;
+  for (let step = 1; step <= 6; step += 1) {
+    const year = gameDateYear(addGameMonths("2026-01-01", step));
+    expected = stepPolityMonth(expected, { year, multipliers: noShock });
+  }
+  assert.deepEqual(withPools.state.polities, { France: expected });
 });
 
 test("a carried shortfall drags stability, and the posture drags output", () => {
