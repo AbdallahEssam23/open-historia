@@ -188,3 +188,28 @@ test("mobilization folds into the multiplier vector without touching inflation",
   assert.ok(war.stability < 10, "it costs stability");
   assert.deepEqual(applyMobilization(base, "peacetime"), base);
 });
+
+test("a regeneration multiplier raises the monthly gain", () => {
+  const polity = { population: 10_000_000, gdp: 1e11, gdpBreakdown: { industry: 30 } };
+  const base = stepPolityPools(polity, { pools: { manpower: 0, materiel: 0 }, posture: "peacetime" });
+  const boosted = stepPolityPools(polity, {
+    pools: { manpower: 0, materiel: 0 },
+    posture: "peacetime",
+    regenMultiplier: 1.3,
+  });
+  assert.ok(boosted.pools.manpower > base.pools.manpower);
+  assert.ok(boosted.pools.materiel > base.pools.materiel);
+});
+
+test("a missing or non-positive regeneration multiplier is a no-op", () => {
+  const polity = { population: 10_000_000, gdp: 1e11, gdpBreakdown: { industry: 30 } };
+  const base = stepPolityPools(polity, { pools: { manpower: 0, materiel: 0 }, posture: "peacetime" });
+  for (const bad of [undefined, 0, -1, Number.NaN]) {
+    const same = stepPolityPools(polity, {
+      pools: { manpower: 0, materiel: 0 },
+      posture: "peacetime",
+      regenMultiplier: bad,
+    });
+    assert.deepEqual(same.pools, base.pools);
+  }
+});

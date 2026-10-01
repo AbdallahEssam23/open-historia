@@ -163,19 +163,24 @@ export const initialPoolsFor = (polity) => {
 // One month: production first, then upkeep, with the ABSOLUTE zero floor. A pool
 // is never negative under any input; the unmet remainder is recorded as a
 // shortfall and becomes stability pressure next month, never a unit change.
-export const stepPolityPools = (polity, { pools = null, posture: postureName = DEFAULT_POSTURE, upkeep: cost = null } = {}) => {
+export const stepPolityPools = (polity, { pools = null, posture: postureName = DEFAULT_POSTURE, upkeep: cost = null, regenMultiplier = 1 } = {}) => {
   const effects = MOBILIZATION_EFFECTS[postureName] ?? MOBILIZATION_EFFECTS[DEFAULT_POSTURE];
   const base = pools ?? initialPoolsFor(polity);
   const population = Math.max(0, Number(polity?.population) || 0);
   const gdp = Math.max(0, Number(polity?.gdp) || 0);
   const industryShare = clamp(Number(polity?.gdpBreakdown?.industry) || 0, 0, 100) / 100;
+  // A research effect can only speed regeneration; a missing or invalid
+  // multiplier is the no-op, so every existing caller computes what it did.
+  const regen = Number.isFinite(Number(regenMultiplier)) && Number(regenMultiplier) > 0
+    ? Number(regenMultiplier)
+    : 1;
 
   let manpower = Math.max(0, Number(base.manpower) || 0)
-    + population * FORCE_POOLS.MANPOWER_PER_CAPITA_MONTHLY * effects.extraction;
+    + population * FORCE_POOLS.MANPOWER_PER_CAPITA_MONTHLY * effects.extraction * regen;
   manpower = Math.min(manpower, population * FORCE_POOLS.MANPOWER_CAP_SHARE);
 
   let materiel = Math.max(0, Number(base.materiel) || 0)
-    + gdp * industryShare * FORCE_POOLS.MATERIEL_PER_OUTPUT_MONTHLY * effects.allocation;
+    + gdp * industryShare * FORCE_POOLS.MATERIEL_PER_OUTPUT_MONTHLY * effects.allocation * regen;
   materiel = Math.min(materiel, gdp * FORCE_POOLS.MATERIEL_CAP_SHARE);
 
   const needManpower = Math.max(0, Number(cost?.manpower) || 0);
