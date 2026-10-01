@@ -18,6 +18,7 @@ import {
   JUMP_PROJECTS_DIRECTIVE_HEADER,
   buildBoardPassDirective,
   buildJumpProjectsDirective,
+  buildResearchBoardDirective,
 } from "./projectsDirective.js";
 
 const BOARD = [
@@ -67,6 +68,16 @@ test("the board pass gets the assessment rule at call time, superseding its froz
   const directive = buildBoardPassDirective();
   assert.ok(directive.includes(HIGH_PRIORITY_ASSESSMENT_RULE));
   assert.match(directive, /replaces any earlier instruction/i, "a campaign's frozen template still says the old rule");
+});
+
+test("the board pass is told the closed research domains and scales", () => {
+  const directive = buildResearchBoardDirective();
+  for (const domain of ["military", "naval", "aerospace", "industrial", "electronics", "medical", "nuclear"]) {
+    assert.match(directive, new RegExp(`\\b${domain}\\b`), `domain ${domain} is not named`);
+  }
+  for (const scale of ["small", "medium", "large"]) {
+    assert.match(directive, new RegExp(`\\b${scale}\\b`), `scale ${scale} is not named`);
+  }
 });
 
 test("the old must-move rule is gone from the game master's block and the default template", () => {

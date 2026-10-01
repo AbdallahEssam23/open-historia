@@ -1011,12 +1011,13 @@ git commit -m "feat(ai): apply the engine's research progress on the jump"
 **Files:**
 - Modify: `src/Game/AI/gameplaySchemas.js`
 - Modify: `src/Game/AI/gameplayPrompts.js`
+- Modify: `src/Game/AI/projectsDirective.js` (the declaration rule, appended at call time)
 - Test: `src/Game/AI/researchPrompt.test.js` (new)
 - Test: `src/Game/AI/projectOpSchema.test.js` (re-verify the size guard)
 
 **Interfaces:**
 - Consumes: the `research` kind and the `domain`/`scale` values (Task 4).
-- Produces: `projectSchema.properties.kind` enum includes `"research"`; `projectSchema.properties` and `projectOpSchema.properties` gain `domain` and `scale` (closed enums from `RESEARCH_DOMAINS`/`RESEARCH_SCALES`); a jump instruction paragraph that states the declare-never-progress rule.
+- Produces: `projectSchema.properties.kind` enum includes `"research"`; `projectSchema.properties` and `projectOpSchema.properties` gain `domain` and `scale` (closed enums from `RESEARCH_DOMAINS`/`RESEARCH_SCALES`). The declare-never-progress rule does NOT go in the jump contract: a jump no longer emits project ops, so the model that DECLARES a programme is the separate `projects` task. The rule is delivered to it as a call-time directive, `buildResearchBoardDirective` in `projectsDirective.js`, appended in `gameplay.js` for `taskKey === "projects"` (the frozen `defaultPrompts.json` template cannot carry it to existing campaigns). `buildProductionInstructions` keeps only the jump-narration paragraph: the jump must not state research progress in what it narrates.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1073,15 +1074,33 @@ existing `projectSchema.properties.kind` line:
     scale: projectSchema.properties.scale,
 ```
 
-In `src/Game/AI/gameplayPrompts.js`, extend `buildProductionInstructions` with the
-research paragraph. Keep it terse; the schema-size budget is the reason.
+In `src/Game/AI/projectsDirective.js`, add the declaration rule as a call-time
+directive (`buildResearchBoardDirective`), following the `buildBoardPassDirective`
+pattern: a jump no longer emits project ops, so the declaring model is the
+separate `projects` task, and every campaign keeps a frozen copy of that task's
+template.
+
+```js
+// src/Game/AI/projectsDirective.js
+export const buildResearchBoardDirective = () => [
+  "[Research Programmes]",
+  "A research programme is recorded as kind \"research\" with a domain and a scale. Open one with op create when an event "
+    + "starts it. The ENGINE funds and advances it out of the country's research capacity, so never write its progress "
+    + "and never mark it complete - that is the engine's. You may still fail or cancel one when the events end it that way.",
+].join("\n");
+```
+
+Import it in `src/Game/AI/gameplay.js` beside `buildBoardPassDirective` and append
+it unconditionally for `taskKey === "projects"`. Also keep the jump-narration
+paragraph in `buildProductionInstructions` (`src/Game/AI/gameplayPrompts.js`): the
+jump still must not invent research progress in its narration.
 
 ```js
 // appended to the instructions returned by buildProductionInstructions
 "A research programme is a project with kind \"research\" and a domain and scale; "
 + "the engine advances it by the country's research points and completes it, so "
 + "do not state its progress and do not mark it complete. Narrate the queue the "
-+ "digest reports.",
+"digest reports.",
 ```
 
 - [ ] **Step 4: Run test to verify it passes**

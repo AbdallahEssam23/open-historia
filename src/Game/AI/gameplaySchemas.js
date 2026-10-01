@@ -607,7 +607,7 @@ const projectSchema = {
     name: nonEmptyTextSchema("The name the project is known by, e.g. \"Project Leviathan\" or \"Operation Kingfisher\"."),
     kind: {
       type: "string",
-      description: "operation for a military, intelligence or covert undertaking; project for a programme, build or civil effort.",
+      description: "operation for a military, intelligence or covert undertaking; project for a programme, build or civil effort; research for a research programme, which also takes a domain and a scale.",
       enum: ["project", "operation", "research"],
     },
     domain: { type: "string", enum: [...RESEARCH_DOMAINS], description: "For kind research only: what field the programme is in. Omit otherwise." },

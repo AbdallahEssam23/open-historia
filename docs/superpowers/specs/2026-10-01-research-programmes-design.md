@@ -320,12 +320,16 @@ queue, so both are surfaced the same way the production line already is.
   programme and its percent, and how many programmes are queued behind it. It is
   omitted entirely for a polity with no research programmes, so a campaign that
   never researches pays nothing for the feature.
-- The model's instructions gain one paragraph, in the same place the production
-  rule already lives (`buildProductionInstructions` and the economy-engine
-  instructions): research programmes are declared with `kind: "research"`,
-  `domain` and `scale`; the engine advances them by research points; the model
-  must not state progress, must not state completion, and should narrate the
-  queue the digest reports rather than a rate it imagines.
+- The declaration path is the separate `projects` task, whose prompt is a frozen
+  template plus call-time directives: the rule is appended there by
+  `buildResearchBoardDirective` (`projectsDirective.js`), because a jump no longer
+  emits project ops. It says research programmes are declared with
+  `kind: "research"`, `domain` and `scale`; the engine advances them by research
+  points; the model must not state progress, must not state completion, and may
+  still end one when the events do. The jump narration additionally keeps a
+  paragraph in `buildProductionInstructions` so it does not invent research
+  progress in prose, and should narrate the queue the digest reports rather than
+  a rate it imagines.
 - The jump schema's project op gains the optional `domain` and `scale` fields
   and `research` in its `kind` enum. This is the only schema change, and the
   schema size budget (`projectOpSchema.test.js`, `jumpChars < 29500`) must be

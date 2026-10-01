@@ -75,3 +75,20 @@ export const buildBoardPassDirective = () => [
     + HIGH_PRIORITY_ASSESSMENT_RULE
     + " For an assessment with no material change, use op update with a lastUpdate saying so, and leave progress where it is.",
 ].join("\n");
+
+export const RESEARCH_BOARD_DIRECTIVE_HEADER = "[Research Programmes]";
+
+// The board pass is the model that declares a programme, so this is where the
+// declare-never-progress contract has to land. Appended at call time for the same
+// reason as buildBoardPassDirective: every campaign keeps a frozen copy of the
+// projects template. The engine owns research progress (runtime/economyEngine.js),
+// and the reducer refuses a model-authored progress or complete on a research
+// entry, so a model that is not told this simply loses the work it narrated.
+export const buildResearchBoardDirective = () => [
+  RESEARCH_BOARD_DIRECTIVE_HEADER,
+  "A research programme is recorded as kind \"research\" with a domain (military, naval, aerospace, industrial, "
+    + "electronics, medical or nuclear) and a scale (small, medium or large). Open one with op create when an event "
+    + "starts it. The ENGINE funds and advances it out of the country's research capacity, so never write its "
+    + "progress and never mark it complete - that is the engine's. You may still fail or cancel one when the events "
+    + "end it that way. Everything else on this board is unchanged.",
+].join("\n");
