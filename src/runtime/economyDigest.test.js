@@ -174,3 +174,17 @@ test("the production line survives even when there is no economy line", () => {
   });
   assert.equal(text, "Production line: 1x garrison (1 month).");
 });
+
+test("the production line survives when the cap bites the economy lines", () => {
+  const text = buildEconomyDigest({
+    deltas: [delta("x".repeat(DIGEST_CHAR_CAP))],
+    playerPolity: "Egypt",
+    playerPools: { manpower: 10, materiel: 1 },
+    playerPosture: "peacetime",
+    playerProduction: {
+      queue: [{ kind: "unit", type: "garrison", count: 1, monthsTotal: 1 }],
+    },
+  });
+  assert.equal(text.includes("Economy this period"), false);
+  assert.match(text, /Production line: 1x garrison \(1 month\)\./);
+});

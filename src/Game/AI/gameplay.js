@@ -7263,7 +7263,11 @@ const applySimulationResult = async ({
           path: "$.production",
         };
       });
-      await resolvePlacements(containers, nextWorld, { receipt: null });
+      // A completion the map cannot place (a named site that no longer resolves)
+      // must leave the same receipt note any narrated op would, not vanish after
+      // the player already paid for it. The receipt may be null, exactly as the
+      // other resolvePlacements callers allow.
+      await resolvePlacements(containers, nextWorld, { receipt });
       const applied = applyEventImpactsToWorld({
         colors: {},
         events: containers.map((container) => container.event),
