@@ -288,6 +288,8 @@ import {
 } from "./worldDirection.js";
 import { addGameDays, compareGameDates, diffGameDays, gameDateDayNumber, normalizeGameDate, parseGameDate } from "../../runtime/gameDates.js";
 import { authoredImpactTargets, stampResolvedImpacts, withAuthorImpacts, withoutAuthorImpacts } from "../../runtime/scriptedImpacts.js";
+import { advanceWorldEconomy } from "../../runtime/economyEngine.js";
+import { buildEconomyDigest } from "../../runtime/economyDigest.js";
 import {
   NO_RESPONSE_BODY_NOTE,
   beginSimulation,
@@ -1393,6 +1395,13 @@ const WORLD_SIMULATION_CONSOLIDATED_HISTORY_MAX_CHARS = 24000;
 const WORLD_SIMULATION_HISTORICAL_ANCHOR_ACTIVATION_CHARS = 24000;
 const WORLD_SIMULATION_HISTORICAL_ANCHOR_MAX_CHARS = 6000;
 const WORLD_SIMULATION_HISTORICAL_ANCHOR_MAX_ITEMS = 18;
+
+// The deterministic engine owns the standard economy, so the periodic AI stats
+// batch would be a second writer of the same fields. Kept as a named switch
+// rather than deleted, because during rollout the two paths are compared side
+// by side on real campaigns, and because a custom scenario sheet still uses the
+// AI path (refreshTrackedCustomStatsIfDue), which this does not touch.
+const ECONOMY_ENGINE_OWNS_STANDARD_STATS = true;
 
 const perfNow = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -7171,7 +7180,9 @@ const applySimulationResult = async ({
 
   // Bounded automatic Stats tracking: only when the player's configured calendar
   // interval is due, and one compact AI batch for every initialised tracked
-  // country. A failure never invalidates the completed turn.
+  // country. A failure never invalidates the completed turn. The standard path
+  // stands down behind a named switch inside the function, because the
+  // deterministic engine now owns those fields.
   try {
     nextWorld = await refreshTrackedCountryStatsIfDue({
       bundle: {
@@ -7187,6 +7198,32 @@ const applySimulationResult = async ({
   } catch (error) {
     if (projects?.signal?.aborted) throw error;
     console.warn("[stats auto] unexpected scheduler failure; the completed turn is preserved.", error);
+  }
+
+  // The deterministic economy advances AFTER the event impacts and immediately
+  // BEFORE the history snapshot, so the engine's fields are the last word on a
+  // sheet the event path may also have touched, and the snapshot captures them.
+  // A failure here must never lose a completed turn: the events and the date are
+  // already correct, and the economy is simply one period behind, which the
+  // clock on the world then reports honestly.
+  try {
+    const economy = advanceWorldEconomy(nextWorld, {
+      fromDate: baseGame.gameDate || "",
+      toDate: nextGame.gameDate || "",
+      shocks: normalizeArray(result.economicShocks),
+      playerPolity: nextGame.country || "",
+      tracked: Object.keys(nextWorld.countryStats ?? {}),
+      campaignId,
+      scenarioId: nextGame.scenarioId || "",
+    });
+    nextWorld = economy.world;
+    logDebugEvent("turn", `Economy advanced ${economy.months} month(s) locally.`, {
+      steps: economy.journal?.steps ?? 0,
+      capped: Boolean(economy.journal?.capped),
+      shockedMonths: economy.journal?.shockedMonths ?? 0,
+    });
+  } catch (error) {
+    console.warn("[engine] the economy step failed; the completed turn is preserved.", error);
   }
 
   // Permanent compact Stats history: snapshots only the numeric sheets that
@@ -9493,6 +9530,10 @@ const refreshTrackedCountryStatsIfDue = async ({
   if (statSheetDefinition.custom) {
     return refreshTrackedCustomStatsIfDue({ bundle, signal, definition: statSheetDefinition });
   }
+  // The deterministic engine owns the standard economy, so the periodic AI
+  // batch would be a second writer of the same fields. Custom sheets took the
+  // branch above and keep the old behaviour untouched.
+  if (ECONOMY_ENGINE_OWNS_STANDARD_STATS) return world;
   const statIndexDefinition = await loadStatIndexDefinition().catch(() => ({ custom: false, rows: DEFAULT_STAT_INDEX_ROWS }));
   const statIndexRows = normalizeArray(statIndexDefinition?.rows).length
     ? normalizeArray(statIndexDefinition.rows)
@@ -12551,6 +12592,7 @@ const finishTimelineJump = async ({ context, signal, state }) => {
   const result = {
     clearActions: merged.clearActions,
     events: territoryEvents,
+    economicShocks: merged.economicShocks,
     mode,
     outreach: merged.diplomaticOutreach,
     stopDate: merged.stopDate,
@@ -12645,6 +12687,30 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
     historicalAnchorMaxItems: WORLD_SIMULATION_HISTORICAL_ANCHOR_MAX_ITEMS,
     targetDate,
   });
+  // The economy the model is about to narrate is computed BEFORE it is asked, so
+  // the digest it reads is a set of given facts rather than something it may
+  // restate with different numbers. This is a dry run: nothing is written, and
+  // the authoritative advance happens after the answer, from the committed state
+  // to the model's real stopDate. A failure never stops the turn; it only means
+  // the model narrates without the engine's numbers that one time.
+  try {
+    const projected = advanceWorldEconomy(bundle.world, {
+      fromDate: originDate,
+      toDate: targetDate,
+      playerPolity: normalizeString(bundle.game.country),
+      tracked: Object.keys(bundle.world?.countryStats ?? {}),
+      campaignId: activeCampaignId(),
+      scenarioId: normalizeString(bundle.game.scenarioId),
+    });
+    variables.economyDigest = buildEconomyDigest({
+      deltas: projected.deltas,
+      playerPolity: normalizeString(bundle.game.country),
+      tracked: Object.keys(bundle.world?.countryStats ?? {}),
+      shocks: [],
+    });
+  } catch (error) {
+    console.warn("[engine] the projected economy digest could not be built; the turn continues without it.", error);
+  }
   // Guarantee at least one event per queued action, so each planned action has a
   // slot to resolve into (bounded so a huge queue can't demand absurd counts).
   const plannedActionCount = normalizeActions(bundle.actions).filter((action) => action.status === "planned").length;

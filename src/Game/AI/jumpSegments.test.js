@@ -251,3 +251,12 @@ test("mergeSegmentPayloads carries every segment's ledger records through the me
   assert.equal(merged.agreementUpdates.length, 1);
   assert.equal(merged.events.length, 3);
 });
+
+test("mergeSegmentPayloads carries each segment's economic shocks through the merge", () => {
+  const merged = mergeSegmentPayloads([
+    { events: [], economicShocks: [{ kind: "blockade", severity: 2, durationMonths: 6 }] },
+    { events: [], economicShocks: [{ kind: "reconstruction", severity: 1, durationMonths: 12 }] },
+    { events: [] },
+  ]);
+  assert.deepEqual(merged.economicShocks.map((shock) => shock.kind), ["blockade", "reconstruction"]);
+});

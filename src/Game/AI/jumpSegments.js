@@ -247,6 +247,10 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
   const relationUpdates = [];
   const agreementUpdates = [];
   const storylineUpdates = [];
+  // The model's classified economic shocks. They concatenate like the ledgers;
+  // the engine's own normalizer caps the total and drops a bad entry, so a
+  // segment can never lose the turn over one shock.
+  const economicShocks = [];
   const summaries = [];
   let clearActions = true;
   let stopDate = "";
@@ -258,6 +262,7 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     relationUpdates.push(...asLedgerRecords(payload.relationUpdates));
     agreementUpdates.push(...asLedgerRecords(payload.agreementUpdates));
     storylineUpdates.push(...asLedgerRecords(payload.storylineUpdates));
+    economicShocks.push(...asArray(payload.economicShocks));
     const summary = normalizeString(payload.summary);
     if (summary) summaries.push(summary);
     clearActions = payload.clearActions !== false;
@@ -269,6 +274,7 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     clearActions,
     agreementUpdates,
     diplomaticOutreach,
+    economicShocks,
     events,
     relationUpdates,
     stopDate: stopDate || normalizeString(targetDate),
