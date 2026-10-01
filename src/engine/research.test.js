@@ -9,8 +9,11 @@ import {
   RESEARCH_SCALES,
   researchCostFor,
   researchPointsFor,
+  normalizeResearchProgrammes,
+  researchQueueFor,
   resolveResearchDomain,
   resolveResearchScale,
+  stepResearchMonth,
 } from "./research.js";
 
 test("the domain and scale enums are closed and every domain has a base", () => {
@@ -63,4 +66,75 @@ test("capacity is the documented formula including the cap", () => {
   assert.equal(researchPointsFor({ facilities: 100, population: 10000000000 }), RESEARCH_MAX_POINTS);
   // Negative or malformed inputs do not go below the base.
   assert.equal(researchPointsFor({ facilities: -5, population: -100 }), 1);
+});
+
+const programme = (over = {}) => ({
+  id: "p1", domain: "industrial", scale: "small", points: 0,
+  priority: "normal", startedAt: "2000-01-01", status: "active", ...over,
+});
+
+test("normalize derives the cost and drops anything without an id", () => {
+  const cost = researchCostFor({ domain: "nuclear", scale: "large" });
+  const [entry] = normalizeResearchProgrammes([
+    programme({ id: "n1", domain: "nuclear", scale: "large", points: 5 }),
+    { domain: "naval", scale: "small" },
+  ]);
+  assert.equal(entry.id, "n1");
+  assert.equal(entry.cost, cost);
+  assert.equal(entry.accumulated, 5);
+  assert.equal(normalizeResearchProgrammes([{ domain: "naval" }]).length, 0);
+});
+
+test("the queue is priority, then start date, then id, and only active programmes", () => {
+  const queue = researchQueueFor(normalizeResearchProgrammes([
+    programme({ id: "b", priority: "normal", startedAt: "2001-01-01" }),
+    programme({ id: "a", priority: "high", startedAt: "2010-01-01" }),
+    programme({ id: "c", priority: "high", startedAt: "2000-01-01" }),
+    programme({ id: "z", priority: "high", startedAt: "2000-01-01" }),
+    programme({ id: "p", status: "paused" }),
+    programme({ id: "s", status: "proposed" }),
+  ]));
+  assert.deepEqual(queue.map((entry) => entry.id), ["c", "z", "a", "b"]);
+});
+
+test("one programme takes the whole rate and the rest wait", () => {
+  const input = normalizeResearchProgrammes([
+    programme({ id: "head", domain: "industrial", scale: "small" }), // cost 24
+    programme({ id: "tail", domain: "industrial", scale: "small" }),
+  ]);
+  const { programmes, completions } = stepResearchMonth({ points: 10, programmes: input }, { monthOffset: 1 });
+  assert.equal(programmes.find((p) => p.id === "head").accumulated, 10);
+  assert.equal(programmes.find((p) => p.id === "tail").accumulated, 0);
+  assert.deepEqual(completions, []);
+});
+
+test("overflow carries to the next programme in the same month", () => {
+  // Each small industrial programme costs 24. 60 points finishes two and leaves 12.
+  const input = normalizeResearchProgrammes([
+    programme({ id: "a", priority: "high" }),
+    programme({ id: "b", priority: "normal" }),
+    programme({ id: "c", priority: "low" }),
+  ]);
+  const { programmes, completions } = stepResearchMonth({ points: 60, programmes: input }, { monthOffset: 3 });
+  assert.deepEqual(completions, [{ id: "a", monthOffset: 3 }, { id: "b", monthOffset: 3 }]);
+  assert.equal(programmes.find((p) => p.id === "c").accumulated, 12);
+});
+
+test("points left when the queue is exhausted are discarded, not banked", () => {
+  const input = normalizeResearchProgrammes([programme({ id: "a" })]); // cost 24
+  const { completions } = stepResearchMonth({ points: 100, programmes: input }, { monthOffset: 1 });
+  assert.deepEqual(completions, [{ id: "a", monthOffset: 1 }]);
+  // A second step with a fresh month and the same list reports nothing to give.
+  const after = stepResearchMonth({ points: 100, programmes: [] }, { monthOffset: 2 });
+  assert.deepEqual(after.completions, []);
+});
+
+test("the same input and span always produce the same output", () => {
+  const build = () => normalizeResearchProgrammes([
+    programme({ id: "a", priority: "high", points: 5 }),
+    programme({ id: "b" }),
+  ]);
+  const first = stepResearchMonth({ points: 7, programmes: build() }, { monthOffset: 4 });
+  const second = stepResearchMonth({ points: 7, programmes: build() }, { monthOffset: 4 });
+  assert.deepEqual(first, second);
 });

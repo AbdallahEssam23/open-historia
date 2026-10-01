@@ -61,3 +61,72 @@ export const researchPointsFor = ({ facilities = 0, population = 0 } = {}) =>
       + RESEARCH_POINTS_PER_FACILITY * whole(facilities)
       + Math.floor(Math.max(0, Number(population) || 0) / RESEARCH_POPULATION_PER_POINT),
   );
+
+const PRIORITY_RANK = { high: 0, normal: 1, low: 2 };
+const priorityRank = (value) => {
+  const raw = name(value);
+  return Object.prototype.hasOwnProperty.call(PRIORITY_RANK, raw) ? PRIORITY_RANK[raw] : PRIORITY_RANK.normal;
+};
+
+export const normalizeResearchProgrammes = (value) => {
+  const list = Array.isArray(value) ? value : [];
+  const out = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const id = String(entry.id ?? "").trim();
+    if (!id) continue;
+    const points = Math.max(0, Math.trunc(Number(entry.points)) || 0);
+    out.push({
+      id,
+      cost: researchCostFor(entry),
+      accumulated: points,
+      priority: ["high", "normal", "low"].includes(name(entry.priority)) ? name(entry.priority) : "normal",
+      startedAt: String(entry.startedAt ?? ""),
+      status: name(entry.status) || "active",
+    });
+  }
+  return out;
+};
+
+// A total order, so the same board always produces the same queue. `active` is
+// the only status that draws points: paused and stalled programmes are simply
+// not in the queue, which is what makes pausing a real way to redirect research.
+export const researchQueueFor = (programmes) =>
+  (Array.isArray(programmes) ? programmes : [])
+    .filter((entry) => entry && entry.status === "active")
+    .slice()
+    .sort((a, b) => {
+      const byPriority = priorityRank(a.priority) - priorityRank(b.priority);
+      if (byPriority !== 0) return byPriority;
+      const aDate = a.startedAt || "\uffff"; // an undated start sorts after a dated one
+      const bDate = b.startedAt || "\uffff";
+      if (aDate < bDate) return -1;
+      if (aDate > bDate) return 1;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
+
+// Sequential allocation, one month: the whole rate goes to the head, the
+// overflow of a completion carries to the next programme in the SAME step, and
+// what is left when the queue is empty is discarded. There is no bank.
+export const stepResearchMonth = ({ points = 0, programmes = [] } = {}, { monthOffset = 1 } = {}) => {
+  const list = (Array.isArray(programmes) ? programmes : []).map((entry) => ({ ...entry }));
+  const byId = new Map(list.map((entry) => [entry.id, entry]));
+  const completions = [];
+  let remaining = Math.max(0, Math.trunc(Number(points)) || 0);
+
+  for (const head of researchQueueFor(list)) {
+    const entry = byId.get(head.id);
+    if (!entry) continue;
+    const need = Math.max(0, entry.cost - entry.accumulated);
+    const take = Math.min(remaining, need);
+    entry.accumulated += take;
+    remaining -= take;
+    if (entry.accumulated >= entry.cost) {
+      completions.push({ id: entry.id, monthOffset: Math.max(1, Math.trunc(Number(monthOffset)) || 1) });
+      continue;
+    }
+    break;
+  }
+
+  return { programmes: list, completions };
+};
