@@ -64,3 +64,15 @@ test("the engine path may write progress, points and completion", () => {
   assert.equal(next[0].progress, 100);
   assert.equal(next[0].status, "complete");
 });
+
+test("the model cannot complete a research programme with a status patch either", () => {
+  const ops = [{ op: "update", projectId: "rx", patch: { status: "complete" } }];
+  const released = releaseProjectCompletionEffects(researchBoard(), ops, {});
+  assert.equal(released.projectIds.length, 0);
+  const next = applyProjectOps(researchBoard(), ops, {});
+  assert.equal(next[0].status, "active");
+  assert.equal(next[0].onCompleteAppliedAt, "");
+  // And the engine can still complete it later.
+  const engine = applyProjectOps(next, [{ op: "close", projectId: "rx", status: "complete" }], { engineSourced: true });
+  assert.equal(engine[0].status, "complete");
+});

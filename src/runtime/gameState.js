@@ -2215,6 +2215,19 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
         const alias = patchedAlias(patch, field);
         if (alias) merged[field] = patch[alias];
       }
+      // A model may move a research programme between proposed, active, paused,
+      // stalled, failed and cancelled, but it may not COMPLETE one - by the
+      // explicit close op above OR by a plain status patch here. Reverting the
+      // status keeps applyProjectOps and releaseProjectCompletionEffects in
+      // agreement (the release pre-scan already refuses the same case) and stops
+      // a model status patch from stamping the one-way latch, which would
+      // permanently block the engine from ever releasing the effects.
+      if (current.kind === "research" && !engineSourced) {
+        const statusAlias = patchedAlias(patch, "status");
+        if (statusAlias && resolveProjectStatus(patch[statusAlias]) === "complete") {
+          merged.status = current.status;
+        }
+      }
       // researchPoints is not patchable by any model, but the engine writes it.
       if (engineSourced && patch.researchPoints !== undefined) {
         merged.researchPoints = patch.researchPoints;
