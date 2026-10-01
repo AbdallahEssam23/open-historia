@@ -920,13 +920,18 @@ git commit -m "feat(runtime): derive research capacity and emit progress ops"
 ### Task 7: Apply research ops on the jump, engine-sourced
 
 **Files:**
-- Modify: `src/runtime/gameState.js` (thread the flag through `applyEventImpactsToWorld`)
+- Modify: `src/runtime/gameState.js` (add the flag to `applyProjectOpsToWorld`)
 - Modify: `src/Game/AI/gameplay.js`
 - Test: `src/Game/AI/researchWiring.test.js` (new)
 
 **Interfaces:**
 - Consumes: `researchOps` from Task 6; the guard from Task 5.
-- Produces: `applyProjectOpsToWorld({ ..., engineSourced = false })` and `applyEventImpactsToWorld(...)` accept and thread an engine-only flag; `gameplay.js` applies the advance's `researchOps` through `applyProjectOpsToWorld` with `engineSourced: true` immediately after the production completion batches are applied.
+- Produces: `applyProjectOpsToWorld({ ..., engineSourced = false })` threads an engine-only flag to its release predicate and its `applyProjectOps` call; `gameplay.js` applies the advance's `researchOps` through `applyProjectOpsToWorld` with `engineSourced: true` immediately after the production completion batches are applied.
+
+`applyEventImpactsToWorld` is deliberately NOT changed. Research ops are applied
+through `applyProjectOpsToWorld` directly, never as event impacts, so threading a
+flag it would never receive is dead surface. The model's event path keeps the
+default `engineSourced = false` and is therefore guarded, which is the point.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -951,17 +956,8 @@ Expected: FAIL, `researchOps` absent from `gameplay.js`.
 
 - [ ] **Step 3: Write minimal implementation**
 
-In `src/runtime/gameState.js`, thread the flag. `applyEventImpactsToWorld` already
-computes releases at its top; pass the flag through:
-
-```js
-// signature gains engineSourced = false
-const released = releaseProjectCompletionEffects(nextWorld.projects, event.impacts.projectOps, { engineSourced });
-```
-
-and thread `engineSourced` into the call that applies this event's project ops
-(the same call that already runs inside the event loop). Then add `engineSourced = false`
-to `applyProjectOpsToWorld`'s parameters, pass it to its
+In `src/runtime/gameState.js`, add `engineSourced = false` to
+`applyProjectOpsToWorld`'s parameters, pass it to its
 `releaseProjectCompletionEffects(nextWorld.projects, resolved, { engineSourced })`
 predicate call, and pass it as `{ date, eventId, round, engineSourced }` to the
 final `applyProjectOps(...)`.
@@ -1041,7 +1037,7 @@ test("the jump schema accepts a research programme with domain and scale", () =>
 test("the instruction tells the model to declare research, never progress it", () => {
   const text = buildProductionInstructions({ digest: "" });
   assert.match(text, /research/i);
-  assert.match(text, /do not (state|set) progress|never (state|set) progress/i);
+  assert.match(text, /do not state its progress/i);
 });
 ```
 
@@ -1125,7 +1121,7 @@ import { buildEconomyDigest } from "./economyDigest.js";
 
 test("the research line reports the rate, the head and the queue depth", () => {
   const digest = buildEconomyDigest({
-    player: "France",
+    playerPolity: "France",
     deltas: [],
     research: {
       points: 5,
@@ -1137,7 +1133,7 @@ test("the research line reports the rate, the head and the queue depth", () => {
 });
 
 test("there is no research line when the player has no programmes", () => {
-  const digest = buildEconomyDigest({ player: "France", deltas: [], research: { points: 3, programmes: [] } });
+  const digest = buildEconomyDigest({ playerPolity: "France", deltas: [], research: { points: 3, programmes: [] } });
   assert.doesNotMatch(digest, /Research:/);
 });
 ```
