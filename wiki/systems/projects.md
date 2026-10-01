@@ -7,13 +7,18 @@ new campaign's board is empty — *"Nothing on the board yet"* — until events 
 start writing to it; **🧭 Ask your advisor to populate this** gets it to file the efforts you
 already have under way.
 
-This is also where research and technology live. There is no tech tree; there is a research
-programme with milestones that either progresses or stalls.
+This is also where research and technology live. There is no tech tree. A research programme is
+declared with a **domain** (what field it is in) and a **scale** (how large it is), and from then
+on the engine advances it for you: each month your country's **research points** go to **one
+programme at a time**, in priority order. You steer it the way you steer anything else here - by
+setting its priority, and by keeping it running - and you never set its progress yourself. When it
+finishes, whatever the programme was for is released.
 
 Physical production is not on this board. What a country actually builds - a division, a ship, a
 factory - is the deterministic economy's production line, paid from its reserves and shown
-read-only in the **Forces** panel. Research stays here, on the board, as a programme with
-milestones; the queue is where the engine holds physical construction and pays for it.
+read-only in the **Forces** panel. Research is not paid from the reserves and has no place in that
+queue: it is a programme on this board, advanced by the engine, and it is the labs your country
+has actually built that set the rate.
 
 ![The Projects and Operations board](/wiki/img/projects-board.jpg)
 *A board on a campaign that has been running a while. Note the counts — **Mine (4)**,
@@ -24,7 +29,8 @@ carries no target date and so can never run late.*
 
 Two kinds:
 
-- **Projects** — construction, research, industrial and political programmes. Building
+- **Projects** — construction, research, industrial and political programmes. A research
+  programme is declared with a domain and a scale and then advanced by the engine. Building
   something, generally.
 - **Operations** — military and covert undertakings. Doing something to someone, generally.
 

@@ -212,7 +212,7 @@ Stored in world so they share every read/write/poll/normalize path with no serve
 
 | Field | Type | Default | Element shape (normalizer) |
 |---|---|---|---|
-| `projects` | `Project[]` | `[]` | `normalizeProjectEntry`: `{id,name,kind,ownerCode,summary,status,progress,tags,secrecy,startedAt,targetDate,milestones,nextMilestone,lastUpdate,eventIds,linkedUnitIds,linkedMarkerIds,linkedSpyIds,verification,focus,note,createdAt,updatedAt,updatedRound}`. |
+| `projects` | `Project[]` | `[]` | `normalizeProjectEntry`: `{id,name,kind,domain,scale,researchPoints,ownerCode,summary,status,progress,tags,secrecy,startedAt,targetDate,milestones,nextMilestone,lastUpdate,eventIds,linkedUnitIds,linkedMarkerIds,linkedSpyIds,verification,focus,note,createdAt,updatedAt,updatedRound}`. |
 
 The **Projects & Operations board**: long-running efforts that span rounds — research and industrial programmes, construction projects, military and covert operations, sustained political campaigns. Deliberately distinct from the actions queue, which holds one round's orders and is resolved by the next jump.
 
@@ -220,7 +220,7 @@ A milestone may carry `repeat` (`weekly|monthly|quarterly|annual|biennial`) for 
 
 `ongoing: true` marks a **standing effort with no planned end** — a permanent patrol, a continuous intelligence programme. It forces `targetDate` to `""` and can never be overdue, which is the point: without it the model invents an end date for something meant to continue, and the board then cries wolf the day that date passes. Distinct from merely having no `targetDate` yet, which is what an undated new entry looks like.
 
-`kind ∈ {project, operation}` (default `project`); `status ∈ {proposed,active,stalled,paused,complete,failed,cancelled}` (default `active`; the still-running subset is exported as `PROJECT_OPEN_STATUSES`); `secrecy ∈ {public,restricted,covert}`. `tags` reuses `normalizeTagList` (`countryTags.js`) so the 8×32 caps and case-insensitive dedupe are shared with country tags. `ownerCode` is a country **NAME**, verbatim — same namespace as units and markers — and **blank means the player**, so the model is never made to restate the player's own country on every entry (a field it has to repeat is a field it eventually gets wrong). `nextMilestone` is **re-derived** from `milestones` on every normalize (earliest dated `pending` wins) rather than trusted: the model is given both and drifts them apart the moment it marks one done without restating the other.
+`kind ∈ {project, operation, research}` (default `project`); `status ∈ {proposed,active,stalled,paused,complete,failed,cancelled}` (default `active`; the still-running subset is exported as `PROJECT_OPEN_STATUSES`); `secrecy ∈ {public,restricted,covert}`. `tags` reuses `normalizeTagList` (`countryTags.js`) so the 8×32 caps and case-insensitive dedupe are shared with country tags. `ownerCode` is a country **NAME**, verbatim — same namespace as units and markers — and **blank means the player**, so the model is never made to restate the player's own country on every entry (a field it has to repeat is a field it eventually gets wrong). `nextMilestone` is **re-derived** from `milestones` on every normalize (earliest dated `pending` wins) rather than trusted: the model is given both and drifts them apart the moment it marks one done without restating the other.
 
 Capped at **120 projects**, 8 milestones each and 12 `eventIds` each — sized against a real campaign (a forty-round game came back with 44 live projects) rather than guessed. One project measures ~1-1.4 KB, of which milestones are ~39%, so a full board costs ~160 KB against a `world.json` whose `startingTimelineText` and `consolidatedHistory` are already ~105 KB each. Going over the cap evicts **finished work first** (oldest by `updatedAt`), and only then the least recently touched live work — `.slice(0, N)` would have dropped whatever happened to be last, which is live work as often as not. The panel shows the count and warns within 10 of the limit, so this is never the first the player hears of it.
 
@@ -235,6 +235,23 @@ If a board ever genuinely needs more than this, the answer is not a bigger numbe
 Everything date-derived — overdue, due-soon, a slipped milestone, a programme untouched for several rounds — is **not stored**. It is computed from the game clock by `src/runtime/projects.js` (import-free, unit-tested in a bare checkout), so it cannot go stale between AI turns. That split is the point of the feature: the model owns what only it can know, the calendar owns the rest.
 
 Not in `TEMPLATE_WORLD_OVERRIDE_KEYS`, deliberately — `buildFreshWorldSeedFromScenario` carries *authored settings* across, and projects are play state, exactly like `markers`. (`units` *is* in the list since the map editor gained a Units panel: a scenario's authored starting formations carry into every game made from it — map-editor.md §9b.)
+
+#### Research programmes
+
+A research programme is a Project with `kind: "research"` - the one kind the engine advances on its own clock instead of the model narrating it forward.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `kind` | `project \| operation \| research` | `research` marks the programme; the default is `project`. |
+| `domain` | closed enum | `military`, `naval`, `aerospace`, `industrial`, `electronics`, `medical`, `nuclear`. Meaningful only on a research entry; `""` anywhere else. An unknown value resolves to `industrial`. |
+| `scale` | closed enum | `small`, `medium`, `large`. Meaningful only on a research entry; `""` anywhere else. An unknown value resolves to `small`. |
+| `researchPoints` | integer (engine-owned) | The accumulated points the engine has spent. Absent from `PROJECT_FIELD_ALIASES`, `PROJECT_PATCHABLE_FIELDS` and the model's `projectSchema`, so no model can read, set or forge it. |
+
+The cost is DERIVED from `domain` and `scale`, never authored: the domain base (`military` 30, `naval` 36, `aerospace` 48, `industrial` 24, `electronics` 36, `medical` 30, `nuclear` 60) times the scale multiplier (`small` 1, `medium` 2, `large` 3). The board's `progress` is likewise DERIVED from `researchPoints` (`100 * researchPoints / cost`, capped at 100) and is never a model field.
+
+The capacity that advances the programmes is not stored either: it is derived each period from what a polity has actually built and who lives there, `min(12, 1 + 2 * facilities + floor(population / 50000000))`, where `facilities` counts `world.markers` of kind `"research facility"` owned by the polity and `population` is the total on its stat sheet. A facility the production line finishes inside the span reaches `world.markers` only after the advance returns, so it raises capacity the NEXT period - the same one-period lag the economy uses elsewhere.
+
+The engine advances and completes a programme; the model may declare, re-prioritise, cancel or fail one, but a model-sourced `progress` or `complete` on a research entry is refused (`holdResearchInvariant`, `applyProjectOps`), and only the engine's write, stamped `engineSourced: true`, moves it. A completion releases the stored `onComplete` effects through the ordinary project completion path, once.
 
 #### Espionage on the board
 
