@@ -18,7 +18,7 @@ Physical production is not on this board. What a country actually builds - a div
 factory - is the deterministic economy's production line, paid from its reserves and shown
 read-only in the **Forces** panel. Research is not paid from the reserves and has no place in that
 queue: it is a programme on this board, advanced by the engine, and it is the labs your country
-has actually built that set the rate.
+has actually built - and the people behind them - that set the rate.
 
 ![The Projects and Operations board](/wiki/img/projects-board.jpg)
 *A board on a campaign that has been running a while. Note the counts — **Mine (4)**,
