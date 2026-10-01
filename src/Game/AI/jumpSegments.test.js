@@ -301,3 +301,17 @@ test("an uppercase valid posture is lowercased", () => {
   const merged = mergeSegmentPayloads([{ events: [], mobilization: [{ polity: "France", posture: "TOTAL" }] }]);
   assert.deepEqual(merged.mobilization, [{ polity: "France", posture: "total" }]);
 });
+
+test("production orders concatenate across segments", () => {
+  const merged = mergeSegmentPayloads([
+    { events: [], productionOrders: [{ polity: "France", kind: "unit", type: "infantry" }] },
+    { events: [], productionOrders: [{ polity: "Germany", kind: "building", type: "airfield", at: "Bonn" }] },
+  ]);
+  assert.equal(merged.productionOrders.length, 2);
+  assert.equal(merged.productionOrders[1].polity, "Germany");
+});
+
+test("a segment with no orders contributes an empty list", () => {
+  const merged = mergeSegmentPayloads([{ events: [] }]);
+  assert.deepEqual(merged.productionOrders, []);
+});

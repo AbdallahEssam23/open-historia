@@ -257,6 +257,10 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
   // a posture is one value per polity, so the list is folded below, last segment
   // winning, rather than stacked.
   const mobilization = [];
+  // The model's production orders. Unlike shock spans, orders are not
+  // deduplicated by identity: two identical orders are two genuine items, so the
+  // list simply concatenates across segments.
+  const productionOrders = [];
   const summaries = [];
   let clearActions = true;
   let stopDate = "";
@@ -270,6 +274,7 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     storylineUpdates.push(...asLedgerRecords(payload.storylineUpdates));
     economicShocks.push(...asArray(payload.economicShocks));
     mobilization.push(...asArray(payload.mobilization));
+    productionOrders.push(...asArray(payload.productionOrders));
     const summary = normalizeString(payload.summary);
     if (summary) summaries.push(summary);
     clearActions = payload.clearActions !== false;
@@ -299,6 +304,7 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     economicShocks,
     events,
     mobilization: [...mobilizationByPolity.values()],
+    productionOrders,
     relationUpdates,
     stopDate: stopDate || normalizeString(targetDate),
     storylineUpdates,
