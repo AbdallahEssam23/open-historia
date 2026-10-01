@@ -392,6 +392,10 @@ export const normalizeCountryStatContinuity = (value) => {
     out.semanticSplitComponents = [...byGeography.values()].slice(0, MAX_SEMANTIC_SPLIT_COMPONENTS);
   }
 
+  // A sheet whose last writer was the deterministic engine. Preserved here so it
+  // survives the finalize pass; the flag is cleared by the next ordinary write.
+  if (value.engineSourced === true) out.engineSourced = true;
+
   return Object.keys(out).length ? out : undefined;
 };
 
@@ -939,6 +943,19 @@ const mergeComponentsByGeography = (base, patch) => {
   return [...out.values()];
 };
 
+// Marks a sheet whose last writer was the deterministic engine. The continuity
+// guard bands a value that moved further than a language model plausibly should
+// have moved it, but an engine result is a fact about the simulation, so a
+// caller must be able to tell the two apart from the sheet alone. A later
+// ordinary write clears the mark, because the guard is then the right arbiter
+// again.
+const stampEngineSourced = (continuity, engineSourced) => {
+  const next = continuity && typeof continuity === "object" ? { ...continuity } : {};
+  if (engineSourced) next.engineSourced = true;
+  else delete next.engineSourced;
+  return Object.keys(next).length ? next : undefined;
+};
+
 // SINGLE MUTATION BOUNDARY for normal simulation, the future expanded GM,
 // editor/repair tools, and scripted events. It accepts legacy string values,
 // applies explicit component edits when supplied, and then recomputes every
@@ -946,8 +963,9 @@ const mergeComponentsByGeography = (base, patch) => {
 export const mergeCountryStatPatch = (
   baseValue,
   patchValue,
-  { replaceComponents = false, continuity = null } = {},
+  options = {},
 ) => {
+  const { replaceComponents = false, continuity = null, engineSourced = false } = options;
   const base = normalizeCountryStatSheet(baseValue) || {};
   const patch = patchValue && typeof patchValue === "object" && !Array.isArray(patchValue)
     ? patchValue
@@ -962,10 +980,9 @@ export const mergeCountryStatPatch = (
     ),
   };
 
-  const mergedContinuity = mergeCountryStatContinuity(
-    base.continuity,
-    patch.continuity,
-    continuity,
+  const mergedContinuity = stampEngineSourced(
+    mergeCountryStatContinuity(base.continuity, patch.continuity, continuity),
+    engineSourced === true,
   );
   if (mergedContinuity) merged.continuity = mergedContinuity;
 
@@ -1419,6 +1436,13 @@ export const guardCountryStatContinuity = (
   const previous = finalizeCountryStatSheet(previousValue);
   const candidate = finalizeCountryStatSheet(candidateValue);
   if (!previous || !candidate) return { sheet: candidate, restored: [] };
+
+  // An engine-sourced sheet is a simulation result, not a model estimate. Banding
+  // it would revert a real war or a real boom back to last period's number, and
+  // do it silently. The engine's own clamps are its guardrails.
+  if (candidate.continuity?.engineSourced === true) {
+    return { sheet: candidate, restored: [] };
+  }
 
   const previousComponents = new Map(
     normalizeTerritorialComponents(previous.territorialComponents)
