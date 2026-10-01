@@ -1,5 +1,6 @@
 import { astronomicalYear, compareGameDates, isGameDate, parseGameDate } from "./gameDates.js";
 import { DEFAULT_STAT_INDEX_KEYS, MAX_STAT_INDICES, STAT_INDEX_KEY_PATTERN } from "./statIndexDefinitions.js";
+import { MOBILIZATION_POSTURES } from "../engine/forcePools.js";
 
 /*! Open Historia — native persistent country statistics and economic aggregation. */
 
@@ -424,6 +425,24 @@ const copyTextField = (source, target, key) => {
   if (text) target[key] = text;
 };
 
+const FORCE_POSTURES = new Set(MOBILIZATION_POSTURES);
+
+// The engine's readable mirror of the pools. It is written only through an
+// engine-sourced patch (see the gate in mergeCountryStatPatch), so the model
+// cannot state a reserve, but it is normalized here like any other sheet field
+// because a save is read from disk and must be defensively bounded.
+const normalizeForces = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const out = {};
+  const manpower = parseStatNumber(value.manpower);
+  if (Number.isFinite(manpower)) out.manpower = Math.max(0, Math.round(manpower));
+  const materiel = parseStatNumber(value.materiel);
+  if (Number.isFinite(materiel)) out.materiel = Math.max(0, Math.round(materiel * 100) / 100);
+  const mobilization = clean(value.mobilization).toLowerCase();
+  if (FORCE_POSTURES.has(mobilization)) out.mobilization = mobilization;
+  return Object.keys(out).length ? out : undefined;
+};
+
 export const normalizeCountryStatSheet = (value, { indexKeys: expectedIndexKeys } = {}) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 
@@ -434,6 +453,9 @@ export const normalizeCountryStatSheet = (value, { indexKeys: expectedIndexKeys 
 
   const stability = normalizePercent(value.stability);
   if (stability != null) out.stability = Math.round(stability);
+
+  const forces = normalizeForces(value.forces);
+  if (forces) out.forces = forces;
 
   const customStats = normalizeCustomCountryStats(value.customStats);
   if (customStats) out.customStats = customStats;
@@ -486,6 +508,12 @@ export const finalizeCountryStatSheet = (value, { indexKeys: expectedIndexKeys }
 
   const stability = normalizePercent(value.stability);
   if (stability != null) out.stability = Math.round(stability);
+
+  // mergeCountryStatPatch and the component path of normalizeCountryStatSheet
+  // both rebuild the sheet through this function, so the engine-written forces
+  // block must survive the rebuild too.
+  const forces = normalizeForces(value.forces);
+  if (forces) out.forces = forces;
 
   const customStats = normalizeCustomCountryStats(value.customStats);
   if (customStats) out.customStats = customStats;
@@ -988,6 +1016,14 @@ export const mergeCountryStatPatch = (
 
   const stability = normalizePercent(patch.stability);
   if (stability != null) merged.stability = Math.round(stability);
+
+  // The forces block is engine-only. An ordinary event patch or an advisor write
+  // that carries one is ignored field by field, so the model can never move a
+  // reserve. The schema is the first line of defence; this is the second.
+  if (engineSourced === true) {
+    const forcesPatch = normalizeForces(patch.forces);
+    if (forcesPatch) merged.forces = { ...(base.forces || {}), ...forcesPatch };
+  }
 
   const customStatsPatch = normalizeCustomCountryStats(patch.customStats);
   if (customStatsPatch) {
