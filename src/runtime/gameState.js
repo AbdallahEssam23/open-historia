@@ -201,6 +201,13 @@ export const WORLD_DEFAULTS = {
   simulationHistory: [],
   simulationRules: "",
   startingTimelineText: "",
+  // The deterministic economy's clock. `seed` is generated once per campaign
+  // and never regenerated, which is what makes the per-polity character term
+  // and every value derived from it reproducible across reloads and devices.
+  // `lastDate` says where the committed economy stands; `lastMonth` is the
+  // derived month index, kept only so a report can read it without date math.
+  // Listed in the normalizeWorldState return too, for the usual reason.
+  economyEngine: null,
   units: [],
 };
 
@@ -3403,6 +3410,23 @@ const withFormerSceneKeyMoved = (world) => {
   return { ...rest, activeInteractive: rest.activeInteractive ?? formerScene };
 };
 
+// The engine clock. A half record (a version with no seed) is treated as no
+// record at all: an engine that thinks it has a seed it does not have would
+// produce numbers nobody can reproduce, which is worse than not running.
+const normalizeEconomyEngine = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const seed = normalizeOptionalString(value.seed);
+  const version = Math.trunc(Number(value.version));
+  if (!seed || !Number.isFinite(version) || version < 1) return null;
+  const lastMonth = Math.trunc(Number(value.lastMonth));
+  return {
+    version,
+    seed,
+    lastDate: normalizeOptionalString(value.lastDate),
+    lastMonth: Number.isFinite(lastMonth) && lastMonth >= 0 ? lastMonth : 0,
+  };
+};
+
 export const normalizeWorldState = (world) => {
   const nextWorld = withFormerSceneKeyMoved(world && typeof world === "object" ? world : {});
   const polityOverrides = Object.fromEntries(
@@ -3655,6 +3679,7 @@ export const normalizeWorldState = (world) => {
     storylines: normalizeWorldStorylines(nextWorld.storylines),
     simulationRules: normalizeOptionalString(nextWorld.simulationRules),
     startingTimelineText: normalizeOptionalString(nextWorld.startingTimelineText),
+    economyEngine: normalizeEconomyEngine(nextWorld.economyEngine),
     units,
     // Pruned against the units computed just above, on every read AND write, so
     // an order clears itself the moment its unit actually arrives — see
