@@ -27,3 +27,40 @@ test("a non-research project carries no research fields", () => {
   assert.equal(entry.scale, "");
   assert.equal(entry.researchPoints, 0);
 });
+
+import { applyProjectOps, releaseProjectCompletionEffects } from "../runtime/gameState.js";
+
+const researchBoard = () => normalizeProjects([
+  {
+    id: "rx", name: "Reactor", kind: "research", domain: "nuclear", scale: "large", status: "active",
+    // A canonical, normalizable effect: the plan's `polity`/`field`/`delta` shape
+    // is rejected by normalizePolityChange, which would leave onComplete null and
+    // make the engine-release assertion unsatisfiable.
+    onComplete: { polityChanges: [{ code: "France", reputation: 60 }] },
+  },
+]);
+
+test("the model cannot set progress on a research programme", () => {
+  const next = applyProjectOps(researchBoard(), [{ op: "update", projectId: "rx", patch: { progress: 90 } }], {});
+  assert.equal(next[0].progress, 0);
+});
+
+test("the model cannot complete a research programme or release its effects", () => {
+  const ops = [{ op: "close", projectId: "rx", status: "complete" }];
+  const released = releaseProjectCompletionEffects(researchBoard(), ops, {});
+  assert.equal(released.projectIds.length, 0);
+  const next = applyProjectOps(researchBoard(), ops, {});
+  assert.equal(next[0].status, "active");
+});
+
+test("the engine path may write progress, points and completion", () => {
+  const ops = [
+    { op: "update", projectId: "rx", patch: { progress: 50, researchPoints: 480 } },
+    { op: "close", projectId: "rx", status: "complete" },
+  ];
+  const released = releaseProjectCompletionEffects(researchBoard(), ops, { engineSourced: true });
+  assert.deepEqual(released.projectIds, ["rx"]);
+  const next = applyProjectOps(researchBoard(), ops, { engineSourced: true });
+  assert.equal(next[0].progress, 100);
+  assert.equal(next[0].status, "complete");
+});

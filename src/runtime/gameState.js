@@ -2016,7 +2016,7 @@ const resolveProjectOpOwner = (raw, resolveOwner) => {
 // does, because identical inputs go in. NOTHING may be written back into the
 // event: an effect cached onto events.json impacts would be applied a second time
 // by any later replay, which is precisely the bug the latch exists to prevent.
-export const releaseProjectCompletionEffects = (projects, ops) => {
+export const releaseProjectCompletionEffects = (projects, ops, { engineSourced = false } = {}) => {
   const list = normalizeProjects(projects);
   const polityChanges = [];
   const regionClaims = [];
@@ -2041,6 +2041,12 @@ export const releaseProjectCompletionEffects = (projects, ops) => {
       completing = Boolean(alias) && resolveProjectStatus(patch[alias]) === "complete";
     }
     if (!completing) continue;
+
+    // A research programme's completion is the engine's to give. A model op that
+    // closes one is ignored here exactly as it is ignored in applyProjectOps, so
+    // its onComplete effects can never be granted by narration.
+    const target0 = list[findProjectIndexForOp(list, op)];
+    if (completing && target0?.kind === "research" && !engineSourced) continue;
 
     const index = findProjectIndexForOp(list, op);
     if (index === -1) continue;
@@ -2122,7 +2128,7 @@ const withoutPastDeadlines = (projects, before, date) => {
 };
 
 export const applyProjectOps = (projects, ops, ctx = {}) => {
-  const { date = "", eventId = "", round = 0 } = ctx;
+  const { date = "", eventId = "", round = 0, engineSourced = false } = ctx;
   const stamp = new Date().toISOString();
   let next = normalizeProjects(projects);
 
@@ -2199,12 +2205,19 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
       const patch = op.patch && typeof op.patch === "object" ? op.patch : {};
       const merged = { ...current };
       for (const field of PROJECT_PATCHABLE_FIELDS) {
+        // The engine owns a research programme's progress; a model patch against
+        // one is dropped rather than applied.
+        if (field === "progress" && current.kind === "research" && !engineSourced) continue;
         // Written under the CANONICAL key whichever alias carried it, so
         // normalizeProjectEntry below reads the new value rather than the one it
         // is replacing (its own `entry.summary || entry.description` fallback
         // would otherwise keep the old summary and ignore the patch's).
         const alias = patchedAlias(patch, field);
         if (alias) merged[field] = patch[alias];
+      }
+      // researchPoints is not patchable by any model, but the engine writes it.
+      if (engineSourced && patch.researchPoints !== undefined) {
+        merged.researchPoints = patch.researchPoints;
       }
       // tags follows the countryTags rule exactly: an ARRAY replaces the list
       // wholesale (so [] really does mean "this has no tags any more"), while an
@@ -2301,6 +2314,9 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
     }
 
     if (op.op === "close") {
+      // A model may fail or cancel a research programme, but only the engine may
+      // complete one.
+      if (current.kind === "research" && op.status === "complete" && !engineSourced) continue;
       const succeeded = op.status === "complete";
       next = next.map((project, i) => (i === index
         ? touch({
