@@ -16,7 +16,7 @@ test("capacity counts the polity's research facilities and population", () => {
       { ownerCode: "Germany", kind: "research facility" },
     ],
     projects: [
-      { id: "rx", kind: "research", ownerCode: "France", domain: "nuclear", scale: "large", status: "active" },
+      { id: "rx", name: "Reactor", kind: "research", ownerCode: "France", domain: "nuclear", scale: "large", status: "active" },
     ],
   };
   const input = buildResearchInput(world);
@@ -37,7 +37,7 @@ test("a blank owner means the player and is attributed to the player polity", ()
     countryStats: { France: { population: { total: 0 } } },
     markers: [],
     projects: [
-      { id: "rx", kind: "research", ownerCode: "", domain: "medical", scale: "small", status: "active" },
+      { id: "rx", name: "Programme", kind: "research", ownerCode: "", domain: "medical", scale: "small", status: "active" },
     ],
   };
   const input = buildResearchInput(world, { playerPolity: "France" });
@@ -62,6 +62,7 @@ test("a completion emits both the 100 percent update and the close op", () => {
     projects: [
       {
         id: "rx",
+        name: "Programme",
         kind: "research",
         ownerCode: "Egypt",
         domain: "military",

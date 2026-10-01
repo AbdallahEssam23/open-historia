@@ -229,16 +229,7 @@ export const completionBatchesFor = (completions, { world = {}, fromDate = "" } 
 export const buildResearchInput = (world, { playerPolity = "" } = {}) => {
   const input = {};
   const stats = world?.countryStats ?? {};
-  // normalizeProjects drops a nameless entry, but a research programme is
-  // addressed by id and its name may not have been persisted yet. Fall back to
-  // the id for the normalization pass so its closed domain and scale are still
-  // resolved; the name is never read from this input.
-  const projects = normalizeProjects(
-    (Array.isArray(world?.projects) ? world.projects : []).map((project) =>
-      (project && typeof project === "object" && !project.name && !project.title && !project.project
-        ? { ...project, name: project.id }
-        : project)),
-  );
+  const projects = normalizeProjects(world?.projects);
   for (const [polity, sheet] of Object.entries(stats)) {
     const facilities = (Array.isArray(world?.markers) ? world.markers : []).filter(
       (marker) => String(marker?.ownerCode ?? "").trim() === polity
