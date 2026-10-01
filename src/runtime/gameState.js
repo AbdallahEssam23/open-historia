@@ -2175,6 +2175,15 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
           if (field === "name") continue; // matched BY the name; never rewrite it here
           merged[field] = op.project[field];
         }
+        // A re-announcement cannot forge a running research programme's
+        // engine-owned numbers or launder its kind either: restore them from the
+        // entry we already hold, whatever the op restated. See the create path
+        // below and the kind guard in the update branch.
+        if (existing.kind === "research" && !engineSourced) {
+          merged.kind = existing.kind;
+          merged.researchPoints = existing.researchPoints;
+          merged.progress = existing.progress;
+        }
         next = next.map((project, index) => (index === existingIndex
           ? touch({
             ...merged,
@@ -2186,8 +2195,14 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
           : project));
         continue;
       }
+      // A research programme opens at zero points and zero percent: the engine
+      // owns both numbers, and a create op that carried its own would otherwise
+      // let the model open one already paid for. The engine path is exempt in
+      // case it ever creates one (it does not today).
+      const startsAtZero = op.project.kind === "research" && !engineSourced;
       next = [...next, touch({
         ...op.project,
+        ...(startsAtZero ? { researchPoints: 0, progress: 0 } : {}),
         startedAt: op.project.startedAt || date,
         createdAt: stamp,
       })];
@@ -2227,6 +2242,13 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
         if (statusAlias && resolveProjectStatus(patch[statusAlias]) === "complete") {
           merged.status = current.status;
         }
+      }
+      // A model may not change a research programme's kind: demoting it to
+      // "project" would launder it past the status/progress guards above and let
+      // it complete while its effects are permanently withheld. The kind is the
+      // predicate the whole guard rests on, so it is engine-owned here.
+      if (current.kind === "research" && !engineSourced) {
+        merged.kind = current.kind;
       }
       // researchPoints is not patchable by any model, but the engine writes it.
       if (engineSourced && patch.researchPoints !== undefined) {

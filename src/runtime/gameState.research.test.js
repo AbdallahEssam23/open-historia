@@ -62,6 +62,7 @@ test("the engine path may write progress, points and completion", () => {
   assert.deepEqual(released.projectIds, ["rx"]);
   const next = applyProjectOps(researchBoard(), ops, { engineSourced: true });
   assert.equal(next[0].progress, 100);
+  assert.equal(next[0].researchPoints, 480);
   assert.equal(next[0].status, "complete");
 });
 
@@ -75,4 +76,36 @@ test("the model cannot complete a research programme with a status patch either"
   // And the engine can still complete it later.
   const engine = applyProjectOps(next, [{ op: "close", projectId: "rx", status: "complete" }], { engineSourced: true });
   assert.equal(engine[0].status, "complete");
+});
+
+test("the model cannot launder a research programme into another kind to complete it", () => {
+  const ops = [
+    { op: "update", projectId: "rx", patch: { kind: "project" } },
+    { op: "update", projectId: "rx", patch: { status: "complete" } },
+  ];
+  const next = applyProjectOps(researchBoard(), ops, {});
+  assert.equal(next[0].kind, "research");
+  assert.equal(next[0].status, "active");
+  assert.equal(next[0].onCompleteAppliedAt, "");
+});
+
+test("a created research programme starts at zero points and progress", () => {
+  const created = applyProjectOps([], [
+    { op: "create", name: "New Reactor", kind: "research", domain: "nuclear", scale: "large", researchPoints: 999, progress: 99 },
+  ], {});
+  assert.equal(created[0].researchPoints, 0);
+  assert.equal(created[0].progress, 0);
+});
+
+test("a re-announced research programme cannot be demoted or forged either", () => {
+  const ops = [
+    { op: "create", name: "Reactor", kind: "project", researchPoints: 999, progress: 99 },
+    { op: "update", projectId: "rx", patch: { status: "complete" } },
+  ];
+  const next = applyProjectOps(researchBoard(), ops, {});
+  assert.equal(next[0].kind, "research");
+  assert.equal(next[0].researchPoints, 0);
+  assert.equal(next[0].progress, 0);
+  assert.equal(next[0].status, "active");
+  assert.equal(next[0].onCompleteAppliedAt, "");
 });
