@@ -109,19 +109,32 @@ const polityToPatch = (polity) => ({
 });
 
 // What the roster costs every month, grouped by owner. Read only: a unit is
-// never edited, moved or disbanded here. Summed in a stable key order so the
-// arithmetic cannot depend on roster order.
+// never edited, moved or disbanded here. Units are counted per owner and type
+// first, then each owner's row is summed in a stable type order. The materiel
+// costs are floats and float addition is not associative, so summing them in
+// roster order would make the total depend on the roster order; a fixed type
+// order makes the arithmetic order-independent.
 export const buildUpkeepTable = (world) => {
-  const table = {};
+  const counts = {};
   for (const unit of Array.isArray(world?.units) ? world.units : []) {
     const owner = String(unit?.ownerCode ?? "").trim();
     if (!owner) continue;
-    const cost = UNIT_UPKEEP[String(unit?.type ?? "").toLowerCase()];
-    if (!cost) continue;
-    const row = table[owner] ?? { manpower: 0, materiel: 0 };
-    row.manpower += cost.manpower;
-    row.materiel += cost.materiel;
-    table[owner] = row;
+    const type = String(unit?.type ?? "").toLowerCase();
+    if (!UNIT_UPKEEP[type]) continue;
+    const byType = counts[owner] ?? {};
+    byType[type] = (byType[type] ?? 0) + 1;
+    counts[owner] = byType;
+  }
+  const table = {};
+  for (const owner of stableOrder(Object.keys(counts))) {
+    let manpower = 0;
+    let materiel = 0;
+    for (const type of stableOrder(Object.keys(counts[owner]))) {
+      const count = counts[owner][type];
+      manpower += count * UNIT_UPKEEP[type].manpower;
+      materiel += count * UNIT_UPKEEP[type].materiel;
+    }
+    table[owner] = { manpower, materiel };
   }
   return table;
 };

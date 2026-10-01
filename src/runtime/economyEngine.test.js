@@ -138,12 +138,42 @@ const roster = () => ({
   ],
 });
 
-test("the upkeep table groups by owner and is order-independent", () => {
-  const a = buildUpkeepTable(roster());
-  const b = buildUpkeepTable({ ...roster(), units: [...roster().units].reverse() });
-  assert.deepEqual(a, b);
-  assert.ok(a.Egypt.materiel > 0);
-  assert.ok(a.Egypt.manpower > 0);
+// A roster of eight units spanning six fractional-materiel types, with repeats.
+// The old per-unit float accumulation gives a different materiel total for the
+// three orders below (13.8, 13.800000000000002, 13.799999999999999); the fixed
+// type order makes all three byte-identical.
+const mixedUnits = (types) => ({
+  countryStats: { Egypt: sheet() },
+  units: types.map((type) => ({ ownerCode: "Egypt", type, strength: 100, lng: 1, lat: 1 })),
+});
+const mixedRoster = [
+  "infantry", "artillery", "air", "garrison", "armor", "infantry", "naval", "garrison",
+];
+const handPickedRoster = [
+  "air", "artillery", "infantry", "naval", "infantry", "garrison", "armor", "garrison",
+];
+
+test("the upkeep table is order-independent across roster permutations", () => {
+  const original = buildUpkeepTable(mixedUnits(mixedRoster));
+  const reversed = buildUpkeepTable(mixedUnits([...mixedRoster].reverse()));
+  const handPicked = buildUpkeepTable(mixedUnits(handPickedRoster));
+  assert.deepEqual(original, reversed);
+  assert.deepEqual(original, handPicked);
+  assert.ok(original.Egypt.materiel > 0);
+  assert.ok(original.Egypt.manpower > 0);
+});
+
+test("an explicit upkeep option overrides the internally built table", () => {
+  const world = { ...roster(), economyEngine: { version: 1, seed: "s", lastDate: "2026-01-01", lastMonth: 0 } };
+  const tiny = advance(world, {
+    fromDate: "2026-01-01",
+    toDate: "2026-04-01",
+    upkeep: { Egypt: { manpower: 1, materiel: 0 } },
+  });
+  const built = advance(world, { fromDate: "2026-01-01", toDate: "2026-04-01" });
+  // The roster's materiel upkeep is far above zero, so charging the tiny
+  // override leaves strictly more materiel in the pool.
+  assert.ok(tiny.world.economyEngine.pools.Egypt.materiel > built.world.economyEngine.pools.Egypt.materiel);
 });
 
 test("the advance writes pools, a forces mirror and the committed posture", () => {
