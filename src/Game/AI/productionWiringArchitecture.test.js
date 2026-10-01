@@ -46,3 +46,13 @@ test("completions are applied after the advance and before the write", () => {
   assert.doesNotMatch(block, /title: ""/);
   assert.match(block, /title: "[^"]+"/);
 });
+
+test("the production digest carries the player's research queue", () => {
+  // The research line is folded into the production digest, so the declaring
+  // model can narrate the queue. A future refactor could drop the wiring without
+  // failing the digest's own unit tests, which see only the summary they are
+  // handed; this pins the sourcing and the call.
+  const body = bodyOf("export const simulateTimelineJump = async (");
+  assert.match(body, /researchQueueFor\(/);
+  assert.match(body, /research: playerResearch/);
+});
