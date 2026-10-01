@@ -2039,6 +2039,10 @@ const resolveProjectOpOwner = (raw, resolveOwner) => {
 // wrong payload or none at all while the latch was already spent. The run reads the
 // clock only to stamp timestamps, never to decide which projects complete, so the
 // returned data stays a pure function of (projects, ops).
+// Reads what an op batch completes WITHOUT applying it, by running the applier
+// into a throwaway `completions` sink. That makes this a dry run, so
+// applyProjectOps must stay pure - anything it writes outside the returned board
+// (or that sink) would be observed twice, once here and once for real.
 export const releaseProjectCompletionEffects = (projects, ops, { engineSourced = false } = {}) => {
   const completions = [];
   applyProjectOps(projects, ops, { engineSourced, completions });
