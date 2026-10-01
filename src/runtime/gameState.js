@@ -36,6 +36,7 @@ import {
   stepToward,
 } from "./unitMotion.js";
 import { compareGameDates, normalizeGameDate } from "./gameDates.js";
+import { resolveResearchDomain, resolveResearchScale } from "../engine/research.js";
 
 export const GAME_DEFAULTS = {
   country: "",
@@ -1397,7 +1398,7 @@ const PROJECT_STATUS_SET = new Set(PROJECT_STATUSES);
 // board view. Exported because the panel and the derived-flag helpers both need
 // the same answer, and two copies of this list would drift apart.
 export const PROJECT_OPEN_STATUSES = new Set(["proposed", "active", "stalled", "paused"]);
-const PROJECT_KIND_SET = new Set(["project", "operation"]);
+const PROJECT_KIND_SET = new Set(["project", "operation", "research"]);
 // Whether an entry sourced from a spy can still be trusted. "" is the ordinary
 // case and covers everything the player learned openly.
 //
@@ -1633,6 +1634,7 @@ export const normalizeProjectEntry = (entry, index = 0) => {
   if (!name) return null;
 
   const kind = normalizeOptionalString(entry.kind || entry.type).toLowerCase();
+  const isResearch = kind === "research";
   const secrecy = normalizeOptionalString(entry.secrecy || entry.classification).toLowerCase();
   const progress = Number(entry.progress);
   const milestones = normalizeProjectMilestones(entry.milestones);
@@ -1649,6 +1651,18 @@ export const normalizeProjectEntry = (entry, index = 0) => {
     id: normalizeOptionalString(entry.id) || generateId(`project-${index}`),
     name,
     kind: PROJECT_KIND_SET.has(kind) ? kind : "project",
+    // Closed and derived, only meaningful for a research programme: the pair is
+    // what the engine prices. Anywhere else they are empty rather than left to
+    // look like a value some other code should read.
+    domain: isResearch ? resolveResearchDomain(entry.domain) : "",
+    scale: isResearch ? resolveResearchScale(entry.scale) : "",
+    // ENGINE-ONLY, and deliberately absent from PROJECT_FIELD_ALIASES,
+    // PROJECT_PATCHABLE_FIELDS and projectSchema, so no model can read, set or
+    // forge it. It is the accumulated research points the engine has spent; the
+    // percent the board shows is derived from it.
+    researchPoints: isResearch
+      ? Math.max(0, Math.trunc(Number(entry.researchPoints)) || 0)
+      : 0,
     // Same owner namespace as units, markers and every other polity-keyed field:
     // a country NAME, verbatim. Blank means the player — an operation the model
     // reports without naming an owner is one of theirs, and making it restate the
