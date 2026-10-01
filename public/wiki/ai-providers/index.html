@@ -257,7 +257,8 @@ endpoint.</p>
 provider accepts — temperature, sampling, provider-specific options. Malformed JSON is ignored
 rather than breaking the game.</p>
 <p><strong>Limit AI generation</strong> abandons a stalled generation and falls back to a canned event. It
-measures silence rather than elapsed time. Recommended with local models.</p>
+measures silence rather than elapsed time, and is on by default: without it a request that never
+comes back leaves the turn waiting with no end.</p>
 <p>Custom parameters and Strict tool schema are set on a <strong>connection</strong>; an entry in the Models list
 can have custom parameters of its own and <strong>How the AI answers</strong>, which picks the structured-output
 method to try first. See <a href="/wiki/ai-setup/#adding-backups">adding backups</a>.</p>

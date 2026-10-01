@@ -170,10 +170,17 @@ form of structured output badly, and flipping this fixes it outright.</li>
 <li><strong>Check the diagnostics log</strong> — it will show you what came back.</li>
 </ul>
 <h2 id="turns-hang-forever">Turns hang forever</h2>
-<p><strong>Turn on Limit AI generation</strong> (Settings → AI). It abandons a generation that has gone silent and
-falls back rather than waiting indefinitely. It watches for silence rather than total time, so it
-will not cut off a slow-but-working model.</p>
+<p><strong>Limit AI generation</strong> is on by default (Settings → AI). It abandons a generation that has gone
+silent and falls back rather than waiting indefinitely. It watches for silence rather than total
+time, so it will not cut off a slow-but-working model.</p>
+<p>If a turn still waits far too long, the request is not reaching the model at all rather than
+being slow — check the provider, key and network in Settings → AI, then reproduce with
+<strong>Diagnostics</strong> on and read the log (see below).</p>
 <p>Then: <strong>Cancel</strong> in the time panel always works and leaves the world untouched.</p>
+<p>The economy no longer depends on the provider. It is advanced locally by a deterministic engine,
+so a stalled or unreachable model costs you the prose and nothing else: output, growth, inflation,
+unemployment and debt still move with the calendar, and a turn that never reaches a model is a
+narration problem rather than a simulation one.</p>
 <p>If it is a local model, it may genuinely be that slow — check whether it is producing tokens at
 all. If it is a cloud model, you may be rate limited.</p>
 <h2 id="when-a-request-fails">When a request fails</h2>

@@ -309,7 +309,7 @@ bases, shipyards, data centres and ground stations appear where the events built
 </thead>
 <tbody><tr>
 <td><strong>Limit AI generation</strong></td>
-<td><strong>Off by default.</strong> On, the game stops waiting and falls back to canned events when the model goes quiet — five minutes of silence part-way through an answer, or fifteen with no answer at all. It measures <strong>silence</strong>, not elapsed time: a model that is still writing is never interrupted. Worth turning on for a local model, or if you have had turns hang.</td>
+<td><strong>On by default.</strong> The game stops waiting and falls back to canned events when the model goes quiet — five minutes of silence part-way through an answer, or fifteen with no answer at all. It measures <strong>silence</strong>, not elapsed time: a model that is still writing is never interrupted. Turn it off to wait as long as the model needs, but a request that never comes back then has no end at all, and the turn waits until you press Cancel.</td>
 </tr>
 <tr>
 <td><strong>Generate long time skips in segments</strong></td>
@@ -419,7 +419,8 @@ are prone to motion sickness.</p>
 <li><strong>Set up your AI provider.</strong> Nothing else matters until this is done.</li>
 <li><strong>Look at AI requests</strong> if you are on a free key — the defaults are chosen for one, and the
 counter tells you what a turn costs.</li>
-<li><strong>Turn on Limit AI generation</strong> if you are running a local model.</li>
+<li><strong>Leave Limit AI generation on</strong> unless you are running a local model that needs longer than
+fifteen minutes to start answering.</li>
 <li><strong>Try the 3D globe.</strong> It is the better way to look at the world, and it costs little.</li>
 <li><strong>Leave 3D terrain off</strong> unless you specifically want it — it is the most expensive thing in
 the game to render.</li>
