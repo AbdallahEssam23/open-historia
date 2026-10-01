@@ -212,6 +212,8 @@ export const completionBatchesFor = (completions, { world = {}, fromDate = "" } 
           at: completion.at,
         },
       });
+    } else {
+      continue;
     }
     byDate.set(date, batch);
   }

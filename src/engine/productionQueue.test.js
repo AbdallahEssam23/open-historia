@@ -212,3 +212,30 @@ test("the same commit-step sequence always produces the same completions", () =>
   assert.equal(run().length, 1);
   assert.equal(run()[0].at, "Metz");
 });
+
+test("a structure without a site is rejected, not silently built", () => {
+  const { valid, rejected } = normalizeProductionOrders(
+    [{ polity: "France", kind: "building", type: "airfield" }],
+    { knownPolities: ["France"] },
+  );
+  assert.equal(valid.length, 0);
+  assert.match(rejected[0].reason, /needs a site/);
+  const withSite = normalizeProductionOrders(
+    [{ polity: "France", kind: "building", type: "airfield", at: "Lyon" }],
+    { knownPolities: ["France"] },
+  );
+  assert.equal(withSite.valid.length, 1);
+});
+
+test("a queued structure with no site is dropped from a corrupted save", () => {
+  const queue = normalizeProductionQueue({
+    France: {
+      queue: [
+        { kind: "building", type: "fortification", count: 1, monthsTotal: 4 },
+        { kind: "building", type: "fortification", count: 1, monthsTotal: 4, at: "Metz" },
+      ],
+    },
+  });
+  assert.equal(queue.France.queue.length, 1);
+  assert.equal(queue.France.queue[0].at, "Metz");
+});

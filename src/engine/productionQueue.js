@@ -120,6 +120,10 @@ export const normalizeProductionOrders = (value, { knownPolities = [] } = {}) =>
       rejected.push({ index, reason: "a structure is a series of one" });
       continue;
     }
+    if (kind === "building" && !name(entry.at)) {
+      rejected.push({ index, reason: "a structure needs a site" });
+      continue;
+    }
     if (valid.length >= MAX_PRODUCTION_ORDERS) {
       rejected.push({ index, reason: `more than ${MAX_PRODUCTION_ORDERS} orders in one period` });
       continue;
@@ -147,6 +151,7 @@ const normalizeQueuedItem = (item) => {
   const type = name(item.type).toLowerCase();
   const allowed = kind === "unit" ? UNIT_TYPE_SET : BUILDING_TYPE_SET;
   if (!allowed.has(type)) return null;
+  if (kind === "building" && !name(item.at)) return null;
   const rawMonths = Number(item.monthsTotal);
   if (!Number.isFinite(rawMonths) || rawMonths < 1) return null;
   const monthsTotal = Math.trunc(rawMonths);

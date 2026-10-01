@@ -290,3 +290,11 @@ test("an unaffordable order is recorded as a rejection", () => {
   // Runs next period; drive it through, then check the rejection.
   assert.equal(result.world.economyEngine.pendingProduction.length, 1);
 });
+
+test("a structure completion with no site is dropped, not emitted as an empty batch", () => {
+  const batches = completionBatchesFor(
+    [{ polity: "Egypt", kind: "building", type: "naval_base", count: 1, monthOffset: 1 }],
+    { world: world(), fromDate: "2026-01-01" },
+  );
+  assert.equal(batches.length, 0);
+});
