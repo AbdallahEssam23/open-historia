@@ -43,6 +43,14 @@ test("a sheet reads the shortfall the reserves could not pay", () => {
   assert.deepEqual(sheet.forces, { ...forces, shortfall: { manpower: 30 } });
 });
 
+test("a sub-unit shortfall rounds away instead of being stored as zero", () => {
+  const sheet = normalizeCountryStatSheet({
+    statsSchemaVersion: 1,
+    forces: { ...forces, shortfall: { manpower: 0.4, materiel: 0.004 } },
+  });
+  assert.equal(sheet.forces.shortfall, undefined);
+});
+
 test("an engine write that pays the army in full clears the stored shortfall", () => {
   const base = normalizeCountryStatSheet({
     statsSchemaVersion: 1,

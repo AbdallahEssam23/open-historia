@@ -432,10 +432,12 @@ const FORCE_POSTURES = new Set(MOBILIZATION_POSTURES);
 const normalizeForceShortfall = (value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const out = {};
-  const manpower = parseStatNumber(value.manpower);
-  if (Number.isFinite(manpower) && manpower > 0) out.manpower = Math.round(manpower);
-  const materiel = parseStatNumber(value.materiel);
-  if (Number.isFinite(materiel) && materiel > 0) out.materiel = Math.round(materiel * 100) / 100;
+  // Round before the positivity test, so a sub-unit value cannot round down to
+  // a stored zero the sparse shape is supposed to omit.
+  const manpower = Math.round(parseStatNumber(value.manpower));
+  if (manpower > 0) out.manpower = manpower;
+  const materiel = Math.round(parseStatNumber(value.materiel) * 100) / 100;
+  if (materiel > 0) out.materiel = materiel;
   return Object.keys(out).length ? out : undefined;
 };
 
