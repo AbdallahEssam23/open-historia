@@ -253,3 +253,24 @@ test("a rename cannot make the scan release a different project than the applier
   const next = applyProjectOps(board, ops, {});
   assert.equal(next.every((project) => project.status !== "complete"), true);
 });
+
+test("a later op cannot change which effects a completion released", () => {
+  const board = () => normalizeProjects([{
+    id: "p1", name: "Dam", kind: "project", status: "active",
+    onComplete: { polityChanges: [{ code: "France", reputation: 10 }] },
+  }]);
+  // Clearing onComplete after the completion must not leave the latch spent with
+  // nothing released: the payload is the one that stood at the transition.
+  const cleared = releaseProjectCompletionEffects(board(), [
+    { op: "close", projectId: "p1", status: "complete" },
+    { op: "update", projectId: "p1", patch: { onComplete: {} } },
+  ], {});
+  assert.deepEqual(cleared.projectIds, ["p1"]);
+  assert.deepEqual(cleared.polityChanges.map((change) => change.reputation), [10]);
+  // Replacing it must release the transition's effect, not the replacement.
+  const replaced = releaseProjectCompletionEffects(board(), [
+    { op: "close", projectId: "p1", status: "complete" },
+    { op: "update", projectId: "p1", patch: { onComplete: { polityChanges: [{ code: "France", reputation: 99 }] } } },
+  ], {});
+  assert.deepEqual(replaced.polityChanges.map((change) => change.reputation), [10]);
+});

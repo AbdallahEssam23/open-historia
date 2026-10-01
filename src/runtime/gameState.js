@@ -2018,41 +2018,34 @@ const resolveProjectOpOwner = (raw, resolveOwner) => {
 // onto events.json impacts would be applied a second time by any later replay,
 // which is precisely the bug the latch exists to prevent.
 //
-// Which projects complete is decided by ASKING THE APPLIER, in a dry run, rather
-// than by re-deriving its matching, kind and latch rules here. Those rules used to
-// be duplicated and drifted: a model batch that promoted a project to research, or
-// renamed it so a later op addressed it, or removed and recreated it, made this
-// scan release effects the applier then refused to release — a research
-// programme's onComplete granted without the engine, and the pre-scan and applier
-// disagreeing, which is exactly what this function exists to prevent. A dry run
-// cannot drift because it IS the applier. The run reads the clock only to stamp
-// timestamps, never to decide which projects complete, so the returned data stays
-// a pure function of (projects, ops).
+// Which projects complete, and with what effects, is decided by ASKING THE
+// APPLIER, in a dry run, rather than by re-deriving its matching, kind and latch
+// rules here. Those rules used to be duplicated and drifted: a model batch that
+// promoted a project to research, or renamed it so a later op addressed it, or
+// removed and recreated it, made this scan release effects the applier then
+// refused to release — a research programme's onComplete granted without the
+// engine, and the pre-scan and applier disagreeing, which is exactly what this
+// function exists to prevent. A dry run cannot drift because it IS the applier.
+//
+// The applier hands back each completion's effects as they stood AT THE TRANSITION,
+// not as the entry looks after the whole batch: an op later in the batch may clear
+// or replace onComplete, and reading the finished entry would then release the
+// wrong payload or none at all while the latch was already spent. The run reads the
+// clock only to stamp timestamps, never to decide which projects complete, so the
+// returned data stays a pure function of (projects, ops).
 export const releaseProjectCompletionEffects = (projects, ops, { engineSourced = false } = {}) => {
-  const before = normalizeProjects(projects);
-  const after = applyProjectOps(before, ops, { engineSourced });
-  const priorById = new Map(before.map((project) => [project.id, project]));
-
+  const completions = [];
+  applyProjectOps(projects, ops, { engineSourced, completions });
   const polityChanges = [];
   const regionClaims = [];
   const regionTransfers = [];
   const projectIds = [];
 
-  for (const project of after) {
-    const prior = priorById.get(project.id);
-    // A project that did not exist before this batch (a fresh create) releases
-    // nothing here — its effects, if any, are the applier's to grant, exactly as
-    // they were before this scan asked the applier directly.
-    if (!prior) continue;
-    // Only the TRANSITION into complete releases, and only once. A project already
-    // latched has spent its effects; one whose latch the applier did not stamp did
-    // not complete (refused as research on the model path, cancelled, or failed).
-    if (prior.onCompleteAppliedAt || !project.onCompleteAppliedAt) continue;
-    if (!project.onComplete) continue;
-    projectIds.push(project.id);
-    polityChanges.push(...project.onComplete.polityChanges);
-    regionClaims.push(...project.onComplete.regionClaims);
-    regionTransfers.push(...project.onComplete.regionTransfers);
+  for (const { projectId, onComplete } of completions) {
+    projectIds.push(projectId);
+    polityChanges.push(...onComplete.polityChanges);
+    regionClaims.push(...onComplete.regionClaims);
+    regionTransfers.push(...onComplete.regionTransfers);
   }
 
   return { polityChanges, projectIds, regionClaims, regionTransfers };
@@ -2116,9 +2109,20 @@ const withoutPastDeadlines = (projects, before, date) => {
 };
 
 export const applyProjectOps = (projects, ops, ctx = {}) => {
-  const { date = "", eventId = "", round = 0, engineSourced = false } = ctx;
+  const { date = "", eventId = "", round = 0, engineSourced = false, completions } = ctx;
   const stamp = new Date().toISOString();
   let next = normalizeProjects(projects);
+
+  // Which completions this call releases, recorded AT the transition. See
+  // releaseProjectCompletionEffects: it runs this applier in a dry run and needs
+  // the effects as they stood when the latch was stamped, because an op later in
+  // the batch may clear or replace onComplete after the completion has happened.
+  // The payload a caller receives is the applier's own decision, so the two can
+  // never disagree.
+  const recordCompletion = (project) => {
+    if (!completions || !project.onComplete || project.onCompleteAppliedAt) return;
+    completions.push({ projectId: project.id, onComplete: project.onComplete });
+  };
 
   const indexOf = (op) => findProjectIndexForOp(next, op);
 
@@ -2269,6 +2273,7 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
       // A model completes a project with a plain status patch at least as often
       // as with an explicit close op, so the latch has to be stamped here too.
       const completedHere = PROJECT_OPEN_STATUSES.has(current.status) && normalized.status === "complete";
+      if (completedHere) recordCompletion(current);
       next = next.map((project, i) => (i === index
         ? touch({
           ...normalized,
@@ -2353,6 +2358,7 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
       // complete one.
       if (current.kind === "research" && op.status === "complete" && !engineSourced) continue;
       const succeeded = op.status === "complete";
+      if (succeeded && PROJECT_OPEN_STATUSES.has(current.status)) recordCompletion(current);
       next = next.map((project, i) => (i === index
         ? touch({
           ...project,
