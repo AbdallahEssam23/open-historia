@@ -224,6 +224,7 @@ Also used for `autoJumpForward`. This is the largest task.
 | `clearActions` | boolean | Were queued player actions resolved | **yes** |
 | `diplomaticOutreach` | `createdChatSchema[]` | Polities reaching out on their own initiative, not tied to any event | no |
 | `mobilization` | `{ polity, posture }[]` (`maxItems: MAX_MOBILIZATION`) | Scoped mobilization postures, the sibling of `economicShocks`: `posture` is a closed enum (`demobilized`, `peacetime`, `partial`, `total`) and a declaration takes effect **next** period. The model states a posture, never a manpower or materiel number | no |
+| `productionOrders` | `{ polity, kind, type, count?, at?, name? }[]` (`maxItems: MAX_PRODUCTION_ORDERS`) | Production and construction orders, the sibling of `mobilization`: `kind` is a closed enum (`unit`, `building`), `type` is a closed list (the six roster unit types, or the seven structure types), `count` is 1..`MAX_UNIT_COUNT`, `at` is the site (required for a building), `name` is optional. An order takes effect **next** period and enters the polity's production line; the engine owns the price in manpower and materiel and the build time, so the model states neither | no |
 
 `eventSchema` (`:322`): `id`, `date`* , `title`* , `description`* , `importance`, `kind`, `notable` (bool), `playerRelated` (bool), `impacts` (`impactsSchema`).
 

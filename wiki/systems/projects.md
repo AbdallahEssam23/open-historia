@@ -10,6 +10,11 @@ already have under way.
 This is also where research and technology live. There is no tech tree; there is a research
 programme with milestones that either progresses or stalls.
 
+Physical production is not on this board. What a country actually builds - a division, a ship, a
+factory - is the deterministic economy's production line, paid from its reserves and shown
+read-only in the **Forces** panel. Research stays here, on the board, as a programme with
+milestones; the queue is where the engine holds physical construction and pays for it.
+
 ![The Projects and Operations board](/wiki/img/projects-board.jpg)
 *A board on a campaign that has been running a while. Note the counts — **Mine (4)**,
 **Foreign (2)** — the tag chips, the priority control on each card, and that an **ongoing** effort
