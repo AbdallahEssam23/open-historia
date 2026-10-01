@@ -25,6 +25,7 @@ import {
   normalizePools,
   normalizeUpkeepShortfall,
 } from "../engine/forcePools.js";
+import { normalizeProductionQueue } from "../engine/productionQueue.js";
 import { buildPolityIdentityIndex, resolvePolityIdentity } from "./polityIdentity.js";
 import {
   DEFAULT_PATROL_RADIUS_KM,
@@ -3417,6 +3418,41 @@ const withFormerSceneKeyMoved = (world) => {
   return { ...rest, activeInteractive: rest.activeInteractive ?? formerScene };
 };
 
+// The order list as it sits in a save: what the model declared. Validated
+// without a world (the world changes between the declaration and the advance),
+// so this only enforces the shape, never polity membership.
+const normalizeProductionOrdersForStorage = (value) => {
+  const list = Array.isArray(value) ? value : [];
+  const out = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const polity = normalizeOptionalString(entry.polity);
+    const kind = normalizeOptionalString(entry.kind).toLowerCase();
+    const type = normalizeOptionalString(entry.type).toLowerCase();
+    if (!polity || (kind !== "unit" && kind !== "building") || !type) continue;
+    const count = Number(entry.count);
+    out.push({
+      polity,
+      kind,
+      type,
+      count: Number.isFinite(count) && count >= 1 ? Math.trunc(count) : 1,
+      ...(normalizeOptionalString(entry.at) ? { at: normalizeOptionalString(entry.at) } : {}),
+      ...(normalizeOptionalString(entry.name) ? { name: normalizeOptionalString(entry.name) } : {}),
+    });
+  }
+  return out;
+};
+
+const normalizeProductionRejections = (value) =>
+  normalizeArray(value)
+    .filter((entry) => entry && typeof entry === "object" && normalizeOptionalString(entry.reason))
+    .map((entry) => ({
+      ...(normalizeOptionalString(entry.polity) ? { polity: normalizeOptionalString(entry.polity) } : {}),
+      ...(normalizeOptionalString(entry.kind) ? { kind: normalizeOptionalString(entry.kind) } : {}),
+      ...(normalizeOptionalString(entry.type) ? { type: normalizeOptionalString(entry.type) } : {}),
+      reason: normalizeOptionalString(entry.reason),
+    }));
+
 // The engine clock. A half record (a version with no seed) is treated as no
 // record at all: an engine that thinks it has a seed it does not have would
 // produce numbers nobody can reproduce, which is worse than not running.
@@ -3447,6 +3483,15 @@ const normalizeEconomyEngine = (value) => {
   if (pendingMobilization.length) out.pendingMobilization = pendingMobilization;
   const upkeepShortfall = normalizeUpkeepShortfall(value.upkeepShortfall);
   if (Object.keys(upkeepShortfall).length) out.upkeepShortfall = upkeepShortfall;
+  // The production line, the orders declared last turn and the orders the last
+  // advance refused. All three sparse: an empty one is omitted, so a campaign
+  // that never builds keeps a record byte-identical to the force-pool save.
+  const production = normalizeProductionQueue(value.production);
+  if (Object.keys(production).length) out.production = production;
+  const pendingProduction = normalizeProductionOrdersForStorage(value.pendingProduction);
+  if (pendingProduction.length) out.pendingProduction = pendingProduction;
+  const rejectedProduction = normalizeProductionRejections(value.rejectedProduction);
+  if (rejectedProduction.length) out.rejectedProduction = rejectedProduction;
   return out;
 };
 

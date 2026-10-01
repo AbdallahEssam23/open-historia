@@ -83,3 +83,35 @@ test("a half-written pool row is dropped, not defaulted", () => {
   });
   assert.equal(world.economyEngine.pools, undefined);
 });
+
+test("the production engine fields round-trip through a world normalize", () => {
+  const world = normalizeWorldState({
+    economyEngine: {
+      version: 1,
+      seed: "abc",
+      lastDate: "2026-04-01",
+      lastMonth: 3,
+      production: {
+        France: {
+          active: { kind: "unit", type: "infantry", count: 2, monthsTotal: 4, monthsDone: 1 },
+          queue: [{ kind: "building", type: "fortification", count: 1, monthsTotal: 4, at: "Metz" }],
+        },
+      },
+      pendingProduction: [{ polity: "Germany", kind: "unit", type: "armor", count: 1 }],
+      rejectedProduction: [{ polity: "France", kind: "unit", type: "naval", count: 1, reason: "cannot afford" }],
+    },
+  });
+  assert.deepEqual(world.economyEngine.production.France.active, {
+    kind: "unit", type: "infantry", count: 2, monthsTotal: 4, monthsDone: 1,
+  });
+  assert.equal(world.economyEngine.production.France.queue.length, 1);
+  assert.deepEqual(world.economyEngine.pendingProduction, [{ polity: "Germany", kind: "unit", type: "armor", count: 1 }]);
+  assert.equal(world.economyEngine.rejectedProduction.length, 1);
+});
+
+test("an empty production line is omitted, so an old save keeps its shape", () => {
+  const world = normalizeWorldState({
+    economyEngine: { version: 1, seed: "abc", production: { France: { queue: [] } } },
+  });
+  assert.equal(world.economyEngine.production, undefined);
+});
