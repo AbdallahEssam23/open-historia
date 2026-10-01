@@ -26,11 +26,30 @@ const lineFor = (delta, isPlayer) => {
   return `- ${who}: ${fields}${delta.estimated ? " (estimated)" : ""}.`;
 };
 
-export const buildEconomyDigest = ({ deltas, playerPolity = "", tracked = [], shocks = [] } = {}) => {
-  const list = (Array.isArray(deltas) ? deltas : []).filter((d) => d && typeof d === "object" && d.polity);
-  if (!list.length) return "";
+const thousands = (value) => Math.max(0, Math.round(number(value))).toLocaleString("en-US");
 
+const poolLineFor = ({ playerPolity, playerPools, playerPosture, postureChanged }) => {
+  if (!playerPolity || !playerPools) return "";
+  const posture = String(playerPosture ?? "").trim() || "peacetime";
+  const clause = postureChanged ? " (changed this period)" : "";
+  return `Your reserves: manpower ${thousands(playerPools.manpower)}, `
+    + `materiel ${number(playerPools.materiel).toFixed(2)}. Mobilization: ${posture}${clause}.`;
+};
+
+export const buildEconomyDigest = ({
+  deltas,
+  playerPolity = "",
+  tracked = [],
+  shocks = [],
+  playerPools = null,
+  playerPosture = "",
+  postureChanged = false,
+} = {}) => {
+  const list = (Array.isArray(deltas) ? deltas : []).filter((d) => d && typeof d === "object" && d.polity);
   const player = String(playerPolity ?? "");
+  const poolLine = poolLineFor({ playerPolity: player, playerPools, playerPosture, postureChanged });
+  if (!list.length) return poolLine;
+
   const wanted = new Set((Array.isArray(tracked) ? tracked : []).map((name) => String(name ?? "")));
   const byName = new Map(list.map((d) => [String(d.polity), d]));
 
@@ -45,7 +64,8 @@ export const buildEconomyDigest = ({ deltas, playerPolity = "", tracked = [], sh
 
   const lines = [];
   const header = "Economy this period, computed locally (treat these as fact, do not restate them with different numbers):";
-  let used = header.length;
+  // Reserve the header + pool line separators so the pool line always survives.
+  let used = header.length + (poolLine ? poolLine.length + 1 : 0);
   for (const delta of ordered.slice(0, DIGEST_POLITY_CAP)) {
     const line = lineFor(delta, String(delta.polity) === player);
     // A line that would overflow is dropped whole. Truncating mid sentence
@@ -54,7 +74,7 @@ export const buildEconomyDigest = ({ deltas, playerPolity = "", tracked = [], sh
     lines.push(line);
     used += line.length + 1;
   }
-  if (!lines.length) return "";
+  if (!lines.length) return poolLine;
 
   const shockLines = (Array.isArray(shocks) ? shocks : [])
     .filter((s) => s && s.kind)
@@ -63,5 +83,5 @@ export const buildEconomyDigest = ({ deltas, playerPolity = "", tracked = [], sh
         `- A ${String(s.kind)} shock (severity ${number(s.severity, 1)}) has about ${Math.max(0, Math.round(number(s.monthsLeft)))} month(s) left.`,
     );
 
-  return [header, ...lines, ...shockLines].join("\n");
+  return [header, poolLine, ...lines, ...shockLines].filter(Boolean).join("\n");
 };

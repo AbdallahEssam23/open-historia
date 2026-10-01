@@ -57,3 +57,30 @@ test("the same input always renders the same text", () => {
   const args = { deltas: [delta("Egypt"), delta("France")], playerPolity: "Egypt", tracked: ["France"] };
   assert.equal(buildEconomyDigest(args), buildEconomyDigest(args));
 });
+
+test("the player pool line appears when the engine produced pools", () => {
+  const text = buildEconomyDigest({
+    deltas: [delta("Egypt")],
+    playerPolity: "Egypt",
+    playerPools: { manpower: 1_240_000, materiel: 318.4 },
+    playerPosture: "peacetime",
+  });
+  assert.match(text, /Your reserves: manpower 1,240,000, materiel 318\.40\./);
+  assert.match(text, /Mobilization: peacetime\./);
+});
+
+test("without pools the digest is byte-identical to the economy-only digest", () => {
+  const without = buildEconomyDigest({ deltas: [delta("Egypt")], playerPolity: "Egypt" });
+  assert.doesNotMatch(without, /Your reserves/);
+});
+
+test("a posture changed this period is named", () => {
+  const text = buildEconomyDigest({
+    deltas: [delta("Egypt")],
+    playerPolity: "Egypt",
+    playerPools: { manpower: 10, materiel: 1 },
+    playerPosture: "total",
+    postureChanged: true,
+  });
+  assert.match(text, /Mobilization: total \(changed this period\)\./);
+});
