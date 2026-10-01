@@ -80,6 +80,19 @@ test("the board pass is told the closed research domains and scales", () => {
   }
 });
 
+test("the board pass actually appends the research directive, gated to its own task", () => {
+  // The rule text existing is not enough: the whole point of this directive is
+  // that it reaches the projects call at run time. If the append in gameplay.js
+  // is dropped, a text-only assertion would stay green while the declaring model
+  // never sees the rule.
+  const here = path.dirname(url.fileURLToPath(import.meta.url));
+  const text = fs.readFileSync(path.join(here, "gameplay.js"), "utf8");
+  assert.match(text, /import \{[\s\S]*?buildResearchBoardDirective[\s\S]*?\} from "\.\/projectsDirective\.js"/);
+  const call = text.indexOf("buildResearchBoardDirective()");
+  assert.notEqual(call, -1, "gameplay.js never appends the research directive");
+  assert.match(text.slice(Math.max(0, call - 400), call), /taskKey === "projects"/, "the directive must be gated to the projects task");
+});
+
 test("the old must-move rule is gone from the game master's block and the default template", () => {
   const here = path.dirname(url.fileURLToPath(import.meta.url));
   for (const file of ["gameplay.js", "defaultPrompts.json"]) {

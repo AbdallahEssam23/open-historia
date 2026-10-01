@@ -1027,17 +1027,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { buildProductionInstructions } from "./gameplayPrompts.js";
-import { JUMP_FORWARD_SCHEMA } from "./gameplaySchemas.js";
+import { PROJECTS_SCHEMA } from "./gameplaySchemas.js";
+import { buildResearchBoardDirective } from "./projectsDirective.js";
 
-test("the jump schema accepts a research programme with domain and scale", () => {
-  const json = JSON.stringify(JUMP_FORWARD_SCHEMA);
+// A jump carries no project ops any more, so the fields live on the board pass's
+// schema (PROJECTS_SCHEMA). The board pass is also where the declaration rule is
+// delivered at call time.
+test("the project op schema accepts a research programme with domain and scale", () => {
+  const json = JSON.stringify(PROJECTS_SCHEMA);
   assert.match(json, /"research"/);
   assert.match(json, /"domain"/);
   assert.match(json, /"scale"/);
   assert.match(json, /"nuclear"/);
 });
 
-test("the instruction tells the model to declare research, never progress it", () => {
+test("the board pass directive tells the declaring model to open research, never progress it", () => {
+  const text = buildResearchBoardDirective();
+  assert.match(text, /never write its progress/i);
+  assert.match(text, /kind "research"/);
+});
+
+test("the jump narration is told not to state research progress", () => {
   const text = buildProductionInstructions({ digest: "" });
   assert.match(text, /research/i);
   assert.match(text, /do not state its progress/i);

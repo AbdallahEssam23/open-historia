@@ -330,8 +330,9 @@ queue, so both are surfaced the same way the production line already is.
   paragraph in `buildProductionInstructions` so it does not invent research
   progress in prose, and should narrate the queue the digest reports rather than
   a rate it imagines.
-- The jump schema's project op gains the optional `domain` and `scale` fields
-  and `research` in its `kind` enum. This is the only schema change, and the
+- The project op schema (`PROJECTS_SCHEMA`, the separate board pass that declares
+  programmes) gains the optional `domain` and `scale` fields and `research` in its
+  `kind` enum; a jump no longer carries project ops. This is the only schema change, and the
   schema size budget (`projectOpSchema.test.js`, `jumpChars < 29500`) must be
   re-checked; if the two fields push it over, they are made terse or folded into
   the existing description before the budget is raised.
