@@ -136,3 +136,20 @@ test("promoting an entry into research drops model-authored progress", () => {
   assert.equal(next[0].progress, 0);
   assert.equal(next[0].researchPoints, 0);
 });
+
+test("a model batch cannot release effects by promoting to research then completing", () => {
+  const board = normalizeProjects([
+    { id: "px", name: "Dam", kind: "project", status: "active",
+      onComplete: { polityChanges: [{ code: "France", reputation: 60 }] } },
+  ]);
+  const ops = [
+    { op: "update", projectId: "px", patch: { kind: "research", domain: "industrial", scale: "small" } },
+    { op: "close", projectId: "px", status: "complete" },
+  ];
+  const released = releaseProjectCompletionEffects(board, ops, {});
+  assert.deepEqual(released.projectIds, []);
+  const next = applyProjectOps(board, ops, {});
+  assert.equal(next[0].kind, "research");
+  assert.notEqual(next[0].status, "complete");
+  assert.equal(next[0].onCompleteAppliedAt, "");
+});

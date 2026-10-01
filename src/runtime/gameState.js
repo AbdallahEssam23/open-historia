@@ -2024,9 +2024,43 @@ export const releaseProjectCompletionEffects = (projects, ops, { engineSourced =
   const projectIds = [];
   const fired = new Set();
 
+  // The batch applies in order, so a later op acts on a kind an earlier op
+  // changed. Reading `project.kind` off the pre-batch list would let one op
+  // promote a project to `research` and the next op complete it, releasing
+  // effects the applier then refuses to release, because by then the kind IS
+  // research. That is exactly the disagreement this scan exists to prevent, so
+  // the effective kind is tracked as the batch is walked. Only the model path
+  // needs it; the engine is trusted.
+  const kinds = new Map(list.map((project) => [project.id, project.kind]));
+  const kindOf = (id, fallback) => kinds.get(id) ?? fallback;
+  // The same kind-normalization normalizeProjectEntry applies.
+  const normalizeKind = (value) => {
+    const kind = normalizeOptionalString(value).toLowerCase();
+    return PROJECT_KIND_SET.has(kind) ? kind : "project";
+  };
+
   for (const raw of normalizeArray(ops)) {
     const op = normalizeProjectOp(raw);
     if (!op) continue;
+
+    // Record a kind this op changes BEFORE completion is judged, so a later op
+    // in the same batch sees it. A create op's target is matched the same way
+    // applyProjectOps matches it; every other op goes through the shared matcher.
+    if (!engineSourced) {
+      const targetIndex = op.op === "create"
+        ? findProjectIndexForOp(list, { projectId: op.project.id, name: op.project.name })
+        : findProjectIndexForOp(list, op);
+      if (targetIndex !== -1) {
+        const targetId = list[targetIndex].id;
+        if (op.op === "create") {
+          if (op.provided?.includes("kind")) kinds.set(targetId, normalizeKind(op.project.kind));
+        } else if (op.op === "update") {
+          const patch = op.patch && typeof op.patch === "object" ? op.patch : {};
+          const alias = patchedAlias(patch, "kind");
+          if (alias) kinds.set(targetId, normalizeKind(patch[alias]));
+        }
+      }
+    }
 
     // Two ways a project reaches `complete`, and the second is the one a model
     // reaches for at least as often: an explicit close op, and a plain update
@@ -2042,15 +2076,15 @@ export const releaseProjectCompletionEffects = (projects, ops, { engineSourced =
     }
     if (!completing) continue;
 
-    // A research programme's completion is the engine's to give. A model op that
-    // closes one is ignored here exactly as it is ignored in applyProjectOps, so
-    // its onComplete effects can never be granted by narration.
-    const target0 = list[findProjectIndexForOp(list, op)];
-    if (completing && target0?.kind === "research" && !engineSourced) continue;
-
     const index = findProjectIndexForOp(list, op);
     if (index === -1) continue;
     const project = list[index];
+
+    // A research programme's completion is the engine's to give. A model op that
+    // closes one is ignored here exactly as it is ignored in applyProjectOps, so
+    // its onComplete effects can never be granted by narration. The kind is the
+    // effective one at this point in the batch, not the pre-batch kind.
+    if (completing && kindOf(project.id, project.kind) === "research" && !engineSourced) continue;
 
     if (fired.has(project.id)) continue;
     if (!project.onComplete) continue;
