@@ -40,4 +40,9 @@ test("completions are applied after the advance and before the write", () => {
   assert.notEqual(write, -1);
   assert.ok(advance < apply && apply < write, "the completion ops must land after the engine and before the write");
   assert.match(body, /applyEventImpactsToWorld\(/);
+  // normalizeEvents drops an event with an empty title and description, which
+  // would silently discard every completed unit and structure.
+  const block = body.slice(apply, write);
+  assert.doesNotMatch(block, /title: ""/);
+  assert.match(block, /title: "[^"]+"/);
 });

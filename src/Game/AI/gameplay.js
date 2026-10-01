@@ -7255,7 +7255,10 @@ const applySimulationResult = async ({
       const containers = batches.map((batch) => {
         const impacts = { unitOps: batch.unitOps, markerOps: batch.markerOps };
         return {
-          event: { date: batch.date, title: "", description: "", impacts },
+          // The title is not decoration: normalizeEvents drops an event with no
+          // title AND no description, which would silently discard the completed
+          // units and structures this whole block exists to apply.
+          event: { date: batch.date, title: "Production completed", description: "", impacts },
           impacts,
           path: "$.production",
         };
