@@ -880,7 +880,9 @@ rounding; the pre-change value is read from `researchInput`:
     const priorById = new Map(before.programmes.map((p) => [p.id, p.points]));
     for (const programme of after.programmes) {
       if (programme.accumulated === priorById.get(programme.id)) continue;
-      const cost = researchCostFor(programme);
+      // The stored cost: normalizeResearchProgrammes already priced the programme
+      // and dropped domain/scale, so researchCostFor would fall back to the default.
+      const cost = Number(programme.cost) || researchCostFor(programme);
       researchOps.push({
         op: "update",
         projectId: programme.id,

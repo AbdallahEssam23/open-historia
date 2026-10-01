@@ -430,7 +430,10 @@ export const advanceWorldEconomy = (
     const priorById = new Map(before.programmes.map((p) => [p.id, p.points]));
     for (const programme of after.programmes) {
       if (programme.accumulated === priorById.get(programme.id)) continue;
-      const cost = researchCostFor(programme);
+      // The stored cost, not researchCostFor: normalizeResearchProgrammes has
+      // already priced the programme and dropped domain/scale, so re-deriving it
+      // here would silently fall back to the default industrial/small price.
+      const cost = Number(programme.cost) || researchCostFor(programme);
       researchOps.push({
         op: "update",
         projectId: programme.id,

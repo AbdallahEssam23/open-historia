@@ -88,3 +88,43 @@ test("a completion emits both the 100 percent update and the close op", () => {
   assert.equal(close.status, "complete");
   assert.equal(result.research.Egypt.programmes[0].status, "complete");
 });
+
+test("a non-default programme reports progress against its own cost", () => {
+  // nuclear/large costs 60 * 3 = 180. 100m people with no facilities give three
+  // points in one month, so progress is floor(100 * 3 / 180) = 1. Re-deriving the
+  // cost from the stripped programme would fall back to industrial/small (24) and
+  // report 12 instead.
+  const world = {
+    countryStats: {
+      Egypt: {
+        stability: 60,
+        economy: { gdp: 1e12, gdpPerCapita: 10_000 },
+        population: { total: 100_000_000 },
+        territorialComponents: [
+          { geography: "core", group: "core", population: 100_000_000, gdpPerCapita: 10_000 },
+        ],
+      },
+    },
+    projects: [
+      {
+        id: "nx",
+        name: "Atom",
+        kind: "research",
+        ownerCode: "Egypt",
+        domain: "nuclear",
+        scale: "large",
+        researchPoints: 0,
+        status: "active",
+      },
+    ],
+  };
+  const result = advanceWorldEconomy(world, {
+    fromDate: "2026-01-01",
+    toDate: "2026-02-01",
+    playerPolity: "Egypt",
+  });
+  const update = result.researchOps.find((op) => op.op === "update");
+  assert.ok(update, "the progress update must be emitted");
+  assert.equal(update.patch.researchPoints, 3);
+  assert.equal(update.patch.progress, 1);
+});
