@@ -166,3 +166,23 @@ test("a model batch cannot release effects by demoting research then completing"
   assert.equal(next[0].status, "active");
   assert.equal(next[0].onCompleteAppliedAt, "");
 });
+
+test("a model batch cannot dodge the invariant with a non-canonical kind spelling", () => {
+  const base = normalizeProjects([{ id: "pz", name: "Tower", kind: "project", status: "active" }]);
+  const progressOps = [
+    { op: "update", projectId: "pz", patch: { kind: "Research", progress: 99 } },
+  ];
+  const afterProgress = applyProjectOps(base, progressOps, {});
+  assert.equal(afterProgress[0].kind, "research");
+  assert.equal(afterProgress[0].progress, 0);
+
+  const completeOps = [
+    { op: "update", projectId: "pz", patch: { kind: "RESEARCH", status: "complete" } },
+  ];
+  const released = releaseProjectCompletionEffects(base, completeOps, {});
+  assert.deepEqual(released.projectIds, []);
+  const afterComplete = applyProjectOps(base, completeOps, {});
+  assert.equal(afterComplete[0].kind, "research");
+  assert.notEqual(afterComplete[0].status, "complete");
+  assert.equal(afterComplete[0].onCompleteAppliedAt, "");
+});

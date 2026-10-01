@@ -2196,7 +2196,11 @@ export const applyProjectOps = (projects, ops, ctx = {}) => {
   // promoted one, which starts at zero. Stated once here so a future assembly
   // path cannot be added without it.
   const holdResearchInvariant = (entry, baseline = null) => {
-    if (engineSourced || entry.kind !== "research") return entry;
+    // The model may spell the kind with any case; normalize it the same way
+    // normalizeProjectEntry will, or a "Research" patch slips past the invariant
+    // and later normalizes into a genuine research programme.
+    const kind = normalizeOptionalString(entry.kind || entry.type).toLowerCase();
+    if (engineSourced || (PROJECT_KIND_SET.has(kind) ? kind : "project") !== "research") return entry;
     return {
       ...entry,
       status: resolveProjectStatus(entry.status) === "complete"
