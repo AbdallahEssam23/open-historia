@@ -1405,7 +1405,7 @@ git commit -m "feat(ai): tell the model it declares a posture and states no rese
 
 ```js
 // append to src/runtime/economyDigest.test.js
-import { buildEconomyDigest } from "./economyDigest.js";
+import { DIGEST_CHAR_CAP, buildEconomyDigest } from "./economyDigest.js";
 
 const delta = { polity: "Egypt", gdpGrowth: 1, inflation: 3, unemployment: 6, publicDebt: 90, budgetBalance: -3 };
 
@@ -1421,8 +1421,38 @@ test("the player pool line appears when the engine produced pools", () => {
 });
 
 test("without pools the digest is byte-identical to the economy-only digest", () => {
+  // The pre-pools output, pinned byte-for-byte: no stray separator or blank line.
+  const expected = "Economy this period, computed locally (treat these as fact, do not restate them with different numbers):\n"
+    + "- Egypt (yours): output +1.0%, inflation 3.0%, unemployment 6.0%, public debt 90% of output, budget -3.0%.";
   const without = buildEconomyDigest({ deltas: [delta], playerPolity: "Egypt" });
-  assert.doesNotMatch(without, /Your reserves/);
+  const explicitNull = buildEconomyDigest({ deltas: [delta], playerPolity: "Egypt", playerPools: null });
+  assert.equal(without, expected);
+  assert.equal(without, explicitNull);
+  assert.doesNotMatch(without, /\n\n/);
+  assert.notEqual(without[0], "\n");
+  assert.notEqual(without[without.length - 1], "\n");
+});
+
+test("an empty delta list still reports the reserves and mobilization line", () => {
+  const text = buildEconomyDigest({
+    deltas: [],
+    playerPolity: "Egypt",
+    playerPools: { manpower: 800, materiel: 12.5 },
+    playerPosture: "total",
+  });
+  assert.match(text, /Your reserves: manpower 800, materiel 12\.50\./);
+  assert.match(text, /Mobilization: total\./);
+});
+
+test("the pool line survives when the only economy line is too long to fit", () => {
+  const text = buildEconomyDigest({
+    deltas: [{ ...delta, polity: "x".repeat(DIGEST_CHAR_CAP) }],
+    playerPolity: "Egypt",
+    playerPools: { manpower: 10, materiel: 1 },
+    playerPosture: "peacetime",
+  });
+  assert.equal(text, "Your reserves: manpower 10, materiel 1.00. Mobilization: peacetime.");
+  assert.equal(text.includes("Economy this period"), false);
 });
 
 test("a posture changed this period is named", () => {
