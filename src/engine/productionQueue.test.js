@@ -129,3 +129,86 @@ test("the committed tail is capped", () => {
   const queue = normalizeProductionQueue({ France: { queue: items } });
   assert.equal(queue.France.queue.length, MAX_PRODUCTION_QUEUE);
 });
+
+import { enqueueOrders, stepLineMonth } from "./productionQueue.js";
+
+test("an unaffordable order is rejected and the pool is untouched", () => {
+  const result = enqueueOrders({
+    pools: { manpower: 100, materiel: 100 },
+    line: null,
+    orders: [{ polity: "France", kind: "unit", type: "naval", count: 1 }],
+  });
+  assert.equal(result.rejected.length, 1);
+  assert.match(result.rejected[0].reason, /cannot afford/);
+  assert.deepEqual(result.pools, { manpower: 100, materiel: 100 });
+  assert.equal(result.line, null);
+});
+
+test("an affordable order is paid in full and enqueued with its build time", () => {
+  const result = enqueueOrders({
+    pools: { manpower: 1_000_000, materiel: 1000 },
+    line: null,
+    orders: [{ polity: "France", kind: "unit", type: "infantry", count: 2 }],
+  });
+  assert.equal(result.rejected.length, 0);
+  assert.equal(result.pools.manpower, 1_000_000 - 16_000);
+  assert.equal(result.pools.materiel, 1000 - 12);
+  assert.equal(result.line.queue.length, 1);
+  assert.equal(result.line.queue[0].monthsTotal, 4);
+});
+
+test("a full tail is rejected before it can take any money", () => {
+  const full = { kind: "unit", type: "infantry", count: 1, monthsTotal: 2 };
+  const line = { queue: Array.from({ length: MAX_PRODUCTION_QUEUE }, () => ({ ...full })) };
+  const result = enqueueOrders({
+    pools: { manpower: 1_000_000, materiel: 1000 },
+    line,
+    orders: [{ polity: "France", kind: "unit", type: "infantry", count: 1 }],
+  });
+  assert.equal(result.rejected.length, 1);
+  assert.match(result.rejected[0].reason, /line full/);
+  assert.equal(result.pools.manpower, 1_000_000, "a full line never takes money");
+});
+
+test("the line builds one item at a time, in order, and stamps each completion", () => {
+  let line = { queue: [
+    { kind: "unit", type: "garrison", count: 1, monthsTotal: 1 },
+    { kind: "unit", type: "infantry", count: 1, monthsTotal: 2 },
+  ] };
+  const first = stepLineMonth(line, { monthOffset: 1 });
+  assert.equal(first.completions.length, 1);
+  assert.equal(first.completions[0].type, "garrison");
+  assert.equal(first.completions[0].monthOffset, 1);
+  // The successor was promoted but NOT advanced this month.
+  assert.equal(first.line.active.type, "infantry");
+  assert.equal(first.line.active.monthsDone, 0);
+  const second = stepLineMonth(first.line, { monthOffset: 2 });
+  assert.equal(second.completions.length, 0);
+  assert.equal(second.line.active.monthsDone, 1);
+  const third = stepLineMonth(second.line, { monthOffset: 3 });
+  assert.equal(third.completions.length, 1);
+  assert.equal(third.completions[0].type, "infantry");
+  assert.equal(third.completions[0].monthOffset, 3);
+  assert.equal(third.line, null);
+});
+
+test("a null line steps to nothing", () => {
+  assert.deepEqual(stepLineMonth(null, { monthOffset: 1 }), { line: null, completions: [] });
+});
+
+test("the same commit-step sequence always produces the same completions", () => {
+  const line = { queue: [{ kind: "building", type: "fortification", count: 1, monthsTotal: 4, at: "Metz" }] };
+  const run = () => {
+    let current = line;
+    const out = [];
+    for (let month = 1; month <= 5; month += 1) {
+      const stepped = stepLineMonth(current, { monthOffset: month });
+      current = stepped.line;
+      out.push(...stepped.completions);
+    }
+    return out;
+  };
+  assert.deepEqual(run(), run());
+  assert.equal(run().length, 1);
+  assert.equal(run()[0].at, "Metz");
+});
