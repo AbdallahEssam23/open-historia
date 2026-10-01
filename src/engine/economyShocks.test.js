@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { MAX_SHOCKS, SHOCK_KINDS, activeMultipliers, normalizeShocks } from "./economyShocks.js";
+import { MAX_SHOCKS, SHOCK_KINDS, activeMultipliers, normalizeDeclaredShocks, normalizeShocks } from "./economyShocks.js";
 
 test("the enum is closed and every kind has a table entry", async () => {
   const mod = await import("./economyShocks.js");
@@ -68,4 +68,30 @@ test("a world-scope shock reaches a polity that is not named", () => {
   const { valid } = normalizeShocks([{ kind: "mobilization", severity: 2, durationMonths: 12 }]);
   assert.equal(valid[0].scope, null);
   assert.ok(activeMultipliers(valid, 1).gdp !== 1);
+});
+
+test("a declared shock round-trips through storage unchanged", () => {
+  const declared = normalizeDeclaredShocks([
+    { kind: "sanctions", severity: 2, durationMonths: 6, scope: ["Egypt"] },
+    { kind: "trade_boom", severity: 1, durationMonths: 4 },
+  ]);
+  assert.deepEqual(declared, [
+    { kind: "sanctions", severity: 2, durationMonths: 6, scope: ["Egypt"] },
+    { kind: "trade_boom", severity: 1, durationMonths: 4, scope: "world" },
+  ]);
+  // And what it stores normalizes back to the same month window the step applies.
+  const { valid } = normalizeShocks(declared, { knownPolities: ["Egypt"] });
+  assert.equal(valid[0].endMonth, 6);
+  assert.deepEqual(valid[0].scope, ["Egypt"]);
+  assert.equal(valid[1].scope, null);
+});
+
+test("normalizeDeclaredShocks drops the malformed and caps the list", () => {
+  assert.deepEqual(normalizeDeclaredShocks("nonsense"), []);
+  assert.deepEqual(normalizeDeclaredShocks([{ kind: "sunspots", severity: 1, durationMonths: 3 }]), []);
+  assert.deepEqual(normalizeDeclaredShocks([{ kind: "sanctions", severity: 1, durationMonths: 0 }]), []);
+  assert.equal(
+    normalizeDeclaredShocks(Array.from({ length: MAX_SHOCKS + 3 }, () => ({ kind: "sanctions", severity: 1, durationMonths: 3 }))).length,
+    MAX_SHOCKS,
+  );
 });

@@ -70,3 +70,14 @@ test("the digest is built for the prompt", () => {
     "the projected period digest must be built and injected into the jump prompt's variables",
   );
 });
+
+test("a shock declared this turn is wired for the NEXT period, not this one", () => {
+  assert.ok(
+    applyBody.includes("declaredShocks:"),
+    "this turn's shocks must reach the adapter as declaredShocks (a lag); passing them as applied shocks rewrites the period the model just narrated",
+  );
+  assert.ok(
+    source.includes("shocks: projected.shocksRunning"),
+    "the running-shock leftovers must be handed to the digest, or the model is never told what is still in force",
+  );
+});

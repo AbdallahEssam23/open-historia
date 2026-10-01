@@ -7210,7 +7210,9 @@ const applySimulationResult = async ({
     const economy = advanceWorldEconomy(nextWorld, {
       fromDate: baseGame.gameDate || "",
       toDate: nextGame.gameDate || "",
-      shocks: normalizeArray(result.economicShocks),
+      // This turn's shocks run NEXT period, so the period the model just
+      // narrated is not rewritten by the shock it declared for it.
+      declaredShocks: normalizeArray(result.economicShocks),
       playerPolity: nextGame.country || "",
       tracked: Object.keys(nextWorld.countryStats ?? {}),
       campaignId,
@@ -12706,7 +12708,7 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
       deltas: projected.deltas,
       playerPolity: normalizeString(bundle.game.country),
       tracked: Object.keys(bundle.world?.countryStats ?? {}),
-      shocks: [],
+      shocks: projected.shocksRunning,
     });
   } catch (error) {
     console.warn("[engine] the projected economy digest could not be built; the turn continues without it.", error);

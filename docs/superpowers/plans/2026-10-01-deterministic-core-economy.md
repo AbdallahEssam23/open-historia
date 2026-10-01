@@ -2018,6 +2018,8 @@ Pass the digest to the prompt builder. Find where `variables` for the jump reque
 
 **Ordering note for the implementer:** the prompt is built before the model call, while the engine runs after it. That is deliberate and is section 7 of the spec: the engine advances to the projected date before the call (using `targetDate`), and the block above re-derives to the model's final `stopDate` after. If you find the projected-date advance is easier to place, add it there and keep this recompute as the authority; the recompute is exact because the step is a pure function of state and months.
 
+**Correction, made during implementation (do not follow the snippet above literally):** `shocks: normalizeArray(result.economicShocks)` applies this turn's shocks in the same period the model just narrated, which contradicts Task 11's prompt ("a shock declared now takes effect from the NEXT period") and spec section 7. The turn passes them as `declaredShocks:` instead; the adapter stores them on `economyEngine.pendingShocks` and the **following** turn's advance applies them. The digest therefore carries `shocks: <adapter's shocksRunning>` (the leftovers), and spec section 11 gained the `pendingShocks` field. The projected advance in `simulateTimelineJump` builds the digest from `projected.shocksRunning`; the post-answer advance only stores. See `src/runtime/economyEngine.js`.
+
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `node --test src/Game/AI/economyWiringArchitecture.test.js`

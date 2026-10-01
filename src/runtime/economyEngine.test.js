@@ -71,14 +71,59 @@ test("the input world is not mutated", () => {
   assert.equal(JSON.stringify(before), snapshot);
 });
 
-test("a shock raises inflation against the same span without one", () => {
-  const calm = advanceWorldEconomy(world(), { fromDate: "2026-01-01", toDate: "2026-10-01" });
-  const shocked = advanceWorldEconomy(world(), {
+// A world whose committed clock already carries a pending shock, as if the
+// previous turn had declared it.
+const worldWithPending = (pendingShocks) => ({
+  ...world(),
+  economyEngine: { version: 1, seed: "s", lastDate: "2026-01-01", lastMonth: 0, pendingShocks },
+});
+
+test("a shock declared this turn does NOT move this turn's numbers (the one-period lag)", () => {
+  const declared = advanceWorldEconomy(world(), {
     fromDate: "2026-01-01",
     toDate: "2026-10-01",
-    shocks: [{ kind: "capital_flight", severity: 3, durationMonths: 9 }],
+    declaredShocks: [{ kind: "capital_flight", severity: 3, durationMonths: 9 }],
+  });
+  const calm = advanceWorldEconomy(world(), { fromDate: "2026-01-01", toDate: "2026-10-01" });
+  assert.equal(
+    declared.world.countryStats.Egypt.economy.inflation,
+    calm.world.countryStats.Egypt.economy.inflation,
+    "the period the model just narrated must not be rewritten by the shock it declared for it",
+  );
+  // And it is held for the next period rather than thrown away.
+  assert.equal(declared.world.economyEngine.pendingShocks.length, 1);
+  assert.equal(declared.world.economyEngine.pendingShocks[0].kind, "capital_flight");
+  assert.equal(declared.shocksRunning.length, 0, "a shock declared now is not running yet");
+});
+
+test("a pending shock runs in the period that follows its declaration", () => {
+  const calm = advanceWorldEconomy(world(), { fromDate: "2026-01-01", toDate: "2026-10-01" });
+  const shocked = advanceWorldEconomy(worldWithPending([{ kind: "capital_flight", severity: 3, durationMonths: 9 }]), {
+    fromDate: "2026-01-01",
+    toDate: "2026-10-01",
   });
   assert.ok(
     shocked.world.countryStats.Egypt.economy.inflation > calm.world.countryStats.Egypt.economy.inflation,
+    "a shock declared last turn must be what this turn's advance applies",
   );
+});
+
+test("a shock longer than the period keeps running and is reported to the digest", () => {
+  const result = advanceWorldEconomy(worldWithPending([{ kind: "blockade", severity: 2, durationMonths: 12 }]), {
+    fromDate: "2026-01-01",
+    toDate: "2026-04-01",
+  });
+  assert.equal(result.shocksRunning.length, 1);
+  assert.equal(result.shocksRunning[0].kind, "blockade");
+  assert.equal(result.shocksRunning[0].monthsLeft, 9, "12 declared minus 3 consumed");
+  assert.equal(result.world.economyEngine.pendingShocks[0].durationMonths, 9);
+});
+
+test("a shock that expires within the period is not carried forward", () => {
+  const result = advanceWorldEconomy(worldWithPending([{ kind: "sanctions", severity: 1, durationMonths: 2 }]), {
+    fromDate: "2026-01-01",
+    toDate: "2026-04-01",
+  });
+  assert.equal(result.shocksRunning.length, 0);
+  assert.equal(result.world.economyEngine.pendingShocks ?? null, null);
 });

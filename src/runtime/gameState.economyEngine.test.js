@@ -27,3 +27,22 @@ test("a missing or malformed clock normalizes to null rather than a half record"
   assert.equal(normalizeWorldState({ economyEngine: { seed: "" } }).economyEngine, null);
   assert.equal(normalizeWorldState({ economyEngine: "nonsense" }).economyEngine, null);
 });
+
+test("a pending shock survives the round trip, a malformed one is dropped", () => {
+  const clock = {
+    version: 1,
+    seed: "abcdef0123456789",
+    lastDate: "2026-04-01",
+    lastMonth: 3,
+    pendingShocks: [
+      { kind: "blockade", severity: 2, durationMonths: 9, scope: "world" },
+      { kind: "blockade", severity: 9, durationMonths: 9 },
+      { kind: "sunspots", severity: 1, durationMonths: 3 },
+    ],
+  };
+  const normalized = normalizeWorldState({ economyEngine: clock });
+  assert.deepEqual(normalized.economyEngine.pendingShocks, [
+    { kind: "blockade", severity: 2, durationMonths: 9, scope: "world" },
+  ]);
+  assert.deepEqual(normalizeWorldState(normalized).economyEngine.pendingShocks, normalized.economyEngine.pendingShocks);
+});

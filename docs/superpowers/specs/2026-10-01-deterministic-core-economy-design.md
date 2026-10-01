@@ -391,9 +391,20 @@ One new world field:
 economyEngine: {
   version: 1,
   seed: string,             // 16 hex chars, generated once per campaign
-  lastMonth: number         // the month index the committed economy is at
+  lastDate: string,          // the game date the committed economy is at
+  lastMonth: number,         // the month index the committed economy is at
+  pendingShocks?: []         // shocks declared LAST turn, to run THIS period
 }
 ```
+
+`pendingShocks` was not in the first draft of this section and was added during
+implementation, because section 7's one-period lag cannot be honoured without
+carrying a declared shock across the write. Entries are held in their **declared**
+shape (`{kind, severity, durationMonths, scope}`), not the month-window shape the
+step converts them to, so a shock spanning several periods can be re-based onto
+the clock in whichever period it actually runs in. The field is sparse: a campaign
+with nothing pending keeps the record exactly as it was. See section 6 and
+section 13.
 
 It must be added to `WORLD_DEFAULTS` (`src/runtime/gameState.js:41`) and to
 `normalizeWorldState` (`:3530`), because an unknown field survives only via the

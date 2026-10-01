@@ -18,6 +18,7 @@ import { normalizeSpyOp } from "./spycraft.js";
 import { normalizeChatEvents, projectChatThread, withUnloggedMessages } from "./chatThreads.js";
 import { latestTurnEventIds, unseenEvents, withoutUnseenChats, withoutUnseenEvents, withoutUnseenReports } from "./unseenEvents.js";
 import { mergeCountryStatPatch, normalizeCountryStatSheet } from "./countryStats.js";
+import { normalizeDeclaredShocks } from "../engine/economyShocks.js";
 import { buildPolityIdentityIndex, resolvePolityIdentity } from "./polityIdentity.js";
 import {
   DEFAULT_PATROL_RADIUS_KM,
@@ -3419,12 +3420,17 @@ const normalizeEconomyEngine = (value) => {
   const version = Math.trunc(Number(value.version));
   if (!seed || !Number.isFinite(version) || version < 1) return null;
   const lastMonth = Math.trunc(Number(value.lastMonth));
-  return {
+  const out = {
     version,
     seed,
     lastDate: normalizeOptionalString(value.lastDate),
     lastMonth: Number.isFinite(lastMonth) && lastMonth >= 0 ? lastMonth : 0,
   };
+  // A shock declared last turn, waiting to run in this one. Sparse: a campaign
+  // with nothing pending keeps the record exactly as it was before this field.
+  const pendingShocks = normalizeDeclaredShocks(value.pendingShocks);
+  if (pendingShocks.length) out.pendingShocks = pendingShocks;
+  return out;
 };
 
 export const normalizeWorldState = (world) => {

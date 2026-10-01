@@ -128,6 +128,33 @@ export const normalizeShocks = (value, { knownPolities = [] } = {}) => {
   return { valid, rejected };
 };
 
+// The storage shape of a shock: what the model declared, not the month span the
+// step converts it to. It exists because a shock declared now runs in the NEXT
+// period, so it must survive a save untouched and be re-based onto the clock in
+// the period it actually runs in. Validation matches normalizeShocks, except the
+// scope is not resolved against a polity list here: that needs the world, which
+// the applying call has and this one does not. Entries that fail are dropped, not
+// thrown, so a corrupted save costs the shock and never the world.
+export const normalizeDeclaredShocks = (value) => {
+  const list = Array.isArray(value) ? value : [];
+  const out = [];
+  for (const entry of list) {
+    if (out.length >= MAX_SHOCKS) break;
+    if (!entry || typeof entry !== "object") continue;
+    const kind = String(entry.kind ?? "");
+    if (!SHOCK_KINDS.includes(kind)) continue;
+    const severity = Math.trunc(Number(entry.severity));
+    if (!SEVERITIES.has(severity)) continue;
+    const durationMonths = Math.trunc(Number(entry.durationMonths));
+    if (!Number.isFinite(durationMonths) || durationMonths < 1 || durationMonths > MAX_SHOCK_MONTHS) continue;
+    const scope = Array.isArray(entry.scope)
+      ? [...new Set(entry.scope.map((name) => String(name ?? "")).filter(Boolean))]
+      : "world";
+    out.push({ kind, severity, durationMonths, scope });
+  }
+  return out;
+};
+
 // The multiplier/addend vector for one month, from every shock still running.
 // Effects compose by multiplication and by addition; a positive shock does not
 // cancel a negative one, it offsets it.

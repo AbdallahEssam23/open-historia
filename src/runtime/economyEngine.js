@@ -6,7 +6,7 @@
 
 import { advanceEconomy, makePolityEconomy } from "../engine/economyTick.js";
 import { jitterFor, monthsBetweenDates, roundTo } from "../engine/economyMath.js";
-import { normalizeShocks } from "../engine/economyShocks.js";
+import { MAX_SHOCKS, normalizeShocks } from "../engine/economyShocks.js";
 import { applyCountryStatPatchToWorld } from "./gameState.js";
 import { hashSeed } from "./unitMotion.js";
 
@@ -100,7 +100,11 @@ export const advanceWorldEconomy = (
   {
     fromDate = "",
     toDate = "",
-    shocks = [],
+    // This turn's answer. It is NOT applied now: a shock declared in the period
+    // the model just narrated would retroactively rewrite that period, which is
+    // exactly the race the one-period lag removes. It is stored and runs next
+    // period, so the model reacts to the digest it was given instead.
+    declaredShocks = [],
     playerPolity = "",
     tracked = [],
     campaignId = "",
@@ -110,18 +114,52 @@ export const advanceWorldEconomy = (
   const seed = String(world?.economyEngine?.seed ?? economySeedFor(campaignId, scenarioId));
   const committed = extractEconomyState(world, { seed });
   const months = monthsBetweenDates(fromDate, toDate);
-  if (months <= 0 || Object.keys(committed.polities).length === 0) {
+  const knownPolities = Object.keys(committed.polities);
+  if (months <= 0 || knownPolities.length === 0) {
     return { world, deltas: [], months: 0, journal: { steps: 0, capped: false, shockedMonths: 0, seed }, seed };
   }
 
-  const knownPolities = Object.keys(committed.polities);
-  const { valid, rejected } = normalizeShocks(shocks, { knownPolities });
-  const { state, journal } = advanceEconomy(committed, { startDate: fromDate, months, shocks: valid, seed });
+  // The shocks the PREVIOUS turn declared. This advance is where they run, which
+  // is what makes the lag real rather than nominal.
+  const { valid: applied, rejected } = normalizeShocks(world?.economyEngine?.pendingShocks, { knownPolities });
+  // What this turn's answer wants to run next period, validated against the
+  // world so a shock naming a polity that does not exist cannot be applied later.
+  const { valid: declared, rejected: declaredRejected } = normalizeShocks(declaredShocks, { knownPolities });
+
+  const { state, journal } = advanceEconomy(committed, { startDate: fromDate, months, shocks: applied, seed });
+
+  // A shock longer than the period keeps running. Its window is re-based back to
+  // the declared shape so the next advance starts it from month zero again, in
+  // the period it actually reaches. The window is `endMonth - months` because
+  // normalizeShocks sets startMonth 0 and endMonth to the full duration.
+  const leftovers = applied
+    .filter((shock) => shock.endMonth > months)
+    .map((shock) => ({
+      kind: shock.kind,
+      severity: shock.severity,
+      durationMonths: shock.endMonth - months,
+      scope: Array.isArray(shock.scope) ? shock.scope : "world",
+    }));
+  const pendingShocks = [
+    ...leftovers,
+    ...declared.map((shock) => ({
+      kind: shock.kind,
+      severity: shock.severity,
+      durationMonths: shock.endMonth,
+      scope: Array.isArray(shock.scope) ? shock.scope : "world",
+    })),
+  ].slice(0, MAX_SHOCKS);
 
   const nextWorld = {
     ...world,
     countryStats: { ...(world?.countryStats ?? {}) },
-    economyEngine: { version: ENGINE_VERSION, seed, lastDate: toDate, lastMonth: state.month },
+    economyEngine: {
+      version: ENGINE_VERSION,
+      seed,
+      lastDate: toDate,
+      lastMonth: state.month,
+      ...(pendingShocks.length ? { pendingShocks } : {}),
+    },
   };
 
   const deltas = [];
@@ -144,6 +182,14 @@ export const advanceWorldEconomy = (
     });
   }
 
-  if (rejected.length) nextWorld.economyEngine.rejectedShocks = rejected;
-  return { world: nextWorld, deltas, months, journal, seed };
+  const rejectedAll = [...rejected, ...declaredRejected];
+  if (rejectedAll.length) nextWorld.economyEngine.rejectedShocks = rejectedAll;
+  // What the model should be told is still running: the leftover spans, in the
+  // digest's shape (a shock this period's answer just declared is not running yet).
+  const shocksRunning = leftovers.map((shock) => ({
+    kind: shock.kind,
+    severity: shock.severity,
+    monthsLeft: shock.durationMonths,
+  }));
+  return { world: nextWorld, deltas, months, journal, seed, shocksRunning };
 };

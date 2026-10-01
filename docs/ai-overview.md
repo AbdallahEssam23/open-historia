@@ -656,6 +656,7 @@ The model's only economic authority is the optional `economicShocks` array on th
 
 - **Closed enum**: `harvest_failure`, `sanctions`, `blockade`, `industrial_damage`, `capital_flight`, `debt_crisis`, `mobilization`, `reconstruction`, `aid_inflow`, `trade_boom`. An unknown `kind` is rejected entry by entry and never fails the turn.
 - **Bounds**: at most 20 entries; `severity` is 1, 2 or 3; `durationMonths` is 1..120; `scope` is `"world"` or a list of polity names, and an unknown name is dropped rather than the whole entry. Effects compose by multiplication with a floor; a positive shock offsets a negative one rather than cancelling it.
+- **A one-period lag**: a shock declared this turn runs in the **next** period. It is stored on the world's `economyEngine.pendingShocks` and applied by the following turn's advance, so the period the model just narrated is never retroactively rewritten by the shock it declared for it. A shock longer than one period is carried forward, re-based, until it expires; the digest names the ones still in force.
 - **The one rule that replaces free estimates**: the model states no GDP, growth, inflation or debt anywhere. It narrates what the engine computed and declares shocks named from the enum; the numbers stay the engine's.
 
 Because the economy does not depend on the provider, a stalled turn is a narration problem, not a simulation one: if a request never reaches a model, the economy still advances and a stalled provider costs prose, not progress.
