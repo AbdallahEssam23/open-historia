@@ -2,7 +2,10 @@
 // What the model is told about the period the engine just ran. It is given as
 // fact so the narrator describes the engine's numbers rather than inventing its
 // own, and it is capped so a campaign with hundreds of polities cannot inflate
-// every prompt. Import-free: the digest is a string transform.
+// every prompt. The one import is the pure effects label; otherwise the digest
+// is a string transform.
+
+import { researchEffectTotalsLabel } from "../engine/researchEffects.js";
 
 export const DIGEST_POLITY_CAP = 6;
 export const DIGEST_CHAR_CAP = 900;
@@ -78,6 +81,14 @@ const researchClauseFor = (research) => {
   return `Research: ${research.points}/month on ${head.name} (${pct}%${queue}).`;
 };
 
+// The player's completed-research totals, rendered as one line. Only the targets
+// a polity actually holds appear, so a country that has finished no programme
+// pays nothing for the feature. Player-only, like the research line.
+const researchEffectsClauseFor = (totals) => {
+  const summary = researchEffectTotalsLabel(totals);
+  return summary ? `Research effects: ${summary}` : "";
+};
+
 export const buildEconomyDigest = ({
   deltas,
   playerPolity = "",
@@ -89,13 +100,15 @@ export const buildEconomyDigest = ({
   playerShortfall = null,
   playerProduction = null,
   research = null,
+  playerResearchEffects = null,
 } = {}) => {
   const list = (Array.isArray(deltas) ? deltas : []).filter((d) => d && typeof d === "object" && d.polity);
   const player = String(playerPolity ?? "");
   const poolLine = poolLineFor({ playerPolity: player, playerPools, playerPosture, postureChanged, playerShortfall });
   const productionLine = productionClauseFor(playerProduction);
   const researchLine = researchClauseFor(research);
-  const reserveBlock = [poolLine, productionLine, researchLine].filter(Boolean).join("\n");
+  const researchEffectsLine = researchEffectsClauseFor(playerResearchEffects);
+  const reserveBlock = [poolLine, productionLine, researchLine, researchEffectsLine].filter(Boolean).join("\n");
   if (!list.length) return reserveBlock;
 
   const wanted = new Set((Array.isArray(tracked) ? tracked : []).map((name) => String(name ?? "")));

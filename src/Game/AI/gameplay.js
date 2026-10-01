@@ -12878,6 +12878,7 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
         playerPolity,
         playerProduction: projected.production?.[playerPolity] ?? null,
         research: playerResearch,
+        playerResearchEffects: projected.researchEffects?.[playerPolity] ?? null,
       });
     }
   } catch (error) {

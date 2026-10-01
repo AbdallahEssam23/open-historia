@@ -58,7 +58,7 @@ test("the digest renders the engine's research clause", () => {
   assert.match(source, /const researchClauseFor = \(research\) => \{/);
   assert.match(source, /const researchLine = researchClauseFor\(research\);/);
   // The clause is folded into the reserve block, or it never reaches the prompt.
-  assert.match(source, /\[poolLine, productionLine, researchLine\]\.filter\(Boolean\)\.join\("\\n"\)/);
+  assert.match(source, /\[poolLine, productionLine, researchLine, researchEffectsLine\]\.filter\(Boolean\)\.join\("\\n"\)/);
 });
 
 test("the research core stays import-free", () => {

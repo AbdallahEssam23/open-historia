@@ -219,3 +219,22 @@ test("the research line names the queue depth and tolerates a zero cost", () => 
 test("no research line for a null research summary", () => {
   assert.doesNotMatch(buildEconomyDigest({ playerPolity: "France", deltas: [], research: null }), /Research:/);
 });
+
+test("the research effects line names only the non-zero targets", () => {
+  const digest = buildEconomyDigest({
+    deltas: [],
+    playerPolity: "France",
+    playerResearchEffects: { production: 6, pools: 2, economy: 0 },
+  });
+  assert.match(digest, /Research effects: production \+30%, pools \+10%/);
+  assert.doesNotMatch(digest, /growth/);
+});
+
+test("the research effects line is omitted when there are no effects", () => {
+  const digest = buildEconomyDigest({
+    deltas: [],
+    playerPolity: "France",
+    playerResearchEffects: { production: 0, pools: 0, economy: 0 },
+  });
+  assert.doesNotMatch(digest, /Research effects/);
+});
