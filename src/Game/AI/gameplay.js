@@ -5,6 +5,7 @@ import {
   NATIVE_GAME_MASTER_PROMPT,
   buildEconomyEngineInstructions,
   buildForcePoolsInstructions,
+  buildProductionInstructions,
   normalizePromptPack,
 } from "./gameplayPrompts.js";
 import { collectFoundedPolities, foundingPolityChange } from "../../runtime/polityFounding.js";
@@ -2616,6 +2617,13 @@ This live instruction supersedes older frozen country-stat prompts and all earli
   if (jumpTask) {
     const forceBlock = buildForcePoolsInstructions({ digest: variables?.forcePoolsDigest });
     if (forceBlock) systemPrompt = `${systemPrompt}\n\n${forceBlock}`;
+  }
+
+  // The deterministic production line: the rule, then what the engine already has
+  // under construction, so the model does not duplicate work in progress.
+  if (jumpTask) {
+    const productionBlock = buildProductionInstructions({ digest: variables?.productionDigest });
+    if (productionBlock) systemPrompt = `${systemPrompt}\n\n${productionBlock}`;
   }
 
   // The scenario briefing and simulation rules each arrive twice on most
@@ -7224,6 +7232,7 @@ const applySimulationResult = async ({
       declaredShocks: normalizeArray(result.economicShocks),
       // Declared mobilizations run NEXT period, exactly like the shocks.
       declaredMobilization: normalizeArray(result.mobilization),
+      declaredProduction: normalizeArray(result.productionOrders),
       upkeep: buildUpkeepTable(baseWorld),
       playerPolity: nextGame.country || "",
       tracked: Object.keys(nextWorld.countryStats ?? {}),
@@ -7236,6 +7245,32 @@ const applySimulationResult = async ({
       capped: Boolean(economy.journal?.capped),
       shockedMonths: economy.journal?.shockedMonths ?? 0,
     });
+
+    // The engine's completed items become real units and markers through the SAME
+    // path every narrated op takes: place them, then apply them. The core never
+    // touches the map, and the boundary reuses the resolver and the applier that
+    // already handle an unresolvable place or a sea placement.
+    const batches = normalizeArray(economy.completionBatches);
+    if (batches.length) {
+      const containers = batches.map((batch) => {
+        const impacts = { unitOps: batch.unitOps, markerOps: batch.markerOps };
+        return {
+          event: { date: batch.date, title: "", description: "", impacts },
+          impacts,
+          path: "$.production",
+        };
+      });
+      await resolvePlacements(containers, nextWorld, { receipt: null });
+      const applied = applyEventImpactsToWorld({
+        colors: {},
+        events: containers.map((container) => container.event),
+        world: nextWorld,
+      });
+      nextWorld = applied.world;
+      for (const rename of normalizeArray(applied.renamedPolities)) {
+        renamedPolities.push(rename);
+      }
+    }
   } catch (error) {
     console.warn("[engine] the economy step failed; the completed turn is preserved.", error);
   }
@@ -12611,6 +12646,9 @@ const finishTimelineJump = async ({ context, signal, state }) => {
     // applySimulationResult, or the model's declaration is silently dropped and
     // the posture can never change.
     mobilization: merged.mobilization,
+    // Same lag as the shocks and the posture: the merged orders must reach
+    // applySimulationResult or the declaration is silently dropped.
+    productionOrders: merged.productionOrders,
     mode,
     outreach: merged.diplomaticOutreach,
     stopDate: merged.stopDate,
@@ -12743,6 +12781,11 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
         playerPosture: postureNow,
         postureChanged: postureNow !== committedPosture,
         playerShortfall: projected.shortfall?.[playerPolity] ?? null,
+      });
+      variables.productionDigest = buildEconomyDigest({
+        deltas: [],
+        playerPolity,
+        playerProduction: projected.production?.[playerPolity] ?? null,
       });
     }
   } catch (error) {
