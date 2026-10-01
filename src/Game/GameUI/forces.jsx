@@ -9,7 +9,7 @@ import {
   setInteractionMode,
   clearInteractionMode,
 } from "../Map/unitsController.js";
-import { UNIT_TYPES } from "../../runtime/gameState.js";
+import { UNIT_TYPES, readWorldStateView } from "../../runtime/gameState.js";
 import { ensurePolityNames, polityDisplayName } from "../../runtime/polityNames.js";
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_TOP, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
@@ -109,6 +109,7 @@ export const ForcesPanel = ({ mapRef, topOffset = "0px", open = false, onToggle 
   const [deployStrength, setDeployStrength] = useState(100);
   const [deployComposition, setDeployComposition] = useState("");
   const [deployName, setDeployName] = useState("");
+  const [productionLine, setProductionLine] = useState(null);
   const isMobile = useIsMobile();
   const isTouch = useTouchPrimary();
   // On a phone, either way up, the deploy form scrolls with the units under
@@ -135,6 +136,21 @@ export const ForcesPanel = ({ mapRef, topOffset = "0px", open = false, onToggle 
   useEffect(() => {
     ensurePolityNames().then(() => setNamesEpoch((epoch) => epoch + 1)).catch(() => {});
   }, [units.length]);
+
+  // The production line is engine state on the world, read on open and when the
+  // roster changes; it is not mirrored onto the country stat sheet.
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    readWorldStateView({ force: false })
+      .then((world) => {
+        if (cancelled) return;
+        const code = getPlayerCode();
+        setProductionLine(world?.economyEngine?.production?.[code] ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, units.length]);
 
   // The scenario may restrict deployable troop types (e.g. no air in 1200).
   const availableTypes =
@@ -307,6 +323,23 @@ export const ForcesPanel = ({ mapRef, topOffset = "0px", open = false, onToggle 
           </div>
 
           <div style={scrollAsOne ? undefined : { overflowY: "auto", flex: 1 }}>
+            {productionLine && (productionLine.active || productionLine.queue?.length > 0) && (
+              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "8px", padding: "8px", marginBottom: "10px" }}>
+                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)", marginBottom: "5px" }}>Production</div>
+                {productionLine.active && (
+                  <div style={{ fontSize: "12px", marginBottom: "3px" }}>
+                    {(productionLine.active.count ?? 1)}x {productionLine.active.type}
+                    {" - "}
+                    {Math.max(0, (productionLine.active.monthsTotal ?? 0) - (productionLine.active.monthsDone ?? 0))} month(s) left
+                  </div>
+                )}
+                {(productionLine.queue ?? []).map((item, index) => (
+                  <div key={`${item.type}-${index}`} style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)", marginBottom: "2px" }}>
+                    Waiting: {(item.count ?? 1)}x {item.type} ({item.monthsTotal ?? 0} months)
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)", margin: "0 0 5px" }}>
               Your units ({myUnits.length})
             </div>
