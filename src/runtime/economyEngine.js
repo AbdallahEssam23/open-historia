@@ -21,7 +21,8 @@ import {
   normalizeProductionOrders,
   normalizeProductionQueue,
 } from "../engine/productionQueue.js";
-import { applyCountryStatPatchToWorld } from "./gameState.js";
+import { applyCountryStatPatchToWorld, normalizeProjects } from "./gameState.js";
+import { researchCostFor, researchPointsFor } from "../engine/research.js";
 import { addGameMonths } from "./gameDates.js";
 import { hashSeed } from "./unitMotion.js";
 
@@ -220,6 +221,47 @@ export const completionBatchesFor = (completions, { world = {}, fromDate = "" } 
   return [...byDate.values()];
 };
 
+// The research input the pure core needs, derived once from the opening world:
+// the facilities a polity has actually built and the population behind them.
+// A facility finished by the production line inside this same span is applied to
+// world.markers only after the advance returns, so it raises capacity next
+// period - the same deliberate one-period lag upkeep already has.
+export const buildResearchInput = (world, { playerPolity = "" } = {}) => {
+  const input = {};
+  const stats = world?.countryStats ?? {};
+  // normalizeProjects drops a nameless entry, but a research programme is
+  // addressed by id and its name may not have been persisted yet. Fall back to
+  // the id for the normalization pass so its closed domain and scale are still
+  // resolved; the name is never read from this input.
+  const projects = normalizeProjects(
+    (Array.isArray(world?.projects) ? world.projects : []).map((project) =>
+      (project && typeof project === "object" && !project.name && !project.title && !project.project
+        ? { ...project, name: project.id }
+        : project)),
+  );
+  for (const [polity, sheet] of Object.entries(stats)) {
+    const facilities = (Array.isArray(world?.markers) ? world.markers : []).filter(
+      (marker) => String(marker?.ownerCode ?? "").trim() === polity
+        && String(marker?.kind ?? "").toLowerCase() === "research facility",
+    ).length;
+    const population = Number(sheet?.population?.total) || 0;
+    const programmes = projects
+      .filter((project) => project.kind === "research"
+        && (project.ownerCode === polity || (project.ownerCode === "" && polity === playerPolity)))
+      .map((project) => ({
+        id: project.id,
+        domain: project.domain,
+        scale: project.scale,
+        points: project.researchPoints,
+        priority: project.priority,
+        startedAt: project.startedAt,
+        status: project.status,
+      }));
+    input[polity] = { points: researchPointsFor({ facilities, population }), programmes };
+  }
+  return input;
+};
+
 export const advanceWorldEconomy = (
   world,
   {
@@ -259,6 +301,8 @@ export const advanceWorldEconomy = (
       declaredMobilization: [],
       production: committed.production,
       completionBatches: [],
+      researchOps: [],
+      research: {},
     };
   }
 
@@ -279,15 +323,19 @@ export const advanceWorldEconomy = (
     normalizeProductionOrders(declaredProduction, { knownPolities });
 
   const upkeepTable = upkeep ?? buildUpkeepTable(world);
-  const { state, journal, completions, rejectedProduction } = advanceEconomy(committed, {
-    startDate: fromDate,
-    months,
-    shocks: applied,
-    seed,
-    upkeep: upkeepTable,
-    posture,
-    orders: appliedOrders,
-  });
+  const researchInput = buildResearchInput(world, { playerPolity });
+  const { state, journal, completions, rejectedProduction, researchCompletions } = advanceEconomy(
+    { ...committed, research: researchInput },
+    {
+      startDate: fromDate,
+      months,
+      shocks: applied,
+      seed,
+      upkeep: upkeepTable,
+      posture,
+      orders: appliedOrders,
+    },
+  );
 
   // A shock longer than the period keeps running. Its window is re-based back to
   // the declared shape so the next advance starts it from month zero again, in
@@ -381,6 +429,30 @@ export const advanceWorldEconomy = (
     monthsLeft: shock.durationMonths,
   }));
   const completionBatches = completionBatchesFor(completions, { world: nextWorld, fromDate });
+  // Progress is derived from the exact accumulated points so a long programme
+  // never loses a month to rounding; the pre-change value is read from the input
+  // actually handed to the core.
+  const researchOps = [];
+  for (const [polity, before] of Object.entries(researchInput)) {
+    const after = state.research?.[polity];
+    if (!after) continue;
+    const priorById = new Map(before.programmes.map((p) => [p.id, p.points]));
+    for (const programme of after.programmes) {
+      if (programme.accumulated === priorById.get(programme.id)) continue;
+      const cost = researchCostFor(programme);
+      researchOps.push({
+        op: "update",
+        projectId: programme.id,
+        patch: {
+          progress: Math.min(100, Math.floor((100 * programme.accumulated) / cost)),
+          researchPoints: programme.accumulated,
+        },
+      });
+    }
+  }
+  for (const completion of researchCompletions) {
+    researchOps.push({ op: "close", projectId: completion.id, status: "complete" });
+  }
   return {
     world: nextWorld,
     deltas,
@@ -394,5 +466,7 @@ export const advanceWorldEconomy = (
     declaredMobilization: declaredNow,
     production: state.production,
     completionBatches,
+    researchOps,
+    research: state.research,
   };
 };
