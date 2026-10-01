@@ -1092,7 +1092,7 @@ export const JUMP_FORWARD_SCHEMA = {
       maxItems: MAX_MOBILIZATION,
       description:
         "Mobilization postures for polities: a closed list, effective next period. "
-        + "State no pool numbers; the engine computes them.",
+        + "State no manpower/materiel numbers; the engine computes them.",
       items: mobilizationEntrySchema,
     },
   },
