@@ -188,3 +188,34 @@ test("the production line survives when the cap bites the economy lines", () => 
   assert.equal(text.includes("Economy this period"), false);
   assert.match(text, /Production line: 1x garrison \(1 month\)\./);
 });
+
+test("the research line reports the rate, the head and the queue depth", () => {
+  const digest = buildEconomyDigest({
+    playerPolity: "France",
+    deltas: [],
+    research: {
+      points: 5,
+      programmes: [{ id: "a", name: "Reactor", accumulated: 30, cost: 60 }],
+    },
+  });
+  assert.match(digest, /Research: 5\/month/);
+  assert.match(digest, /Reactor \(50%\)/);
+});
+
+test("there is no research line when the player has no programmes", () => {
+  const digest = buildEconomyDigest({ playerPolity: "France", deltas: [], research: { points: 3, programmes: [] } });
+  assert.doesNotMatch(digest, /Research:/);
+});
+
+test("the research line names the queue depth and tolerates a zero cost", () => {
+  const digest = buildEconomyDigest({
+    playerPolity: "France",
+    deltas: [],
+    research: { points: 4, programmes: [{ id: "a", name: "X", accumulated: 5, cost: 10 }, { id: "b", name: "Y", accumulated: 0, cost: 0 }] },
+  });
+  assert.match(digest, /Research: 4\/month on X \(50%, 1 queued\)\./);
+});
+
+test("no research line for a null research summary", () => {
+  assert.doesNotMatch(buildEconomyDigest({ playerPolity: "France", deltas: [], research: null }), /Research:/);
+});

@@ -294,6 +294,7 @@ import { authoredImpactTargets, stampResolvedImpacts, withAuthorImpacts, without
 import { advanceWorldEconomy, buildUpkeepTable } from "../../runtime/economyEngine.js";
 import { buildEconomyDigest } from "../../runtime/economyDigest.js";
 import { DEFAULT_POSTURE } from "../../engine/forcePools.js";
+import { researchQueueFor } from "../../engine/research.js";
 import {
   NO_RESPONSE_BODY_NOTE,
   beginSimulation,
@@ -12846,10 +12847,31 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
         postureChanged: postureNow !== committedPosture,
         playerShortfall: projected.shortfall?.[playerPolity] ?? null,
       });
+      const researchState = projected.research?.[playerPolity];
+      const researchProgrammes = researchQueueFor(researchState?.programmes);
+      let playerResearch = null;
+      if (researchProgrammes.length) {
+        // The engine's programmes carry no name: join each id back to the board
+        // entry it came from, so the digest names the head the player recognises.
+        const researchNames = new Map(
+          normalizeArray(bundle.world?.projects)
+            .filter((project) => normalizeString(project?.kind).toLowerCase() === "research")
+            .map((project) => [project.id, project.name]),
+        );
+        playerResearch = {
+          points: researchState.points,
+          programmes: researchProgrammes.map((programme) => ({
+            name: researchNames.get(programme.id) || "",
+            accumulated: programme.accumulated,
+            cost: programme.cost,
+          })),
+        };
+      }
       variables.productionDigest = buildEconomyDigest({
         deltas: [],
         playerPolity,
         playerProduction: projected.production?.[playerPolity] ?? null,
+        research: playerResearch,
       });
     }
   } catch (error) {

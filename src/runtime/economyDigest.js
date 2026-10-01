@@ -66,6 +66,18 @@ const productionClauseFor = (line) => {
   return parts.length ? `Production line: ${parts.join(", then ")}.` : "";
 };
 
+// What the country is researching: the rate, the programme at the head of the
+// queue and how far it has got, and how many wait behind it. Player-only, like
+// the production line: an enemy's research rate is intelligence, not a digest.
+const researchClauseFor = (research) => {
+  if (!research || !Array.isArray(research.programmes) || !research.programmes.length) return "";
+  const head = research.programmes[0];
+  const pct = head.cost > 0 ? Math.min(100, Math.floor((100 * head.accumulated) / head.cost)) : 0;
+  const behind = research.programmes.length - 1;
+  const queue = behind > 0 ? `, ${behind} queued` : "";
+  return `Research: ${research.points}/month on ${head.name} (${pct}%${queue}).`;
+};
+
 export const buildEconomyDigest = ({
   deltas,
   playerPolity = "",
@@ -76,12 +88,14 @@ export const buildEconomyDigest = ({
   postureChanged = false,
   playerShortfall = null,
   playerProduction = null,
+  research = null,
 } = {}) => {
   const list = (Array.isArray(deltas) ? deltas : []).filter((d) => d && typeof d === "object" && d.polity);
   const player = String(playerPolity ?? "");
   const poolLine = poolLineFor({ playerPolity: player, playerPools, playerPosture, postureChanged, playerShortfall });
   const productionLine = productionClauseFor(playerProduction);
-  const reserveBlock = [poolLine, productionLine].filter(Boolean).join("\n");
+  const researchLine = researchClauseFor(research);
+  const reserveBlock = [poolLine, productionLine, researchLine].filter(Boolean).join("\n");
   if (!list.length) return reserveBlock;
 
   const wanted = new Set((Array.isArray(tracked) ? tracked : []).map((name) => String(name ?? "")));
