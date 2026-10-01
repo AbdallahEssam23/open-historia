@@ -14,6 +14,7 @@ import {
   normalizeMobilizationMap,
   normalizePools,
   normalizeUpkeepShortfall,
+  postureFor,
 } from "../engine/forcePools.js";
 import { applyCountryStatPatchToWorld } from "./gameState.js";
 import { hashSeed } from "./unitMotion.js";
@@ -252,7 +253,7 @@ export const advanceWorldEconomy = (
       forces: {
         manpower: state.pools[name]?.manpower ?? 0,
         materiel: state.pools[name]?.materiel ?? 0,
-        mobilization: posture[name] ?? DEFAULT_POSTURE,
+        mobilization: postureFor(posture, name),
         ...(shortfall[name] ? { shortfall: shortfall[name] } : {}),
       },
     }, {

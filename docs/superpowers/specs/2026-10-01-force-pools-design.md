@@ -390,9 +390,8 @@ pool line, kept after the existing economy header and before the tracked
 polities, so the character cap cannot drop it:
 
 ```
-Your reserves: manpower 1,240,000, materiel 318.40. Mobilization: peacetime
-(partial takes effect next period). Upkeep shortfall last month: 42,000
-manpower.
+Your reserves: manpower 1,240,000, materiel 318.40. Mobilization: partial
+(changed this period). Upkeep shortfall last month: 42,000 manpower.
 ```
 
 Rules:
@@ -400,9 +399,11 @@ Rules:
 - The player's pool line is always kept, like the player's economy line.
   Tracked polities keep economy-only lines, so the digest does not double in
   length and the existing `DIGEST_CHAR_CAP` still holds.
-- The posture shown is the one in force **this** period. A posture declared this
-  turn is named as taking effect next period, so the lag is visible to the model
-  rather than implied.
+- The posture shown is the one in force **this** period. The digest is built
+  before the model declares, from the projection that has just applied last
+  turn's pending declaration, so a posture that differs from the committed one is
+  named as changed this period - the period it actually takes effect. The
+  one-period lag is therefore visible to the model rather than implied.
 - The shortfall clause appears only when `upkeepShortfall` names the player.
 - Every number is one the engine produced. With no engine data (a custom-sheet
   scenario, or a 0-month jump) the line is absent and the prompt is

@@ -93,8 +93,9 @@ export const normalizePendingMobilization = (value) => {
   const byPolity = new Map();
   for (const entry of list) {
     if (!entry || typeof entry !== "object") continue;
-    if (byPolity.size >= MAX_MOBILIZATION && !byPolity.has(name(entry.polity))) continue;
     const polity = name(entry.polity ?? entry.country);
+    // Fold an already-seen polity first; the cap only rejects a NEW one.
+    if (byPolity.size >= MAX_MOBILIZATION && !byPolity.has(polity)) continue;
     const post = name(entry.posture).toLowerCase();
     if (!polity || !POSTURES.has(post)) continue;
     byPolity.set(polity, { polity, posture: post });
@@ -105,8 +106,9 @@ export const normalizePendingMobilization = (value) => {
 export const normalizePools = (value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const out = {};
-  for (const key of Object.keys(value).map(name).filter(Boolean)) {
-    const row = value[key];
+  for (const [rawKey, row] of Object.entries(value)) {
+    const key = name(rawKey);
+    if (!key) continue;
     if (!row || typeof row !== "object") continue;
     const manpower = Number(row.manpower);
     const materiel = Number(row.materiel);
@@ -121,8 +123,10 @@ export const normalizePools = (value) => {
 export const normalizeMobilizationMap = (value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const out = {};
-  for (const key of Object.keys(value).map(name).filter(Boolean)) {
-    const post = name(value[key]).toLowerCase();
+  for (const [rawKey, rawValue] of Object.entries(value)) {
+    const key = name(rawKey);
+    if (!key) continue;
+    const post = name(rawValue).toLowerCase();
     if (post && post !== DEFAULT_POSTURE && POSTURES.has(post)) out[key] = post;
   }
   return out;
@@ -131,8 +135,9 @@ export const normalizeMobilizationMap = (value) => {
 export const normalizeUpkeepShortfall = (value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const out = {};
-  for (const key of Object.keys(value).map(name).filter(Boolean)) {
-    const row = value[key];
+  for (const [rawKey, row] of Object.entries(value)) {
+    const key = name(rawKey);
+    if (!key) continue;
     if (!row || typeof row !== "object") continue;
     const manpower = Math.max(0, Math.round(Number(row.manpower) || 0));
     const materiel = Math.max(0, roundTo(Number(row.materiel) || 0, 2));
@@ -142,8 +147,6 @@ export const normalizeUpkeepShortfall = (value) => {
 };
 
 export const postureFor = (map, polityName) => map?.[name(polityName)] ?? DEFAULT_POSTURE;
-
-export const clampPercent = (value) => clamp(value, 0, 100);
 
 // A polity's reserves before the first step: drawn from the population and
 // output already committed, so a pre-increment save opens with full reserves

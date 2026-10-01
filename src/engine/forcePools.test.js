@@ -91,6 +91,19 @@ test("the shortfall map keeps only a real shortfall", () => {
   );
 });
 
+test("a padded persisted key is trimmed, not dropped", () => {
+  assert.deepEqual(normalizePools({ " France ": { manpower: 10, materiel: 2 } }), { France: { manpower: 10, materiel: 2 } });
+  assert.deepEqual(normalizeMobilizationMap({ " France ": "total" }), { France: "total" });
+  assert.deepEqual(normalizeUpkeepShortfall({ " France ": { manpower: 10, materiel: 2 } }), { France: { manpower: 10, materiel: 2 } });
+});
+
+test("the pending cap folds an already-seen polity instead of rejecting it", () => {
+  const twenty = Array.from({ length: 20 }, (_, i) => ({ polity: `P${i}`, posture: "partial" }));
+  const folded = normalizePendingMobilization([...twenty, { country: "P0", posture: "total" }]);
+  assert.equal(folded.length, 20);
+  assert.equal(folded.find((entry) => entry.polity === "P0").posture, "total");
+});
+
 test("postureFor returns the default for an absent polity", () => {
   assert.equal(postureFor({ Germany: "total" }, "France"), "peacetime");
   assert.equal(postureFor({ Germany: "total" }, "Germany"), "total");
