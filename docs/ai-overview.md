@@ -648,6 +648,20 @@ See [World state](world-state.md) for the shape of what these writers touch, and
 
 ---
 
+## The deterministic economy: the model narrates, it does not compute
+
+The economic numbers on a country's stat sheet are produced by the deterministic core in `src/engine/`, not by the model. Each turn `advanceWorldEconomy` (`runtime/economyEngine.js`) advances every initialized polity from the committed month to the turn's date and writes `gdp`, `gdpPerCapita`, `gdpGrowth`, `inflation`, `unemployment`, `publicDebt` and `budgetBalance` **last**, through `mergeCountryStatPatch` with `engineSourced: true`, so an event patch applied earlier in the same turn cannot overwrite them, and the continuity guard, which exists to catch an absurd model estimate, does not band them either. Indices, stability, the text fields and the territorial ledger are untouched. The model is shown the period as a short digest (`runtime/economyDigest.js`: the player's polity first, up to six tracked polities, capped) and told to treat it as fact.
+
+The model's only economic authority is the optional `economicShocks` array on the jump payload. It does not set a value; the engine turns each shock into transient multipliers and addends for a bounded number of months:
+
+- **Closed enum**: `harvest_failure`, `sanctions`, `blockade`, `industrial_damage`, `capital_flight`, `debt_crisis`, `mobilization`, `reconstruction`, `aid_inflow`, `trade_boom`. An unknown `kind` is rejected entry by entry and never fails the turn.
+- **Bounds**: at most 20 entries; `severity` is 1, 2 or 3; `durationMonths` is 1..120; `scope` is `"world"` or a list of polity names, and an unknown name is dropped rather than the whole entry. Effects compose by multiplication with a floor; a positive shock offsets a negative one rather than cancelling it.
+- **The one rule that replaces free estimates**: the model states no GDP, growth, inflation or debt anywhere. It narrates what the engine computed and declares shocks named from the enum; the numbers stay the engine's.
+
+Because the economy does not depend on the provider, a stalled turn is a narration problem, not a simulation one: if a request never reaches a model, the economy still advances and a stalled provider costs prose, not progress.
+
+---
+
 ## Cancellation & timeouts
 
 - **Player Cancel** passes an `AbortSignal` into `simulateTimelineJump`/etc → `runJsonTask` → `callAI` → `fetch`/relay. A deliberate cancel is re‑thrown as an `AbortError` and **does not** write state or fall back to canned events (`gameplay.js`).

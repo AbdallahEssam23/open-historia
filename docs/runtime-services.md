@@ -23,6 +23,17 @@ Related pages: [World state](world-state.md) · [Game state](world-state.md) · 
 | Map settings | `src/runtime/mapSettings.js` | localStorage map/AI toggles | map + settings components |
 | Diagnostics log | `src/runtime/debugLog.js` | rolling event log for bug reports, the Logging file (Desktop log merged in), secret redaction, the on/off + detailed settings | `src/main.jsx` (boot), Settings → Diagnostics, library/assets/time/actions/settings/gameplay hooks |
 | Desktop log | `server/logStore.js` (+ `server/logRedaction.js`) | the desktop app's and server's own entries, on disk; read back into the Logging file | `server/server.js` (`GET`/`DELETE /api/log`), `electron/main.cjs` |
+| Economy | `src/runtime/economyEngine.js` (+ the pure core in `src/engine/`) | the deterministic economy: it extracts a compact economic state from `world.countryStats`, advances it, and writes the engine-owned fields back through `mergeCountryStatPatch` | `src/Game/AI/gameplay.js` (the turn), `runtime/economyDigest.js` (the period digest the prompt is given) |
+
+---
+
+## The deterministic economy layer
+
+Two layers, and the split is deliberate. `src/engine/` is the **core**: pure functions and data only. It holds the equations, the frozen constants, the closed shock table and the month step, and it is testable under bare node. It must not import a browser module, a React module or `assets.js`; its only imports are its own files and the two clock helpers `runtime/gameDates.js` and `runtime/unitMotion.js`. It must not touch `Date.now`, `new Date`, `Math.random`, `localStorage`, `window`, `document`, `navigator` or `fetch`, not even for a default value. A guard (`src/engine/enginePurity.test.js`) reads the sources and fails if one appears.
+
+That rule is the feature, not tidiness. The economy is the game's source of truth for output, growth, inflation, unemployment, debt and the budget: the same committed state, the same span and the same shocks must produce the same numbers in two processes, on two machines, today and after a reload. A clock or a random draw anywhere in the core would break that, and the reset it would cause is exactly the bug the engine exists to prevent.
+
+`src/runtime/economyEngine.js` is the **adapter** and the only place that knows both shapes: it reads `world.countryStats`, calls the pure core, and writes the result back through `mergeCountryStatPatch` with `engineSourced: true`. `src/runtime/economyDigest.js` is the import-free string transform that turns the adapter's deltas into the short period block the prompt is given.
 
 ---
 

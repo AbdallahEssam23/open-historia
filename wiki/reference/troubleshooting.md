@@ -65,6 +65,11 @@ being slow — check the provider, key and network in Settings → AI, then repr
 
 Then: **Cancel** in the time panel always works and leaves the world untouched.
 
+The economy no longer depends on the provider. It is advanced locally by a deterministic engine,
+so a stalled or unreachable model costs you the prose and nothing else: output, growth, inflation,
+unemployment and debt still move with the calendar, and a turn that never reaches a model is a
+narration problem rather than a simulation one.
+
 If it is a local model, it may genuinely be that slow — check whether it is producing tokens at
 all. If it is a cloud model, you may be rate limited.
 
