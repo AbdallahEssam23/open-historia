@@ -455,6 +455,11 @@ const ProjectCard = memo(({ project, gameDate, round, eventTitles, expanded, bus
           )}
         </div>
         <div style={{ alignItems: "center", display: "flex", gap: "0.25rem" }}>
+          {project.kind === "research" && (
+            <Pill color="#c4b5fd" bg="rgba(139,92,246,0.16)" title="A long-horizon research programme">
+              Research
+            </Pill>
+          )}
           {priorityPill && (
             <Pill color={priorityPill.color} bg={priorityPill.bg} title="Priority the player set for this effort">
               {priorityPill.label}
@@ -477,6 +482,12 @@ const ProjectCard = memo(({ project, gameDate, round, eventTitles, expanded, bus
             ? (ownerFlags?.custom?.[ownerKey] || ownerFlags?.polities?.[ownerKey]?.flag || "")
             : resolveOwnerFlagUrl(ownerKey, ownerFlags?.custom, ownerFlags?.polities)}
         />
+      )}
+
+      {project.kind === "research" && (project.domain || project.scale) && (
+        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.65rem", marginTop: "0.35rem", textTransform: "capitalize" }}>
+          {[project.domain, project.scale].filter(Boolean).join(" / ")}
+        </div>
       )}
 
       {project.summary && (
