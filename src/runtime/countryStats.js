@@ -457,6 +457,17 @@ const normalizeForces = (value) => {
   return Object.keys(out).length ? out : undefined;
 };
 
+// A native sheet also carries the engine-only `forces` block, which the
+// model-facing stat schema deliberately excludes so a strict provider cannot
+// emit it (see the engineSourced gate in mergeCountryStatPatch). Callers that
+// validate a native sheet against that schema must strip the block first; it is
+// normalized here instead.
+export const stripEngineOnlyStatFields = (sheet) => {
+  if (!sheet || typeof sheet !== "object" || Array.isArray(sheet)) return sheet;
+  const { forces, ...rest } = sheet;
+  return rest;
+};
+
 export const normalizeCountryStatSheet = (value, { indexKeys: expectedIndexKeys } = {}) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 

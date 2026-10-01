@@ -31,6 +31,7 @@ import {
     normalizeCountryStatHistorySample,
     normalizeCountryStatsHistory,
     normalizeCountryStatsTracking,
+    stripEngineOnlyStatFields,
 } from "../../runtime/countryStats.js";
 import { compareGameDates, formatGameDateReadable, gameDateDayNumber, parseGameDate } from "../../runtime/gameDates.js";
 import {
@@ -93,7 +94,9 @@ const isValidStatSheet = (value, definition) => {
     if (definition?.custom) {
         return isCompleteCustomCountryStatSheet(sheet, statSheetKeys(definition));
     }
-    return isCompleteCountryStatSheet(sheet) && validateGameplayPayload("countryStatSheet", sheet).valid;
+    // The engine-written block is not in the model-facing schema, so validate the
+    // native sheet the way the model would see it.
+    return isCompleteCountryStatSheet(sheet) && validateGameplayPayload("countryStatSheet", stripEngineOnlyStatFields(sheet)).valid;
 };
 
 // 8B.2.16 compatibility repair: one older Stats path could plan >64 live-map
@@ -1637,7 +1640,7 @@ const StatsPaneBody = ({ active }) => {
                     throw new Error("The scenario-defined stat sheet was incomplete.");
                 }
             } else {
-                const validation = validateGameplayPayload("countryStatSheet", generated);
+                const validation = validateGameplayPayload("countryStatSheet", stripEngineOnlyStatFields(generated));
                 if (!validation.valid) throw new Error(`The stat sheet failed validation: ${validation.error}`);
             }
             // generateCountryStatSheet already receives the previous persistent sheet as

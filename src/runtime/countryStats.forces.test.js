@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { mergeCountryStatPatch, normalizeCountryStatSheet } from "./countryStats.js";
+import { mergeCountryStatPatch, normalizeCountryStatSheet, stripEngineOnlyStatFields } from "./countryStats.js";
+import { validateGameplayPayload } from "../Game/AI/gameplaySchemas.js";
 
 const forces = { manpower: 1200, materiel: 40.5, mobilization: "total" };
 
@@ -50,4 +51,49 @@ test("an engine write that pays the army in full clears the stored shortfall", (
   const merged = mergeCountryStatPatch(base, { forces }, { engineSourced: true });
   assert.deepEqual(merged.forces, forces);
   assert.equal(merged.forces.shortfall, undefined);
+});
+
+// The Stats pane validates a native sheet with the model-facing schema, which
+// deliberately excludes the engine-only block. Without stripping it, every
+// sheet the engine has advanced is rejected and the panel cannot show it.
+const completeSheet = () => ({
+  statsSchemaVersion: 1,
+  capital: "Cairo",
+  continent: "Africa",
+  government: "Republic",
+  leader: "A Leader",
+  stability: 60,
+  indices: { sovereignty: 60 },
+  territorialComponents: [{ geography: "Egypt", group: "core", population: 1_000_000, gdpPerCapita: 1_000 }],
+  population: { total: 1_000_000, coreIntegrated: 1_000_000, otherTerritories: 0 },
+  economy: {
+    gdp: 1e9,
+    gdpPerCapita: 1_000,
+    gdpGrowth: 2,
+    inflation: 5,
+    unemployment: 8,
+    publicDebt: 80,
+    budgetBalance: -2,
+    currency: "EGP",
+  },
+  gdpBreakdown: { agriculture: 10, industry: 30, services: 60 },
+});
+
+test("the model-facing schema rejects the engine-only block", () => {
+  const sheet = normalizeCountryStatSheet({ ...completeSheet(), forces });
+  const verdict = validateGameplayPayload("countryStatSheet", sheet);
+  assert.equal(verdict.valid, false);
+  assert.match(verdict.error, /\$\.forces is not allowed/);
+});
+
+test("stripping the engine-only block lets a native sheet validate", () => {
+  const sheet = normalizeCountryStatSheet({ ...completeSheet(), forces });
+  const stripped = stripEngineOnlyStatFields(sheet);
+  const verdict = validateGameplayPayload("countryStatSheet", stripped);
+  assert.equal(verdict.valid, true, verdict.error);
+  // Nothing else is touched.
+  assert.equal(stripped.forces, undefined);
+  const expected = { ...sheet };
+  delete expected.forces;
+  assert.deepEqual(stripped, expected);
 });
