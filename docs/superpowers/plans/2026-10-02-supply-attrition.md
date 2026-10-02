@@ -862,10 +862,15 @@ front line and a front-line loss can never disagree. The pure core is
   field, no normalizer and no migration.
 ```
 
-- [ ] **Step 2: Regenerate and verify the wiki**
+- [ ] **Step 2: Verify the wiki is still current**
+
+`public/wiki/**` is generated from `wiki/**` only (`scripts/build-wiki.mjs` never
+reads `docs/`), so this service-doc increment adds no wiki page. This matches the
+front-lines precedent dfa64c0, which also changed `docs/runtime-services.md`
+alone.
 
 Run: `npm run build:wiki`
-Expected: completes; `public/wiki/**` is rewritten and committed.
+Expected: completes; no `public/wiki/**` diff (a verified no-op).
 
 Run: `npm run wiki:check`
 Expected: `Wiki is current.`
@@ -873,7 +878,7 @@ Expected: `Wiki is current.`
 - [ ] **Step 3: Commit**
 
 ```bash
-git add docs/runtime-services.md public/wiki
+git add docs/runtime-services.md
 git commit -m "docs(runtime): record the supply and attrition layer"
 ```
 
