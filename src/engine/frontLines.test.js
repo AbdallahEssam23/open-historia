@@ -147,6 +147,20 @@ test("an ownerless region is neither a front nor a contested holder", () => {
   assert.deepEqual(result.regions, {});
 });
 
+test("a region id colliding with Object.prototype is safe, not a throw", () => {
+  const result = deriveFrontLines({
+    wars: [war("w1", "active", ["France"], ["Germany"])],
+    units: [],
+    regions: [
+      region("__proto__", "France", ["r1"]),
+      region("r1", "Germany", ["__proto__"]),
+    ],
+  });
+  assert.deepEqual(result.edges.map((edge) => [edge.regionA, edge.regionB]), [["__proto__", "r1"]]);
+  assert.equal(Object.prototype.hasOwnProperty.call(result.regions, "__proto__"), true);
+  assert.deepEqual(result.regions["__proto__"].roles, ["front"]);
+});
+
 test("the derivation is byte-for-byte deterministic and order-independent", () => {
   const input = {
     wars: [war("w1", "active", ["France"], ["Germany"])],

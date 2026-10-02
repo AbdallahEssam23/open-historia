@@ -145,12 +145,12 @@ export const deriveFrontLines = ({ wars = [], units = [], regions = [] } = {}) =
   }
   byWar.sort((a, b) => compare(a.warId, b.warId));
 
-  const regionsIndex = {};
+  const regionsIndex = new Map();
   const addRole = (regionId, role, warIds) => {
-    let row = regionsIndex[regionId];
+    let row = regionsIndex.get(regionId);
     if (!row) {
       row = { controller: controllerOf.get(regionId) ?? "", roles: [], warIds: [] };
-      regionsIndex[regionId] = row;
+      regionsIndex.set(regionId, row);
     }
     if (!row.roles.includes(role)) row.roles.push(role);
     for (const id of warIds) if (!row.warIds.includes(id)) row.warIds.push(id);
@@ -160,10 +160,12 @@ export const deriveFrontLines = ({ wars = [], units = [], regions = [] } = {}) =
     addRole(edge.regionB, "front", edge.warIds);
   }
   for (const entry of contested) addRole(entry.regionId, "contested", [entry.warId]);
-  for (const row of Object.values(regionsIndex)) {
+  for (const row of regionsIndex.values()) {
     row.roles.sort(compare);
     row.warIds.sort(compare);
   }
 
-  return { edges, contested, byWar, regions: regionsIndex };
+  // Object.fromEntries makes a "__proto__" id a safe own property rather than
+  // the object's prototype, so no region id can throw or vanish.
+  return { edges, contested, byWar, regions: Object.fromEntries(regionsIndex) };
 };
