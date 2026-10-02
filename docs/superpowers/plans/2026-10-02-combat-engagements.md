@@ -574,7 +574,8 @@ const name = (value) => String(value ?? "").trim();
 const foldKey = (value) => name(value).toLocaleLowerCase();
 const list = (value) => (Array.isArray(value) ? value : []);
 
-const ownerOf = (unit) => toCountryName(name(unit?.ownerCode)) || name(unit?.ownerCode);
+const canonicalPolity = (value) => toCountryName(name(value)) || name(value);
+const ownerOf = (unit) => canonicalPolity(unit?.ownerCode);
 
 // Build the neutral engagement description, or null when the event is not a
 // resolvable declaration (no war, no active war, no region, or a side absent
@@ -613,6 +614,12 @@ export const buildEngagement = (event, world, { round = 0 } = {}) => {
   const toSide = (bucket) =>
     [...bucket.entries()].map(([polity, units]) => ({ polity, posture: posture[polity] || "peacetime", units }));
 
+  // The war declares a side as a list of polities; the buckets only hold the
+  // ones that actually fielded a unit. Keep the declared names so an unresolved
+  // note can name the side that was missing from the field.
+  const sideAPolities = list(war.sideA).map(canonicalPolity);
+  const sideBPolities = list(war.sideB).map(canonicalPolity);
+
   // The caller passes an already-normalized world (the turn's baseWorldNormalized),
   // so the override reads directly rather than re-normalizing per event.
   const override = world?.regionOwnershipOverrides?.[regionId];
@@ -624,6 +631,8 @@ export const buildEngagement = (event, world, { round = 0 } = {}) => {
     date: name(event?.date),
     round: Number(round) || 0,
     controllerPolity,
+    sideAPolities,
+    sideBPolities,
     sideA: toSide(bucketA),
     sideB: toSide(bucketB),
   };
@@ -653,11 +662,12 @@ export const resolveEventEngagements = (events, world, { round = 0 } = {}) => {
   list(events).forEach((event, eventIndex) => {
     const input = buildEngagement(event, world, { round });
     if (!input) return;
-    if (input.sideA.length === 0 || input.sideB.length === 0) {
-      const absent = input.sideA.length === 0 ? input.sideB : input.sideA;
+    const sideAEmpty = input.sideA.length === 0;
+    if (sideAEmpty || input.sideB.length === 0) {
+      const absent = sideAEmpty ? input.sideAPolities : input.sideBPolities;
       unresolved.push({
         eventIndex,
-        reason: `no units in ${input.regionId} for ${absent.map((entry) => entry.polity).join(", ")}`,
+        reason: `no units in ${input.regionId} for ${absent.join(", ")}`,
       });
       return;
     }
