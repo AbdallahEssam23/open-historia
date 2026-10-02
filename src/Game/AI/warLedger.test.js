@@ -221,7 +221,7 @@ test("an unbindable combat event is reported for unbinding, never for deletion",
 // transport as the transitions but is not bound to the event that causes it.
 
 test("a goals record decodes as a link-free declaration", () => {
-  const records = decodeWarUpdates("war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~");
+  const records = decodeWarUpdates("war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~");
   assert.equal(records.length, 1);
   assert.equal(records[0].op, "goals");
 });
@@ -231,7 +231,7 @@ test("a start then a link-free goals record stores the parsed declaration", () =
     world,
     updates: [
       "war-x~start~France~Germany~1~declaration of war",
-      "war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~",
+      "war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~",
     ],
     events: [],
     stopDate: "1914-08-31",
@@ -244,13 +244,37 @@ test("a start then a link-free goals record stores the parsed declaration", () =
   assert.equal(merge.wars[0].goals.b.kind, "reparations");
 });
 
+// The goals record carries no note, and its empty note must not clobber the
+// note the war was started or last updated with. Four trailing tildes would
+// parse the last separator as a literal "~" note; three is the empty form.
+test("a goals declaration keeps the war's existing note", () => {
+  const started = applyWarUpdates({
+    world,
+    updates: "war-note~start~France~Germany~1~the war of the two flags",
+    events: [],
+    stopDate: "1914-08-03",
+    round: 2,
+  });
+  assert.equal(started.wars[0].note, "the war of the two flags");
+
+  const declared = applyWarUpdates({
+    world: started.world,
+    updates: "war-note~goals~France:annex:Alsace~~~",
+    events: [],
+    stopDate: "1914-08-31",
+    round: 3,
+    resolveRegion: () => "alsace",
+  });
+  assert.equal(declared.wars[0].note, "the war of the two flags");
+});
+
 test("a goals record naming an unknown war is dropped, not thrown", () => {
   const warnings = [];
   const original = console.warn;
   console.warn = (message) => { warnings.push(String(message)); };
   let merge;
   try {
-    merge = applyWarUpdates({ world, updates: "war-ghost~goals~France:annex:Alsace~~~~", events: [] });
+    merge = applyWarUpdates({ world, updates: "war-ghost~goals~France:annex:Alsace~~~", events: [] });
   } finally {
     console.warn = original;
   }
@@ -268,7 +292,7 @@ test("legacy wars normalize without goals or weariness, and weariness survives a
 
   const declared = applyWarUpdates({
     world: legacy,
-    updates: "w~goals~A:annex:Alsace~~~~",
+    updates: "w~goals~A:annex:Alsace~~~",
     events: [],
     stopDate: "1901-01-01",
     round: 2,
@@ -310,7 +334,7 @@ test("a link-free goals record is a valid war ledger payload", () => {
   };
   const candidate = {
     events: [],
-    warUpdates: "war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~",
+    warUpdates: "war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~",
   };
   assert.equal(validateWarLedgerPayload(candidate, { world: warWorld }), "");
 });
