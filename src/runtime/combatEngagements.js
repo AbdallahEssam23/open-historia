@@ -49,10 +49,11 @@ export const buildEngagement = (event, world, { round = 0 } = {}) => {
   for (const unit of list(world?.units)) {
     if (name(unit?.regionId) !== regionId) continue;
     const owner = ownerOf(unit);
-    const bucket = sideAKeys.has(foldKey(owner)) ? bucketA : sideBKeys.has(foldKey(owner)) ? bucketB : null;
+    const key = foldKey(owner);
+    const bucket = sideAKeys.has(key) ? bucketA : sideBKeys.has(key) ? bucketB : null;
     if (!bucket) continue;
-    if (!bucket.has(owner)) bucket.set(owner, []);
-    bucket.get(owner).push({
+    if (!bucket.has(key)) bucket.set(key, { polity: owner, units: [] });
+    bucket.get(key).units.push({
       id: name(unit?.id),
       type: name(unit?.type) || "infantry",
       strength: Number(unit?.strength) || 0,
@@ -61,16 +62,23 @@ export const buildEngagement = (event, world, { round = 0 } = {}) => {
 
   // The core credits the province to the first polity of the winning side that
   // has units, so each side must be returned in the war's declared order, not
-  // in roster order. Keep only declared polities that fielded a unit, deduped.
+  // in roster order. Membership is case-insensitive (the same folded key the
+  // ledger uses), but each entry keeps the roster's canonical spelling so the
+  // reserve cost and posture lookups match the world. Keep only declared
+  // polities that fielded a unit, deduped.
   const toSide = (declared, bucket) => {
     const seen = new Set();
     const side = [];
     for (const declaredName of list(declared)) {
-      const polity = canonicalPolity(declaredName);
-      const key = foldKey(polity);
-      if (seen.has(key) || !bucket.has(polity)) continue;
+      const key = foldKey(canonicalPolity(declaredName));
+      const entry = bucket.get(key);
+      if (!entry || seen.has(key)) continue;
       seen.add(key);
-      side.push({ polity, posture: posture[polity] || "peacetime", units: bucket.get(polity) });
+      side.push({
+        polity: entry.polity,
+        posture: posture[entry.polity] || "peacetime",
+        units: entry.units,
+      });
     }
     return side;
   };
@@ -135,11 +143,15 @@ export const resolveEventEngagements = (events, world, { round = 0 } = {}) => {
       return;
     }
     const sideAEmpty = input.sideA.length === 0;
-    if (sideAEmpty || input.sideB.length === 0) {
-      const absent = sideAEmpty ? input.sideAPolities : input.sideBPolities;
+    const sideBEmpty = input.sideB.length === 0;
+    if (sideAEmpty || sideBEmpty) {
+      const absent = [];
+      if (sideAEmpty) absent.push(...input.sideAPolities);
+      if (sideBEmpty) absent.push(...input.sideBPolities);
+      const names = absent.join(", ");
       unresolved.push({
         eventIndex,
-        reason: `no units in ${input.regionId} for ${absent.join(", ")}`,
+        reason: names ? `no units in ${input.regionId} for ${names}` : `no units in ${input.regionId}`,
       });
       return;
     }

@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import {
   COMBAT_POOL_FACTOR,
   applyCombatReserveCost,
+  buildEngagement,
   mergeEngagementResults,
   resolveEventEngagements,
 } from "./combatEngagements.js";
@@ -124,6 +125,23 @@ test("the control target follows the war's declared side order", () => {
   assert.equal(out.results[0].winner, "a");
   assert.equal(out.results[0].controlToCode, "Alpha");
   assert.equal(out.results[0].regionControlOps[0].fromCode, "France");
+});
+
+test("a declared side matches the roster owner case-insensitively", () => {
+  const w = world();
+  // The war declares "France" but the roster spells the owner "france".
+  w.wars[0].sideB = ["France"];
+  w.units = [
+    { id: "p1", ownerCode: "Prussia", type: "armor", strength: 100, regionId: "ALSACE" },
+    { id: "f1", ownerCode: "france", type: "garrison", strength: 20, regionId: "ALSACE" },
+  ];
+  const input = buildEngagement(battle(), w, { round: 7 });
+  assert.equal(input.sideB.length, 1);
+  assert.equal(input.sideB[0].units.length, 1);
+  assert.equal(input.sideB[0].units[0].id, "f1");
+  const out = resolveEventEngagements([battle()], w, { round: 7 });
+  assert.equal(out.unresolved.length, 0);
+  assert.equal(out.results.length, 1);
 });
 
 test("an active-war declaration with no region draws an unresolved note", () => {
