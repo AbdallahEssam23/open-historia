@@ -892,7 +892,7 @@ rather than raising the guard.
 
 **Interfaces:**
 - Consumes: `foldRegionKey` from `./regionMatch.js`.
-- Produces: `resolveCombatRegionIds(containers, catalog) -> { resolved: number, dropped: number }`, and a payload whose every event `combatRegion` is either a canonical region id present in the catalog or `""`.
+- Produces: `resolveCombatRegionIds(containers, catalog) -> { resolved: number, dropped: number }`, and a payload whose every event `combatRegion` is either a canonical region id present in the catalog or `""`. Each container is one `{ event, impacts, path }` row (the shape `resolveRegionTransfers`/`resolveRegionControlOps` already consume), so the helper reads `container.event`.
 
 The helper lives in its own browser-free module because `src/Game/AI/gameplay.js`
 imports `./main.jsx` at module load, so no `node --test` file can import
@@ -915,24 +915,24 @@ import { resolveCombatRegionIds } from "./combatRegionResolution.js";
 const catalog = () => [{ id: "ALSACE", name: "Alsace" }];
 
 test("a combatRegion that is already a known id is kept", () => {
-  const containers = [{ impacts: null, events: [{ combatRegion: "ALSACE" }] }];
+  const containers = [{ event: { combatRegion: "ALSACE" } }];
   const out = resolveCombatRegionIds(containers, catalog());
-  assert.equal(containers[0].events[0].combatRegion, "ALSACE");
+  assert.equal(containers[0].event.combatRegion, "ALSACE");
   assert.equal(out.resolved, 1);
   assert.equal(out.dropped, 0);
 });
 
 test("a combatRegion that matches a name resolves to its id", () => {
-  const containers = [{ impacts: null, events: [{ combatRegion: "alsace" }] }];
+  const containers = [{ event: { combatRegion: "alsace" } }];
   const out = resolveCombatRegionIds(containers, catalog());
-  assert.equal(containers[0].events[0].combatRegion, "ALSACE");
+  assert.equal(containers[0].event.combatRegion, "ALSACE");
   assert.equal(out.resolved, 1);
 });
 
 test("a combatRegion that matches nothing is dropped to an empty string", () => {
-  const containers = [{ impacts: null, events: [{ combatRegion: "Atlantis" }] }];
+  const containers = [{ event: { combatRegion: "Atlantis" } }];
   const out = resolveCombatRegionIds(containers, catalog());
-  assert.equal(containers[0].events[0].combatRegion, "");
+  assert.equal(containers[0].event.combatRegion, "");
   assert.equal(out.dropped, 1);
 });
 ```
@@ -976,7 +976,11 @@ export const resolveCombatRegionIds = (containers, catalog) => {
   }
   let resolved = 0;
   let dropped = 0;
-  const events = list(containers).flatMap((container) => list(container?.events));
+  // Each container is one { event, impacts, path } row; the declaration lives on
+  // container.event, the same object the other resolvers read.
+  const events = list(containers)
+    .map((container) => container?.event)
+    .filter((event) => event && typeof event === "object");
   for (const event of events) {
     if (!event || typeof event !== "object") continue;
     const value = name(event.combatRegion);
