@@ -41,6 +41,7 @@ The spec left five mechanics to the plan. They are decided here and the executor
 | `src/runtime/warSettlement.js` (new) | Gather each war's facts, call the core, build the peace event, move the reparations. Reads region ids only; imports no `Game/AI` module. |
 | `src/runtime/combatEngagements.js` | Each engagement result gains a compact per-side summary (power, loss fraction) so the settlement adapter can read a war's advantage without recomputing a battle. |
 | `src/Game/AI/nativeWarLedger.js` | Learn the `goals` op, preserve `goals`/`weariness` on a war, accept a resolver and a weariness map in `applyWarUpdates`. |
+| `src/runtime/gameState.js` | `normalizeWorldWar` preserves the optional `goals` and `weariness` war fields, or `normalizeWorldState` strips them on the next turn and the adapter sees nothing. |
 | `src/Game/AI/combatRegionResolution.js` | Export a reusable `buildRegionResolver`; `resolveCombatRegionIds` is refactored to use it. |
 | `src/Game/AI/gameplayPrompts.js` | Describe the `goals` op in the war ledger paragraph. |
 | `src/Game/AI/gameplay.js` | Build the region resolver, run the adapter after the battles, append the peace event and the `end` record, pass the weariness and resolver to `applyWarUpdates`, pay the reparations. |
@@ -253,6 +254,7 @@ git commit -m "feat(runtime): resolve war settlements and move the reparations"
 
 **Files:**
 - Modify: `src/Game/AI/nativeWarLedger.js`
+- Modify: `src/runtime/gameState.js` (`normalizeWorldWar`)
 - Test: `src/Game/AI/nativeWarLedger.test.js` (extend) or, when that file does not exist, `src/Game/AI/nativeWarLedger.warSettlement.test.js` (new)
 - Modify: `docs/specs/2026-10-02-war-settlement-design.md` (correct the example)
 
@@ -262,6 +264,7 @@ git commit -m "feat(runtime): resolve war settlements and move the reparations"
   - `parseWarGoals(actors, war, resolveRegion) -> {a,b} | null` (module-private is fine; export only if a test needs it)
   - The `goals` op on `warUpdates`, storing `war.goals`
   - `normalizeWar` preserves optional `goals` and `weariness`
+  - `normalizeWorldWar` (in `src/runtime/gameState.js`) preserves optional `goals` and `weariness`
   - `applyWarUpdates({ ..., weariness = {}, resolveRegion })` writes the weariness map onto the wars it saves
 
 - [ ] **Step 1: Write the failing test**
@@ -272,6 +275,7 @@ Add tests that:
 - `applyWarUpdates` with a `start` then a link-free `goals` record and no events stores `war.goals.a.kind === "annex"` with `targetRegionIds` resolved through a stub `resolveRegion` (a pipe list arrives as two ids).
 - A `goals` record naming an unknown war is dropped with a warning and does not throw.
 - An old war saved without `goals`/`weariness` still normalizes; `applyWarUpdates` with a `weariness` map writes `war.weariness` and preserves it through a later `end` save.
+- `normalizeWorldState` round-trips a war carrying `goals` and `weariness` without dropping either (the runtime normalizer is the writer of the persisted world; without this, the next turn's adapter sees a war with no goals).
 - `validateWarLedgerPayload` accepts a payload whose only war record is a link-free `goals` op.
 
 Run: `node --test src/Game/AI/nativeWarLedger.test.js`
@@ -292,6 +296,11 @@ In `src/Game/AI/nativeWarLedger.js`:
   Thread `resolveRegion` through the destructured arguments.
 - In `normalizeWar`, add `goals: normalizeWarGoals(entry.goals)` and
   `weariness: normalizeWeariness(entry.weariness)` to the saved object.
+- In `src/runtime/gameState.js`, import `normalizeWarGoals` and
+  `normalizeWeariness` from `../engine/warSettlement.js` and add the same two
+  fields to the object `normalizeWorldWar` returns, so a normalized world keeps
+  them. This is the only edit to `gameState.js`; do not touch its war status
+  logic.
 - In `applyWarUpdates`, accept `weariness = {}` and `resolveRegion`, pass
   `resolveRegion` into each `applyUpdateToWarMap`, and after the map is built
   write each `normalizeWeariness(weariness[war.id])` onto the matching war
