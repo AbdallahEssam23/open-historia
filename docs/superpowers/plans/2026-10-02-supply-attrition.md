@@ -174,6 +174,27 @@ test("a non-belligerent cut off loses nothing", () => {
   assert.equal(row.destroyed, false);
 });
 
+test("a war listing one polity on both sides is degenerate and makes no belligerent", () => {
+  const result = deriveSupplyAttrition({
+    wars: [war("w1", "active", ["France", "Germany"], ["Germany"])],
+    regions: GRAPH,
+    months: 1,
+    units: [unit("u4", "France", "r4")],
+  });
+  assert.equal(byId(result).u4.belligerent, false);
+  assert.equal(byId(result).u4.loss, 0);
+});
+
+test("a blank strength defaults to full and is not destroyed by accident", () => {
+  const result = deriveSupplyAttrition({
+    wars: WAR, regions: GRAPH, months: 1,
+    units: [{ id: "u4", ownerCode: "France", regionId: "r4", strength: "" }],
+  });
+  const row = byId(result).u4;
+  assert.equal(row.nextStrength, 90);
+  assert.equal(row.destroyed, false);
+});
+
 test("the period multiplies the loss, and zero months costs nothing", () => {
   const at = (months) => byId(deriveSupplyAttrition({
     wars: WAR, regions: GRAPH, months,
@@ -342,16 +363,16 @@ export const deriveSupplyAttrition = ({ wars = [], units = [], regions = [], mon
   };
 
   // Belligerents: a polity on a side of at least one active war. A ceasefire or
-  // ended war makes none, matching the ledger and the combat adapter.
+  // ended war makes none, matching the ledger and the combat adapter. A war
+  // that lists one polity on both sides is degenerate: it makes no enemy pair
+  // in frontLines and contributes no belligerent here.
   const belligerents = new Set();
   for (const war of list(wars)) {
     if (!war || foldKey(war?.status) !== "active") continue;
-    for (const side of [list(war?.sideA), list(war?.sideB)]) {
-      for (const polity of side) {
-        const key = foldKey(polity);
-        if (key) belligerents.add(key);
-      }
-    }
+    const sideA = list(war?.sideA).map(foldKey).filter(Boolean);
+    const sideB = list(war?.sideB).map(foldKey).filter(Boolean);
+    if (sideA.some((key) => sideB.includes(key))) continue;
+    for (const key of [...sideA, ...sideB]) belligerents.add(key);
   }
 
   // The supplied network of one owner: the regions it controls reachable from a
@@ -403,11 +424,14 @@ export const deriveSupplyAttrition = ({ wars = [], units = [], regions = [], mon
     if (reachable && !contact) state = "supplied";
     else if (reachable || adjacentToNetwork) state = "strained";
 
-    // A unit always carries a clamped 0-100 strength in the world; a missing or
-    // unparseable value defaults to full, exactly as normalizeUnitEntry does, so
-    // a malformed row is never destroyed by accident.
-    const rawStrength = Number(raw?.strength);
-    const strength = Number.isFinite(rawStrength) ? Math.max(0, Math.min(100, rawStrength)) : 100;
+    // A unit in the world carries a clamped 0-100 strength. A missing, blank or
+    // unparseable value defaults to full, so a malformed row is never destroyed
+    // by accident.
+    const rawStrength = raw?.strength;
+    const parsedStrength = rawStrength === null || rawStrength === undefined || rawStrength === ""
+      ? NaN
+      : Number(rawStrength);
+    const strength = Number.isFinite(parsedStrength) ? Math.max(0, Math.min(100, parsedStrength)) : 100;
     const belligerent = belligerents.has(ownerKey);
     const loss = belligerent ? rateFor(state) * period : 0;
     const nextStrength = Math.max(0, strength - loss);
@@ -572,7 +596,9 @@ export const readSupplyAttrition = (world, catalog, { fromDate = "", toDate = ""
     id: name(unit?.id),
     ownerCode: name(unit?.ownerCode),
     regionId: name(unit?.regionId),
-    strength: Number(unit?.strength),
+    // Passed through raw: the core owns the 0-100 clamp and the full-strength
+    // default, so a blank or missing value is not read as zero here.
+    strength: unit?.strength,
   }));
   const regions = list(catalog)
     .map((row) => ({
@@ -648,7 +674,8 @@ test("the supply core imports only the front-line sibling", () => {
 });
 
 test("the adapter imports no Game/AI module", () => {
-  assert.equal(adapter.includes("Game/AI"), false);
+  const specifiers = [...adapter.matchAll(/from\s+"([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(specifiers.some((specifier) => specifier.includes("Game/AI")), false);
 });
 
 test("the turn attrits after the battles and before the economy", () => {
@@ -861,12 +888,12 @@ Expected: `Wiki is current.`
 
 Confirm each of the following and report the evidence:
 
-- `git log --oneline <task-1-base>..HEAD` lists the four slice commits with conventional prefixes.
+- `git log --oneline -4` lists exactly the four slice commits, in order: `feat(engine): derive supply state and attrition from the front graph`, `feat(runtime): read supply attrition from the world`, `feat(runtime): apply supply attrition in the turn`, `docs(runtime): record the supply and attrition layer`.
 - Every slice commit carries the `Co-authored-by: monkeycode-ai` trailer added by the hook.
-- No new `world` field, no `ENGINE_VERSION` change and no `package.json` change: `git diff <task-1-base>..HEAD -- src/runtime/gameState.js package.json` is empty.
+- No new `world` field, no `ENGINE_VERSION` change and no `package.json` change: `git diff HEAD~4..HEAD -- src/runtime/gameState.js package.json` is empty.
 - `src/engine/supplyAttrition.js` has exactly one import (`./frontLines.js`).
 - `src/runtime/supplyAttrition.js` contains no `Game/AI` reference.
 
 - [ ] **Step 6: Report**
 
-Write a short pass/fail report to `docs/superpowers/plans/2026-10-02-supply-attrition-gate.md` with the exact commands, counts and any pre-existing warnings. Do not commit the report if the repository ignores it; otherwise commit it with `docs(plan): record the supply and attrition gate`.
+Write a short pass/fail report to `.superpowers/sdd/slice-7b-gate.md` (the ignored SDD directory, so the gate adds no slice commit) with the exact commands, counts and any pre-existing warnings. Do not commit this report.
