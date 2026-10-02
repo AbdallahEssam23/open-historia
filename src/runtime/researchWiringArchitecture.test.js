@@ -67,3 +67,30 @@ test("the research core stays import-free", () => {
   const core = read("../engine/research.js");
   assert.doesNotMatch(core, /\bfrom\s+"|require\(|window\.|document\.|localStorage/);
 });
+
+test("the clock threads the research effects into all three seams", () => {
+  const tick = read("./../engine/economyTick.js");
+  assert.match(tick, /researchEffectTotalsFor/);
+  assert.match(tick, /productionTimeMultiplier\(effects\.production\)/);
+  assert.match(tick, /poolRegenMultiplier\(effects\.pools\)/);
+  assert.match(tick, /economyGrowthBonus\(effects\.economy\)/);
+});
+
+test("the engine functions carry the multiplier seams", () => {
+  assert.match(read("./../engine/productionQueue.js"), /timeMultiplier/);
+  assert.match(read("./../engine/forcePools.js"), /regenMultiplier/);
+  assert.match(read("./../engine/economyTick.js"), /growthBonus/);
+});
+
+test("the adapter folds the completions and writes the totals", () => {
+  const source = read("./economyEngine.js");
+  assert.match(source, /foldResearchEffect/);
+  assert.match(source, /normalizeResearchEffects/);
+  assert.match(source, /researchEffects: researchEffectsNext/);
+  assert.match(source, /researchEffects: appliedResearchEffects/);
+});
+
+test("the engine record keeps the field and the digest renders it", () => {
+  assert.match(read("./gameState.js"), /normalizeResearchEffects/);
+  assert.match(read("./economyDigest.js"), /researchEffectTotalsLabel/);
+});
