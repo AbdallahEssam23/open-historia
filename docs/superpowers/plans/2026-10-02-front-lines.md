@@ -310,6 +310,20 @@ test("a unit with no region never contests a region", () => {
   assert.deepEqual(result.contested, []);
 });
 
+test("an ownerless region is neither a front nor a contested holder", () => {
+  const result = deriveFrontLines({
+    wars: [war("w1", "active", ["France"], ["Germany"])],
+    units: [unit("France", "o1"), unit("Germany", "o1")],
+    regions: [
+      region("o1", "", ["r1"]),
+      region("r1", "France", ["o1"]),
+    ],
+  });
+  assert.deepEqual(result.contested, []);
+  assert.deepEqual(result.edges, []);
+  assert.deepEqual(result.regions, {});
+});
+
 test("the derivation is byte-for-byte deterministic and order-independent", () => {
   const input = {
     wars: [war("w1", "active", ["France"], ["Germany"])],
@@ -369,7 +383,10 @@ export const deriveFrontLines = ({ wars = [], units = [], regions = [] } = {}) =
   const controllerOf = new Map();
   for (const region of list(regions)) {
     const id = name(region?.id);
-    if (id) controllerOf.set(id, name(region?.controller));
+    const controller = name(region?.controller);
+    // An ownerless row (ocean, unowned, malformed) is not a side of any front
+    // and not a contested holder, matching regionVocab's groupByOwner skip.
+    if (id && controller) controllerOf.set(id, controller);
   }
   const neighbours = new Map();
   for (const id of controllerOf.keys()) neighbours.set(id, new Set());
