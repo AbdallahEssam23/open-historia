@@ -60,3 +60,18 @@ test("the adapter leaves the world and the catalog unmodified", () => {
   assert.deepEqual(world, WORLD);
   assert.deepEqual(catalog, CATALOG);
 });
+
+test("a renamed polity keeps its network through the world alias map", () => {
+  // The stock catalog still bakes "France"; the rename re-keyed the world.
+  const world = {
+    wars: [{ id: "w1", status: "active", sideA: ["Gaul"], sideB: ["Germany"] }],
+    units: [{ id: "u1", ownerCode: "Gaul", regionId: "r3", strength: 100 }],
+    regionOwnershipOverrides: { r1: "Gaul", r3: "Gaul" },
+    polityOverrides: {
+      Gaul: { code: "Gaul", name: "Gaul", aliases: [], formerNames: ["France"] },
+    },
+  };
+  const result = readSupplyAttrition(world, CATALOG, { fromDate: "2000-01-01", toDate: "2000-01-31" });
+  assert.equal(byId(result).u1.state, "supplied");
+  assert.deepEqual(result.ops, []);
+});

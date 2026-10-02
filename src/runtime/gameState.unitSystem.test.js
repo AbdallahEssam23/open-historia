@@ -155,3 +155,15 @@ test("a save with only classic-era unit fields opens with sane defaults", () => 
   });
   assert.equal(next.units.length, 1);
 });
+
+test("a board-only event does not stamp its id onto a unit it damages", () => {
+  const world = normalizeWorldState({ units: [engineUnit({ eventId: "ev-7" })] });
+  const { world: next } = applyEventImpactsToWorld({
+    world,
+    events: [event({ unitOps: [{ op: "strength", unitId: "unit-1", strength: 90 }] }, { id: "engine-supply-attrition" })],
+    motion,
+    boardOnlyEventIds: ["engine-supply-attrition"],
+  });
+  assert.equal(next.units[0].strength, 90);
+  assert.equal(next.units[0].eventId, "ev-7");
+});

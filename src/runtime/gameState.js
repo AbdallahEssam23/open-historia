@@ -4760,7 +4760,7 @@ export const applyEventImpactsToWorld = ({
           gameDate: event.date || cursorDate,
           elapsedDays: motion ? daysBetweenDates(cursorDate, event.date) : null,
           round: motion?.round ?? 0,
-          eventId: event.id,
+          eventId: boardOnly.has(event.id) ? "" : event.id,
         },
       );
       nextWorld.units = applied.units;

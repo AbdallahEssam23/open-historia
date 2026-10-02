@@ -260,10 +260,10 @@ combat reserve cost is applied and before the economy advances:
 4. take the returned world and colours forward.
 
 The whole step is wrapped so a failure never loses a completed turn: the events
-and the date are already correct, and the supply step is simply one period
-behind, which the next turn repairs. The economy keeps its own place at the end
-of the turn and its own one-period lag; attrition changes readiness, not the
-upkeep charged this period.
+and the date are already correct, and the supply step is simply skipped for that
+turn, and the skipped period is not replayed later. The economy keeps its own
+place at the end of the turn and its own one-period lag; attrition changes
+readiness, not the upkeep charged this period.
 
 ### 7. Determinism and edges
 
@@ -275,9 +275,9 @@ period arrives as a number, so the core itself never reads a date.
 
 Known edges:
 
-- An empty or absent catalog yields no adjacency, so no unit is reachable; every
-  placed unit is `isolated`, and a non-belligerent among them still loses
-  nothing.
+- An empty or absent catalog leaves every region unknown, so every placed unit
+  is skipped and the pass yields no ops; an unknown region is never treated as
+  `isolated`.
 - A region with no resolvable home owner is never a source, but it can still be
   controlled and can therefore carry supply.
 - A polity with no home region it still controls has no source and no network,

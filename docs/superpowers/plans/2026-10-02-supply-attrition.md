@@ -763,7 +763,7 @@ Insert the block below immediately after the `applyCombatReserveCost` line:
   // economy reads. The ops travel the one unit path as a board-only synthetic
   // event, exactly as the production completions do: the engine owns the loss,
   // the map shows it, and no narrative event is written. A failure here must
-  // never lose a completed turn; the next turn repairs a skipped period.
+  // never lose a completed turn; a skipped period is lost, not repaired later.
   try {
     const supply = readSupplyAttrition(impactedWorld, getPrimedScenarioRegionCatalog() ?? [], {
       fromDate: baseGame.gameDate || "",

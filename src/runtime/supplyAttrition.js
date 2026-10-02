@@ -8,6 +8,7 @@
 import { deriveSupplyAttrition } from "../engine/supplyAttrition.js";
 import { monthsBetweenDates } from "../engine/economyMath.js";
 import { regionOwnerName } from "./regionOwners.js";
+import { buildOwnerAliasMap, createOwnerResolver } from "./ownerNames.js";
 
 const name = (value) => String(value ?? "").trim();
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -28,13 +29,17 @@ export const readSupplyAttrition = (world, catalog, { fromDate = "", toDate = ""
     // default, so a blank or missing value is not read as zero here.
     strength: unit?.strength,
   }));
+  // A world that renamed a polity re-keys its owners to the new name, but the
+  // static catalog still bakes the old one; resolving through the world's
+  // alias map folds the catalog's home owner onto the polity the units use.
+  const resolveOwner = createOwnerResolver(buildOwnerAliasMap(world?.polityOverrides));
   const regions = list(catalog)
     .map((row) => ({
       id: name(row?.id),
-      controller: regionOwnerName(row, overrides),
+      controller: resolveOwner(regionOwnerName(row, overrides)),
       // The home owner ignores overrides: supply flows from soil the polity
       // still holds as its own, not from whatever it happens to occupy.
-      home: regionOwnerName(row, {}),
+      home: resolveOwner(regionOwnerName(row, {})),
       adjacencies: list(row?.adjacencies).map(name).filter(Boolean),
     }))
     .filter((region) => region.id);
