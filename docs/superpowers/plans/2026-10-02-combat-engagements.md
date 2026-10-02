@@ -802,7 +802,7 @@ git commit -m "feat(runtime): add the engagement adapter and reserve cost"
 **Files:**
 - Modify: `src/runtime/gameState.js` (`normalizeEventEntry`, near line 3097)
 - Modify: `src/Game/AI/gameplaySchemas.js` (event schema, near line 946)
-- Test: `src/runtime/gameState.test.js`
+- Test: `src/runtime/gameState.ledgers.test.js`
 
 **Interfaces:**
 - Consumes: nothing new.
@@ -810,7 +810,8 @@ git commit -m "feat(runtime): add the engagement adapter and reserve cost"
 
 - [ ] **Step 1: Write the failing test**
 
-Add to `src/runtime/gameState.test.js`:
+Add to `src/runtime/gameState.ledgers.test.js`, beside the existing
+`an event keeps its war metadata` test:
 
 ```js
 test("an event keeps its combatRegion and defaults it to empty", () => {
@@ -828,12 +829,11 @@ test("an event keeps its combatRegion and defaults it to empty", () => {
 });
 ```
 
-Confirm the test file already imports `normalizeEventEntry`; if not, add it to
-the import list at the top.
+The file already imports `normalizeEventEntry`; no import change is needed.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `node --test src/runtime/gameState.test.js`
+Run: `node --test src/runtime/gameState.ledgers.test.js`
 Expected: FAIL, `combatRegion` is `undefined`.
 
 - [ ] **Step 3: Write the implementation**
@@ -865,15 +865,21 @@ In `src/Game/AI/gameplaySchemas.js`, in the event schema properties, after the
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `node --test src/runtime/gameState.test.js`
+Run: `node --test src/runtime/gameState.ledgers.test.js`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/runtime/gameState.js src/Game/AI/gameplaySchemas.js src/runtime/gameState.test.js
+git add src/runtime/gameState.js src/Game/AI/gameplaySchemas.js src/runtime/gameState.ledgers.test.js
 git commit -m "feat(runtime): persist the combat region on an event"
 ```
+
+Note for the executor: `gameplaySchemas.js`'s `eventSchema` is spliced into the
+jump schema, so this field counts toward `src/Game/AI/projectOpSchema.test.js`'s
+`jumpChars < 29500` guard (headroom is roughly 340 chars at the plan's base).
+Run that test after the edit; if it fails, shorten the new field's description
+rather than raising the guard.
 
 ---
 
