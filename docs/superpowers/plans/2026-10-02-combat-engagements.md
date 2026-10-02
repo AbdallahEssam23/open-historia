@@ -28,6 +28,7 @@
 |---|---|
 | `src/engine/combat.js` (new) | The pure engagement model: weights, multipliers, jitter, losses, destruction, control threshold. |
 | `src/runtime/combatEngagements.js` (new) | Gather the two sides, call the core, map the result to ops and a reserve cost, charge the reserves. |
+| `src/Game/AI/combatRegionResolution.js` (new) | Canonicalize a declared region name or id to a region id present in the compact catalog. |
 | `src/runtime/gameState.js` | `normalizeEventEntry` learns `combatRegion`. |
 | `src/Game/AI/gameplaySchemas.js` | The event schema offers `combatRegion`. |
 | `src/Game/AI/gameplayPrompts.js` | The jump prompt asks for `combatRegion` on a battle. |
@@ -612,7 +613,9 @@ export const buildEngagement = (event, world, { round = 0 } = {}) => {
   const toSide = (bucket) =>
     [...bucket.entries()].map(([polity, units]) => ({ polity, posture: posture[polity] || "peacetime", units }));
 
-  const override = normalizeWorldState(world).regionOwnershipOverrides?.[regionId];
+  // The caller passes an already-normalized world (the turn's baseWorldNormalized),
+  // so the override reads directly rather than re-normalizing per event.
+  const override = world?.regionOwnershipOverrides?.[regionId];
   const controllerPolity = toCountryName(name(override)) || name(override);
 
   return {
@@ -739,7 +742,9 @@ export const applyCombatReserveCost = (world, reserveCost) => {
     economyEngine: { ...(next.economyEngine ?? {}), pools },
   };
   for (const polity of Object.keys(reserveCost)) {
-    const sheet = normalizeWorldState(withPools).countryStats?.[polity]?.forces ?? {};
+    // next is already normalized; each polity's sheet is independent, so read it
+    // once instead of re-normalizing the whole world per polity.
+    const sheet = next.countryStats?.[polity]?.forces ?? {};
     applyCountryStatPatchToWorld(withPools, polity, {
       forces: {
         manpower: pools[polity].manpower,
@@ -855,18 +860,20 @@ git commit -m "feat(runtime): persist the combat region on an event"
 ### Task 4: Canonicalize `combatRegion` to a region id
 
 **Files:**
-- Modify: `src/Game/AI/gameplay.js` (add `resolveCombatRegionIds` near `resolveRegionControlOps`, and call it after line 5794)
-- Test: `src/Game/AI/combatRegionResolution.test.js` (new)
+- Create: `src/Game/AI/combatRegionResolution.js`
+- Create: `src/Game/AI/combatRegionResolution.test.js`
+- Modify: `src/Game/AI/gameplay.js` (import the helper and call it in the validation pass after line 5794)
 
 **Interfaces:**
-- Consumes: `getPrimedScenarioRegionCatalog` (already imported), `normalizeString`, `normalizeArray`.
-- Produces: `resolveCombatRegionIds(containers) -> { resolved: number, dropped: number }`, and a payload whose every event `combatRegion` is either a canonical region id already present in the compact catalog or `""`.
+- Consumes: `foldRegionKey` from `./regionMatch.js`.
+- Produces: `resolveCombatRegionIds(containers, catalog) -> { resolved: number, dropped: number }`, and a payload whose every event `combatRegion` is either a canonical region id present in the catalog or `""`.
 
-This runs in the validation pass, after `resolveRegionTransfers` /
-`resolveRegionControlOps` have primed the compact scenario catalog (see
-`primeCustomRegionCatalog` at gameplay.js:4395), so the catalog is available
-without reopening geometry. The helper is exported so the test can call it
-without standing up the whole pipeline.
+The helper lives in its own browser-free module because `src/Game/AI/gameplay.js`
+imports `./main.jsx` at module load, so no `node --test` file can import
+gameplay.js directly. The catalog is passed in; `gameplay.js` supplies the
+compact scenario catalog that `resolveRegionTransfers` /
+`resolveRegionControlOps` prime in the same validation pass (see
+`primeCustomRegionCatalog` at gameplay.js:4395).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -877,20 +884,28 @@ Create `src/Game/AI/combatRegionResolution.test.js`:
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { resolveCombatRegionIds } from "./gameplay.js";
+import { resolveCombatRegionIds } from "./combatRegionResolution.js";
+
+const catalog = () => [{ id: "ALSACE", name: "Alsace" }];
 
 test("a combatRegion that is already a known id is kept", () => {
   const containers = [{ impacts: null, events: [{ combatRegion: "ALSACE" }] }];
-  // The catalog is primed elsewhere in the pipeline; with no catalog the helper
-  // keeps an id that looks canonical and clears a bare name.
-  const out = resolveCombatRegionIds(containers, ["ALSACE"]);
+  const out = resolveCombatRegionIds(containers, catalog());
   assert.equal(containers[0].events[0].combatRegion, "ALSACE");
+  assert.equal(out.resolved, 1);
   assert.equal(out.dropped, 0);
+});
+
+test("a combatRegion that matches a name resolves to its id", () => {
+  const containers = [{ impacts: null, events: [{ combatRegion: "alsace" }] }];
+  const out = resolveCombatRegionIds(containers, catalog());
+  assert.equal(containers[0].events[0].combatRegion, "ALSACE");
+  assert.equal(out.resolved, 1);
 });
 
 test("a combatRegion that matches nothing is dropped to an empty string", () => {
   const containers = [{ impacts: null, events: [{ combatRegion: "Atlantis" }] }];
-  const out = resolveCombatRegionIds(containers, ["ALSACE"]);
+  const out = resolveCombatRegionIds(containers, catalog());
   assert.equal(containers[0].events[0].combatRegion, "");
   assert.equal(out.dropped, 1);
 });
@@ -899,38 +914,46 @@ test("a combatRegion that matches nothing is dropped to an empty string", () => 
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `node --test src/Game/AI/combatRegionResolution.test.js`
-Expected: FAIL, `resolveCombatRegionIds` is not exported.
+Expected: FAIL with "Cannot find module".
 
 - [ ] **Step 3: Write the implementation**
 
-In `src/Game/AI/gameplay.js`, add this exported helper immediately above
-`resolveRegionControlOps` (around line 5456):
+Create `src/Game/AI/combatRegionResolution.js`:
 
 ```js
+// Open Historia - canonicalize a declared combat region (c) 2026 Nicholas Krol,
+// AGPL-3.0-or-later (see LICENSE).
+//
+// Kept out of gameplay.js so a bare `node --test` can import it: gameplay.js
+// pulls in ./main.jsx at module load, which node cannot parse. Pure: the catalog
+// is passed in.
+
+import { foldRegionKey } from "./regionMatch.js";
+
+const name = (value) => String(value ?? "").trim();
+const list = (value) => (Array.isArray(value) ? value : []);
+
 // Canonicalize each event's combatRegion from a friendly name to a region id
-// that the adapter can match against unit.regionId. The second argument is the
-// catalog of {id,name} rows, defaulting to the compact scenario catalog the
-// transfer resolver primes in the same pass. A value that matches nothing is
-// cleared: an unresolvable declaration stays narrative rather than guessing.
-export const resolveCombatRegionIds = (containers, catalog = null) => {
-  const rows = Array.isArray(catalog)
-    ? catalog
-    : (getPrimedScenarioRegionCatalog() ?? []);
-  const byId = new Map();
+// that the adapter can match against unit.regionId. The catalog is an array of
+// {id,name} rows: an id keeps itself, a name folds to its id, and a value that
+// matches nothing is cleared so an unresolvable declaration stays narrative
+// rather than guessing.
+export const resolveCombatRegionIds = (containers, catalog) => {
+  const byId = new Set();
   const byName = new Map();
-  for (const row of normalizeArray(rows)) {
-    const id = normalizeString(row?.id);
+  for (const row of list(catalog)) {
+    const id = name(row?.id);
     if (!id) continue;
-    byId.set(id, id);
-    const nameKey = foldRegionKey(normalizeString(row?.name));
+    byId.add(id);
+    const nameKey = foldRegionKey(name(row?.name));
     if (nameKey) byName.set(nameKey, id);
   }
   let resolved = 0;
   let dropped = 0;
-  const events = normalizeArray(containers).flatMap((container) => normalizeArray(container?.events));
+  const events = list(containers).flatMap((container) => list(container?.events));
   for (const event of events) {
     if (!event || typeof event !== "object") continue;
-    const value = normalizeString(event.combatRegion);
+    const value = name(event.combatRegion);
     if (!value) continue;
     if (byId.has(value)) { resolved += 1; continue; }
     const match = byName.get(foldRegionKey(value));
@@ -942,13 +965,18 @@ export const resolveCombatRegionIds = (containers, catalog = null) => {
 };
 ```
 
-Confirm `foldRegionKey` is already imported from `./regionMatch.js` (gameplay.js:90).
+Then in `src/Game/AI/gameplay.js`, add the import beside the `./regionMatch.js`
+import (around line 90):
 
-Then call it in the validation pass, immediately after the control-op salvage
+```js
+import { resolveCombatRegionIds } from "./combatRegionResolution.js";
+```
+
+and call it in the validation pass, immediately after the control-op salvage
 loop that ends at line 5794:
 
 ```js
-  const combatRegionResolution = resolveCombatRegionIds(containers);
+  const combatRegionResolution = resolveCombatRegionIds(containers, getPrimedScenarioRegionCatalog() ?? []);
   if (combatRegionResolution.dropped) {
     console.info(`[ai] cleared ${combatRegionResolution.dropped} unresolvable combatRegion value(s).`);
   }
@@ -959,15 +987,15 @@ loop that ends at line 5794:
 Run: `node --test src/Game/AI/combatRegionResolution.test.js`
 Expected: PASS.
 
-- [ ] **Step 5: Lint the changed file**
+- [ ] **Step 5: Lint the changed files**
 
-Run: `npx eslint src/Game/AI/gameplay.js`
+Run: `npx eslint src/Game/AI/combatRegionResolution.js src/Game/AI/gameplay.js`
 Expected: 0 errors.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/Game/AI/gameplay.js src/Game/AI/combatRegionResolution.test.js
+git add src/Game/AI/combatRegionResolution.js src/Game/AI/combatRegionResolution.test.js src/Game/AI/gameplay.js
 git commit -m "feat(ai): canonicalize the declared combat region"
 ```
 
@@ -1047,7 +1075,9 @@ Immediately above the `applyEventImpactsToWorld` call at line 6655, insert:
   // engine's ops into the very events the model wrote. The engine owns the
   // numbers and the ownership outcome; the model keeps the moves that put
   // forces on the map.
-  const engagementOutcome = resolveEventEngagements(freshEvents, baseWorld, { round: nextGame.round });
+  // baseWorldNormalized is the pre-turn world normalized just above; passing it
+  // avoids re-normalizing the whole world per event inside the adapter.
+  const engagementOutcome = resolveEventEngagements(freshEvents, baseWorldNormalized, { round: nextGame.round });
   mergeEngagementResults(freshEvents, engagementOutcome.results);
   for (const result of engagementOutcome.results) {
     const event = freshEvents[result.eventIndex];
@@ -1075,46 +1105,25 @@ Immediately after `let impactedWorld = impactMerge.world;` (line 6701), insert:
   impactedWorld = applyCombatReserveCost(impactedWorld, engagementOutcome.reserveCost);
 ```
 
-- [ ] **Step 4: Write the integration test**
+- [ ] **Step 4: Run the tests**
 
-Add to `src/runtime/combatEngagements.test.js` a test that runs the adapter and
-the merge in the same order the turn does, using a model-written event that
-carries its own `strength` op and a conflicting control op, and asserts the
-engine's numbers replace the model's:
-
-```js
-test("a turn's adapter plus merge replaces the model's numbers for a resolved battle", () => {
-  const event = {
-    ...battle(),
-    impacts: {
-      unitOps: [{ op: "strength", unitId: "f1", strength: 99 }],
-      regionControlOps: [{ op: "control", regionId: "ALSACE", fromCode: "France", toCode: "France" }],
-      regionTransfers: [{ regionId: "ALSACE", toCode: "France" }],
-    },
-  };
-  const out = resolveEventEngagements([event], world(), { round: 7 });
-  mergeEngagementResults([event], out.results);
-  assert.equal(event.impacts.unitOps.some((op) => op.op === "strength" && op.strength === 99), false);
-  assert.ok(event.impacts.unitOps.some((op) => op.op === "strength" && op.unitId === "f1"));
-  assert.equal(event.impacts.regionTransfers.length, 0);
-  assert.equal(event.impacts.regionControlOps[0].toCode, "Prussia");
-});
-```
-
-- [ ] **Step 5: Run the tests**
+No new test is added here: the adapter-plus-merge composition is already covered
+by Task 2's "merging replaces the model's numbers and its claim on the region"
+test, and the turn wiring is guarded by Task 7. This step only re-runs the
+existing suites.
 
 Run: `node --test src/runtime/combatEngagements.test.js`
 Expected: PASS.
 
-- [ ] **Step 6: Run the Game/AI and runtime suites**
+- [ ] **Step 5: Run the Game/AI and runtime suites**
 
 Run: `node --test "src/runtime/*.test.js"` and `node --test "src/Game/AI/*.test.js"`
 Expected: PASS, no regression.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/Game/AI/gameplay.js src/runtime/combatEngagements.test.js
+git add src/Game/AI/gameplay.js
 git commit -m "feat(ai): resolve declared battles in the turn"
 ```
 
@@ -1168,9 +1177,14 @@ test("the turn charges the reserves after the impacts land", () => {
   assert.ok(chargeAt > impactAt, "the reserve cost must follow the impact merge");
 });
 
-test("the turn drops the model's numbers and its region claim for a resolved battle", () => {
-  assert.match(gameplay, /\[\"strength\", \"remove\"\]\.includes/);
-  assert.match(gameplay, /impacts\.regionTransfers = normalizeArray\(impacts\.regionTransfers\)\.filter/);
+test("the turn merges the adapter's result into the model's events", () => {
+  assert.match(gameplay, /mergeEngagementResults\(freshEvents, engagementOutcome\.results\)/);
+});
+
+test("the merge drops the model's numbers and its region claim, in the adapter", () => {
+  assert.match(adapter, /\[\"strength\", \"remove\"\]\.includes/);
+  assert.match(adapter, /impacts\.regionTransfers = list\(impacts\.regionTransfers\)\.filter/);
+  assert.match(adapter, /impacts\.regionControlOps = list\(impacts\.regionControlOps\)\.filter/);
 });
 ```
 
