@@ -10,12 +10,10 @@ import { foldRegionKey } from "./regionMatch.js";
 const name = (value) => String(value ?? "").trim();
 const list = (value) => (Array.isArray(value) ? value : []);
 
-// Canonicalize each event's combatRegion from a friendly name to a region id
-// that the adapter can match against unit.regionId. The catalog is an array of
-// {id,name} rows: an id keeps itself, a name folds to its id, and a value that
-// matches nothing is cleared so an unresolvable declaration stays narrative
-// rather than guessing.
-export const resolveCombatRegionIds = (containers, catalog) => {
+// Build a pure id/name resolver over a catalog of {id,name} rows: an exact id
+// keeps itself, a friendly name folds to its id, and a value matching nothing
+// resolves to "". `size` counts the rows that yielded a non-empty id.
+export const buildRegionResolver = (catalog) => {
   const byId = new Set();
   const byName = new Map();
   for (const row of list(catalog)) {
@@ -25,6 +23,22 @@ export const resolveCombatRegionIds = (containers, catalog) => {
     const nameKey = foldRegionKey(name(row?.name));
     if (nameKey) byName.set(nameKey, id);
   }
+  const resolve = (value) => {
+    const key = name(value);
+    if (!key) return "";
+    if (byId.has(key)) return key;
+    return byName.get(foldRegionKey(key)) ?? "";
+  };
+  return { resolve, size: byId.size };
+};
+
+// Canonicalize each event's combatRegion from a friendly name to a region id
+// that the adapter can match against unit.regionId. The catalog is an array of
+// {id,name} rows: an id keeps itself, a name folds to its id, and a value that
+// matches nothing is cleared so an unresolvable declaration stays narrative
+// rather than guessing.
+export const resolveCombatRegionIds = (containers, catalog) => {
+  const { resolve } = buildRegionResolver(catalog);
   let resolved = 0;
   let dropped = 0;
   // Each container is one { event, impacts, path } row; the declaration lives on
@@ -36,9 +50,13 @@ export const resolveCombatRegionIds = (containers, catalog) => {
     if (!event || typeof event !== "object") continue;
     const value = name(event.combatRegion);
     if (!value) continue;
-    if (byId.has(value)) { resolved += 1; continue; }
-    const match = byName.get(foldRegionKey(value));
-    if (match) { event.combatRegion = match; resolved += 1; continue; }
+    const match = resolve(value);
+    if (match) {
+      // An exact id is already canonical, so leave the field untouched as before.
+      if (match !== value) event.combatRegion = match;
+      resolved += 1;
+      continue;
+    }
     event.combatRegion = "";
     dropped += 1;
   }

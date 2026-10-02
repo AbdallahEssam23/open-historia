@@ -2,9 +2,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { resolveCombatRegionIds } from "./combatRegionResolution.js";
+import { buildRegionResolver, resolveCombatRegionIds } from "./combatRegionResolution.js";
 
 const catalog = () => [{ id: "ALSACE", name: "Alsace" }];
+
+test("buildRegionResolver resolves an exact id", () => {
+  const { resolve } = buildRegionResolver(catalog());
+  assert.equal(resolve("ALSACE"), "ALSACE");
+});
+
+test("buildRegionResolver folds a friendly name to its id", () => {
+  const { resolve, size } = buildRegionResolver(catalog());
+  assert.equal(resolve("alsace"), "ALSACE");
+  assert.equal(size, 1);
+});
+
+test("buildRegionResolver returns an empty string for an unknown value", () => {
+  const { resolve } = buildRegionResolver(catalog());
+  assert.equal(resolve("Atlantis"), "");
+  assert.equal(resolve(""), "");
+});
 
 test("a combatRegion that is already a known id is kept", () => {
   const containers = [{ event: { combatRegion: "ALSACE" } }];
