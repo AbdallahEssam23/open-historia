@@ -11,7 +11,7 @@ const core = readFileSync(new URL("../engine/combat.js", import.meta.url), "utf8
 // about positions in the file rather than mere presence anywhere in it.
 const normalizeAt = gameplay.indexOf("const baseWorldNormalized = normalizeWorldState(baseWorld);");
 const resolveAt = gameplay.indexOf("resolveEventEngagements(freshEvents");
-const mergeAt = gameplay.indexOf("mergeEngagementResults(freshEvents");
+const mergeAt = gameplay.indexOf("mergeEngagementResults(freshEvents, engagementOutcome.results)");
 const applyAt = gameplay.indexOf("const impactMerge = applyEventImpactsToWorld(");
 const impactAt = gameplay.indexOf("let impactedWorld = impactMerge.world;");
 const chargeAt = gameplay.indexOf("impactedWorld = applyCombatReserveCost(impactedWorld");
@@ -20,6 +20,7 @@ test("the core imports nothing", () => {
   assert.equal(/from\s*["']/.test(core), false, "combat.js must not import from a module");
   assert.equal(/\brequire\s*\(/.test(core), false, "combat.js must not require a module");
   assert.equal(/\bimport\s*\(/.test(core), false, "combat.js must not dynamically import");
+  assert.equal(/^\s*import\s+["']/m.test(core), false, "combat.js must not side-effect import");
 });
 
 test("the adapter resolves against the ledger and the roster", () => {
@@ -43,6 +44,7 @@ test("the turn merges the adapter's result into the model's events", () => {
 });
 
 test("the turn charges the reserves after the impacts land", () => {
+  assert.ok(impactAt > 0, "the impact merge is not found");
   assert.ok(chargeAt > 0, "the reserve cost is not assigned to impactedWorld");
   assert.ok(chargeAt > impactAt, "the reserve cost must follow the impact merge");
 });
