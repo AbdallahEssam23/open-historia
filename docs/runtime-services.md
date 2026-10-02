@@ -76,6 +76,37 @@ only reads the world and the catalog into its plain inputs.
 
 ---
 
+## Supply and attrition - `src/runtime/supplyAttrition.js`
+
+`readSupplyAttrition(world, catalog, { fromDate, toDate })` derives which
+formations are in supply and the attrition they take this period, as a pure read
+that is then applied through the turn's existing unit-op seam. It reads the
+front-line derivation of part one (`src/engine/frontLines.js`) for contact, so a
+front line and a front-line loss can never disagree. The pure core is
+`src/engine/supplyAttrition.js`.
+
+- **The supplied network** of a polity is the set of regions it controls that
+  can be reached from a region it still holds as its own home (the catalog's
+  base owner, ignoring overrides, that the polity still controls). A polity
+  whose homeland is entirely occupied has no source, so no network.
+- **The state ladder** assigns each placed formation exactly one state:
+  `supplied` when its region is in the network and in no contact; `strained`
+  when it is in the network and on a front or contested region, or when it is
+  outside the network but adjacent to it; `isolated` otherwise.
+- **Attrition** is a rate per whole month, applied only to a belligerent (a
+  polity on a side of an `active` war): `supplied` loses nothing, `strained`
+  loses `SUPPLY_ATTRITION_RATES.strained` points, and `isolated` loses
+  `SUPPLY_ATTRITION_RATES.isolated`. The period is the same whole-month step the
+  economy uses, so a one-day turn costs nothing and a time skip costs a long
+  siege. A formation whose strength reaches zero is removed.
+- **The turn** applies the losses in `applySimulationResult`, after the combat
+  reserve cost and before `advanceWorldEconomy`, as a board-only synthetic
+  event: the engine owns the loss, the map shows it, and no narrative event is
+  written. Supply is derived on demand and never stored, so there is no `world`
+  field, no normalizer and no migration.
+
+---
+
 ## Library store — `src/runtime/library.js`
 
 The single source of truth for the player's **games**, **scenarios**, and which of each is active. It holds one module-scope object (`libraryState`), exposes it through a `useSyncExternalStore` subscription, and wraps every catalog mutation as an `/api/*` call that refreshes the store afterwards.
