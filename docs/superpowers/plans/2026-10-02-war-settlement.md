@@ -24,7 +24,7 @@
 
 The spec left five mechanics to the plan. They are decided here and the executor must follow them.
 
-1. **The region separator is `|`, not `,`.** The declaration travels on `warUpdates` as `warId~goals~SIDES~~~~note`, and `parseWarUpdateRecord` runs the actors field through `parseCsv`, which splits on commas. A region list written with commas would be shredded into bogus "actors". Sides are separated by `;`, and the regions inside one side by `|`: `war-france-germany-1914~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~`. The spec's illustrative example used commas; the wire format here is the pipe. Task 4 corrects the spec's example to match.
+1. **The region separator is `|`, not `,`.** The declaration travels on `warUpdates` as `warId~goals~SIDES~~~note`, and `parseWarUpdateRecord` runs the actors field through `parseCsv`, which splits on commas. A region list written with commas would be shredded into bogus "actors". Sides are separated by `;`, and the regions inside one side by `|`: `war-france-germany-1914~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~`. An empty note is three tildes (matching the `w~end~~~` convention); four tildes make the note field the literal `~` and clobber the war's stored note. The spec's illustrative example used commas; the wire format here is the pipe. Task 4 corrects the spec's example to match.
 2. **The `goals` op needs no event link.** It is a state declaration, not a narrated transition, so `validateBoundWarBatch` skips the event-link requirement for `goals` alone. `applyWarUpdates` already iterates every decoded record, so a link-free `goals` record still lands on the war.
 3. **Weariness persists through `applyWarUpdates`.** `resolveWarSettlements` returns `weariness` keyed by war id; `gameplay.js` passes it to the existing `applyWarUpdates` call, which gains an optional `weariness` argument and writes it in the same pass that owns `world.wars`. There is no second writer and no new op for it.
 4. **Goal regions are canonicalized inside `applyWarUpdates`.** The ledger gains an optional `resolveRegion` argument (default identity). Inside `applySimulationResult`, `gameplay.js` builds a resolver from the primed region catalog and passes it to `applyWarUpdates`, so a declared goal region is folded to a known region id at the moment the war is saved. The `resolveCombatRegionIds` call site (~5801) belongs to a different function and is left alone. The runtime adapter never imports from `Game/AI`: because the ledger canonicalizes on write, the adapter only ever reads region ids.
@@ -271,7 +271,8 @@ git commit -m "feat(runtime): resolve war settlements and move the reparations"
 
 Add tests that:
 
-- `decodeWarUpdates("war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~")` returns one record with `op === "goals"`.
+- `decodeWarUpdates("war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~")` returns one record with `op === "goals"`.
+- A `goals` record does not overwrite `war.note`: applying a goals line to a war stored with a note keeps the note.
 - `applyWarUpdates` with a `start` then a link-free `goals` record and no events stores `war.goals.a.kind === "annex"` with `targetRegionIds` resolved through a stub `resolveRegion` (a pipe list arrives as two ids).
 - A `goals` record naming an unknown war is dropped with a warning and does not throw.
 - An old war saved without `goals`/`weariness` still normalizes; `applyWarUpdates` with a `weariness` map writes `war.weariness` and preserves it through a later `end` save.
@@ -399,7 +400,7 @@ in a scratch node invocation, do not commit the scratch change).
 Extend the op enumeration to include `goals` and append one clause:
 
 ```
-goals declares war aims: warId~goals~polity:kind[:region|region];polity:kind~~~~, kind annex, reparations or status_quo.
+goals declares war aims: warId~goals~polity:kind[:region|region];polity:kind~~~, kind annex, reparations or status_quo.
 ```
 
 Keep it on the existing paragraph; do not add a new paragraph or a new field.

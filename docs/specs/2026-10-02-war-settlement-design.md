@@ -208,7 +208,7 @@ the kind is what the side declared, not what the engine infers.
 `warId~op~actorsCSV~opponentsCSV~eventNumbersCSV~note`:
 
 ```
-war-france-germany-1914~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~
+war-france-germany-1914~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~
 ```
 
 Each `actorsCSV` entry is `polity:kind[:region|region]`, one per side; the rest
