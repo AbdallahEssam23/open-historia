@@ -13,6 +13,7 @@ import {
   repairWarLedgerPayload,
   validateWarLedgerPayload,
 } from "./nativeWarLedger.js";
+import { normalizeWorldState } from "../../runtime/gameState.js";
 
 // A war exists only because a warUpdates record started it, and a battle can
 // only be narrated inside one that is active: the invariant the whole ledger
@@ -214,4 +215,102 @@ test("an unbindable combat event is reported for unbinding, never for deletion",
   assert.deepEqual(candidate.events[0].combatants, []);
   assert.deepEqual(decodeWarUpdates(candidate.warUpdates), [], "no war record was conjured either");
   assert.match(repair.residual, /no event.warId/, "the residual complaint is about the ledger, and is only logged");
+});
+
+// A goals record is a link-free state declaration: it rides the same compact
+// transport as the transitions but is not bound to the event that causes it.
+
+test("a goals record decodes as a link-free declaration", () => {
+  const records = decodeWarUpdates("war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~");
+  assert.equal(records.length, 1);
+  assert.equal(records[0].op, "goals");
+});
+
+test("a start then a link-free goals record stores the parsed declaration", () => {
+  const merge = applyWarUpdates({
+    world,
+    updates: [
+      "war-x~start~France~Germany~1~declaration of war",
+      "war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~",
+    ],
+    events: [],
+    stopDate: "1914-08-31",
+    round: 2,
+    resolveRegion: (value) => ({ Alsace: "alsace", Lorraine: "lorraine" })[value] || "",
+  });
+  assert.equal(merge.wars.length, 1);
+  assert.equal(merge.wars[0].goals.a.kind, "annex");
+  assert.deepEqual(merge.wars[0].goals.a.targetRegionIds, ["alsace", "lorraine"]);
+  assert.equal(merge.wars[0].goals.b.kind, "reparations");
+});
+
+test("a goals record naming an unknown war is dropped, not thrown", () => {
+  const warnings = [];
+  const original = console.warn;
+  console.warn = (message) => { warnings.push(String(message)); };
+  let merge;
+  try {
+    merge = applyWarUpdates({ world, updates: "war-ghost~goals~France:annex:Alsace~~~~", events: [] });
+  } finally {
+    console.warn = original;
+  }
+  assert.deepEqual(merge.appliedIds, []);
+  assert.equal(merge.wars.length, 0);
+  assert.match(warnings.join("\n"), /war-ghost/);
+});
+
+test("legacy wars normalize without goals or weariness, and weariness survives a later save", () => {
+  const legacy = normalizeWorldState({
+    wars: [{ id: "w", status: "active", sideA: ["A"], sideB: ["B"], startedDate: "1900-01-01" }],
+  });
+  assert.equal(legacy.wars[0].goals, null);
+  assert.equal(legacy.wars[0].weariness, null);
+
+  const declared = applyWarUpdates({
+    world: legacy,
+    updates: "w~goals~A:annex:Alsace~~~~",
+    events: [],
+    stopDate: "1901-01-01",
+    round: 2,
+    weariness: { w: { a: 0.4, b: 0.2, throughDate: "1901-01-01" } },
+    resolveRegion: () => "alsace",
+  });
+  assert.equal(declared.wars[0].goals.a.kind, "annex");
+  assert.equal(declared.wars[0].weariness.a, 0.4);
+
+  const ended = applyWarUpdates({
+    world: declared.world,
+    updates: "w~end~~~",
+    events: [],
+    stopDate: "1901-02-01",
+    round: 3,
+  });
+  assert.equal(ended.wars[0].status, "ended");
+  assert.equal(ended.wars[0].weariness.a, 0.4);
+  assert.equal(ended.wars[0].weariness.throughDate, "1901-01-01");
+});
+
+test("normalizeWorldState round-trips goals and weariness", () => {
+  const goals = {
+    a: { kind: "annex", targetRegionIds: ["alsace"], note: "" },
+    b: { kind: "status_quo", targetRegionIds: [], note: "" },
+  };
+  const weariness = { a: 0.7, b: 0.1, throughDate: "1914-08-31" };
+  const normalized = normalizeWorldState({
+    wars: [{ id: "w", status: "active", sideA: ["A"], sideB: ["B"], startedDate: "1900-01-01", goals, weariness }],
+  });
+  assert.deepEqual(normalized.wars[0].goals, goals);
+  assert.deepEqual(normalized.wars[0].weariness, weariness);
+});
+
+test("a link-free goals record is a valid war ledger payload", () => {
+  const warWorld = {
+    ...world,
+    wars: [{ id: "war-x", status: "active", sideA: ["France"], sideB: ["Germany"], startedDate: "1914-08-03" }],
+  };
+  const candidate = {
+    events: [],
+    warUpdates: "war-x~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~",
+  };
+  assert.equal(validateWarLedgerPayload(candidate, { world: warWorld }), "");
 });

@@ -10,6 +10,7 @@
 import { normalizeEvents, normalizeWorldState } from "../../runtime/gameState.js";
 import { toCountryName } from "../../runtime/ownerNames.js";
 import { compareGameDates, parseGameDate } from "../../runtime/gameDates.js";
+import { normalizeWarGoals, normalizeWeariness } from "../../engine/warSettlement.js";
 
 export const WAR_LEDGER_VERSION = "0.1.4-adversarial-war-start";
 
@@ -82,6 +83,8 @@ const normalizeWar = (entry, index = 0) => {
     storylineIds: [...new Set(normalizeArray(entry.storylineIds).map(normalizeString).filter(Boolean))].slice(-12),
     createdRound: Math.max(0, Math.trunc(Number(entry.createdRound) || 0)),
     updatedRound: Math.max(0, Math.trunc(Number(entry.updatedRound) || 0)),
+    goals: normalizeWarGoals(entry.goals),
+    weariness: normalizeWeariness(entry.weariness),
   };
   war.title = deriveWarTitle(war);
   return war;
@@ -139,6 +142,33 @@ const parseWarUpdateRecord = (line, index = 0) => {
     eventIds: [],
     note: normalizeString(noteRaw),
   };
+};
+
+// A declaration is one `polity:kind[:region|region]` entry per side, joined by
+// `;`. The transport already split the actors field on commas, so a record that
+// used commas between sides arrives as several actors and is rejoined here; a
+// comma cannot separate the regions for exactly that reason, so they use `|`.
+const parseWarGoals = (actors, war, resolveRegion = (value) => value) => {
+  const text = normalizeArray(actors).map(normalizeString).filter(Boolean).join(";");
+  if (!text) return null;
+
+  const sideAKeys = new Set(uniquePolities(war?.sideA).map(polityKey));
+  const sideBKeys = new Set(uniquePolities(war?.sideB).map(polityKey));
+  const goals = { a: null, b: null };
+
+  for (const entry of text.split(";")) {
+    const [polityRaw, kindRaw, regionsRaw] = entry.split(":");
+    const key = polityKey(polityRaw);
+    const side = sideAKeys.has(key) ? "a" : sideBKeys.has(key) ? "b" : "";
+    if (!side || goals[side]) continue;
+    const targetRegionIds = normalizeString(regionsRaw)
+      .split("|")
+      .map((region) => normalizeString(resolveRegion(normalizeString(region))))
+      .filter(Boolean);
+    goals[side] = { kind: normalizeString(kindRaw).toLowerCase(), targetRegionIds, note: "" };
+  }
+
+  return normalizeWarGoals(goals);
 };
 
 export const decodeWarUpdates = (value) => {
@@ -235,7 +265,14 @@ const firstLinkedDate = (update, events) =>
     .filter((date) => parseIsoDate(date))
     .sort()[0] || "";
 
-const applyUpdateToWarMap = ({ map, update, date = "", round = 0, linkedEvents = [] }) => {
+const applyUpdateToWarMap = ({
+  map,
+  update,
+  date = "",
+  round = 0,
+  linkedEvents = [],
+  resolveRegion = (value) => value,
+}) => {
   const id = normalizeString(update?.id);
   const op = normalizeString(update?.op).toLowerCase();
   if (!id || !op) return { error: "War update is missing id/op." };
@@ -281,6 +318,15 @@ const applyUpdateToWarMap = ({ map, update, date = "", round = 0, linkedEvents =
   }
 
   if (!prior) return { error: `War ${id} does not exist; ${op} cannot be applied before start.` };
+
+  if (op === "goals") {
+    if (prior.status !== "active") {
+      return { error: `War ${id} is ${prior.status}; goals may be declared only for an active war.` };
+    }
+    const goals = parseWarGoals(update.actors, prior, resolveRegion);
+    if (!goals) return { error: `War ${id} goals declaration is empty or unparseable.` };
+    return save({ ...prior, goals });
+  }
 
   if (op === "join-a" || op === "join-b") {
     if (prior.status !== "active") return { error: `War ${id} is ${prior.status}; participants may join only an active war.` };
@@ -504,11 +550,14 @@ const validateBoundWarBatch = ({ events, updates, world, requireUpdateLinks = tr
   const byEventId = new Map();
 
   for (const update of decodeWarUpdates(updates)) {
-    if (requireUpdateLinks && !normalizeArray(update.eventIds).length && !normalizeArray(update.eventIndexes).length) {
+    // A goals record is a link-free state declaration: it names no causal event,
+    // so both link checks are skipped for it.
+    const linkFree = normalizeString(update.op).toLowerCase() === "goals";
+    if (!linkFree && requireUpdateLinks && !normalizeArray(update.eventIds).length && !normalizeArray(update.eventIndexes).length) {
       return `War update ${update.id} (${update.op}) must reference the event number that establishes this transition.`;
     }
     const linked = linkedEventsForUpdate(update, normalizedEvents);
-    if (requireUpdateLinks && linked.length === 0) {
+    if (!linkFree && requireUpdateLinks && linked.length === 0) {
       return `War update ${update.id} (${update.op}) does not reference a valid event in this response.`;
     }
     for (const event of linked) {
@@ -894,7 +943,7 @@ export const validateWarLedgerPayload = (candidate, { world = {} } = {}) => {
   const updates = bindWarUpdatesToEvents(candidate?.warUpdates, events);
   if (updates.length > MAX_WAR_UPDATES_PER_PASS) return `$.warUpdates may contain at most ${MAX_WAR_UPDATES_PER_PASS} records.`;
   for (const update of updates) {
-    if (!["start", "join-a", "join-b", "leave", "ceasefire", "resume", "end"].includes(update.op)) {
+    if (!["start", "join-a", "join-b", "leave", "ceasefire", "resume", "end", "goals"].includes(update.op)) {
       return `Unsupported warUpdates operation "${update.op}" for ${update.id}.`;
     }
     for (const index of normalizeArray(update.eventIndexes)) {
@@ -1069,7 +1118,15 @@ export const repairWarLedgerPayload = (candidate, { world = {} } = {}) => {
   return result;
 };
 
-export const applyWarUpdates = ({ world, updates, events = [], stopDate = "", round = 0 } = {}) => {
+export const applyWarUpdates = ({
+  world,
+  updates,
+  events = [],
+  stopDate = "",
+  round = 0,
+  weariness = {},
+  resolveRegion = (value) => value,
+} = {}) => {
   const nextWorld = normalizeWorldState(world);
   const map = warMapFromWorld(nextWorld);
   const decoded = bindWarUpdatesToEvents(updates, events);
@@ -1078,12 +1135,18 @@ export const applyWarUpdates = ({ world, updates, events = [], stopDate = "", ro
   for (const update of decoded) {
     const linkedEvents = linkedEventsForUpdate(update, events);
     const date = firstLinkedDate(update, events) || sortDate(stopDate);
-    const result = applyUpdateToWarMap({ map, update, date, round, linkedEvents });
+    const result = applyUpdateToWarMap({ map, update, date, round, linkedEvents, resolveRegion });
     if (result.error) {
       console.warn(`[OH war ledger] dropped invalid ${update.op} for ${update.id}: ${result.error}`);
       continue;
     }
     appliedIds.push(update.id);
+  }
+
+  // The adapter steps weariness outside the ledger and hands the new map back
+  // here to persist; a war absent from the map keeps what it already carried.
+  for (const war of map.values()) {
+    war.weariness = normalizeWeariness(weariness[war.id]) ?? war.weariness;
   }
 
   const statusRank = { active: 0, ceasefire: 1, ended: 2 };

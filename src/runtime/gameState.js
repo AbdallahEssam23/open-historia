@@ -27,6 +27,7 @@ import {
 } from "../engine/forcePools.js";
 import { normalizeProductionQueue } from "../engine/productionQueue.js";
 import { normalizeResearchEffects } from "../engine/researchEffects.js";
+import { normalizeWarGoals, normalizeWeariness } from "../engine/warSettlement.js";
 import { buildPolityIdentityIndex, resolvePolityIdentity } from "./polityIdentity.js";
 import {
   DEFAULT_PATROL_RADIUS_KM,
@@ -3363,6 +3364,8 @@ const normalizeWorldWar = (entry, index = 0) => {
     storylineIds,
     createdRound: Number.isFinite(Number(entry.createdRound)) && Number(entry.createdRound) > 0 ? Math.trunc(Number(entry.createdRound)) : 0,
     updatedRound: Number.isFinite(Number(entry.updatedRound)) && Number(entry.updatedRound) > 0 ? Math.trunc(Number(entry.updatedRound)) : 0,
+    goals: normalizeWarGoals(entry.goals),
+    weariness: normalizeWeariness(entry.weariness),
   };
 };
 

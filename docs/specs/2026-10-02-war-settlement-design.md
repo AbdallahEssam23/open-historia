@@ -208,12 +208,14 @@ the kind is what the side declared, not what the engine infers.
 `warId~op~actorsCSV~opponentsCSV~eventNumbersCSV~note`:
 
 ```
-war-france-germany-1914~goals~France:annex:Alsace,Lorraine;Germany:reparations~~~~
+war-france-germany-1914~goals~France:annex:Alsace|Lorraine;Germany:reparations~~~~
 ```
 
-Each `actorsCSV` entry is `polity:kind[:region,region]`, one per side; the rest
-of the fields are unused. `decodeWarUpdates` already slices and validates the
-record, so the op needs only a parser and a store step: it writes
+Each `actorsCSV` entry is `polity:kind[:region|region]`, one per side; the rest
+of the fields are unused. A comma cannot separate regions because the transport
+itself splits `actorsCSV` on commas, so sides are joined with `;` and regions
+are pipe-separated. `decodeWarUpdates` already slices and validates the record,
+so the op needs only a parser and a store step: it writes
 `war.goals`, normalizing the kinds through `normalizeWarGoals`, and drops an
 entry naming an unknown or inactive war with a warning, exactly as the other
 ops do.
