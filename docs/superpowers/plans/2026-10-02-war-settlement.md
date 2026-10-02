@@ -17,7 +17,7 @@
 - Tests are run with a glob, never a bare directory: `node --test "src/engine/*.test.js"`.
 - Commit messages are conventional and do NOT include the `Co-authored-by:` trailer. The `prepare-commit-msg` hook adds it.
 - `public/wiki/**` is generated and committed. Its source is `wiki/` (not `docs/wiki/`). Regenerate with `npm run build:wiki`; verify with `npm run wiki:check`, which must print exactly `Wiki is current.`.
-- The jump schema/prompt character budget stays under 29500 (`src/Game/AI/projectOpSchema.test.js`). The measured value before this increment is 29337, so the prompt/`goals` wording must add fewer than about 160 characters; trim redundant wording if the guard fails rather than raising the ceiling.
+- The jump schema character budget stays under 29500 (`src/Game/AI/projectOpSchema.test.js`). This increment does not change the jump schema: Task 6 edits the runtime directive text in `gameplay.js`, which is not part of the serialized schema. If that guard fails it is an unrelated regression, not a reason to raise the ceiling.
 - The spec for this plan is `docs/specs/2026-10-02-war-settlement-design.md`.
 
 ## Resolved Design Details
@@ -43,8 +43,7 @@ The spec left five mechanics to the plan. They are decided here and the executor
 | `src/Game/AI/nativeWarLedger.js` | Learn the `goals` op, preserve `goals`/`weariness` on a war, accept a resolver and a weariness map in `applyWarUpdates`. |
 | `src/runtime/gameState.js` | `normalizeWorldWar` preserves the optional `goals` and `weariness` war fields, or `normalizeWorldState` strips them on the next turn and the adapter sees nothing. |
 | `src/Game/AI/combatRegionResolution.js` | Export a reusable `buildRegionResolver`; `resolveCombatRegionIds` is refactored to use it. |
-| `src/Game/AI/gameplayPrompts.js` | Describe the `goals` op in the war ledger paragraph. |
-| `src/Game/AI/gameplay.js` | Build the region resolver, run the adapter after the battles, append the peace event and the `end` record, pass the weariness and resolver to `applyWarUpdates`, pay the reparations. |
+| `src/Game/AI/gameplay.js` | Describe the `goals` op in `buildWarLedgerDirective`, build the region resolver, run the adapter after the battles, append the peace event and the `end` record, pass the weariness and resolver to `applyWarUpdates`, pay the reparations. The pregame/GM transport is left unchanged. |
 | `src/runtime/warSettlementWiringArchitecture.test.js` (new) | Source-text guard for the turn seams. |
 | `docs/specs/2026-10-02-war-settlement-design.md` | Correct the illustrative wire format to the pipe separator. |
 | `docs/world-state.md`, `docs/runtime-services.md`, `wiki/systems/projects.md` | Document the goals op, weariness and the settlement rule. |
@@ -381,19 +380,37 @@ git commit -m "feat(ai): share one region resolver for combat and goal regions"
 ### Task 6: Describe the `goals` op to the model
 
 **Files:**
-- Modify: `src/Game/AI/gameplayPrompts.js` (the war ledger paragraph around line 572, and any mirrored copy)
+- Modify: `src/Game/AI/gameplay.js` (`buildWarLedgerDirective`, the war-ledger paragraph at ~line 572)
+- Test: `src/Game/AI/jumpPromptCraft.test.js` (extend; it already reads `gameplay.js` as source text because `gameplay.js` pulls in `./main.jsx` and cannot be imported)
 - Test: `src/Game/AI/projectOpSchema.test.js` (must stay green)
 
 **Interfaces:**
 - Produces: the jump prompt names `goals` in the `warUpdates` op list and gives
   the pipe-separated shape in one short clause.
 
-- [ ] **Step 1: Confirm the budget before editing**
+Scope note: the pregame/GM structured channel (`NATIVE_GAME_MASTER_PROMPT` in
+`gameplayPrompts.js`, `GAME_MASTER_SCHEMA`, `buildPregameBootstrapDirective`, and
+the op allowlist in `validatePregameCanonicalBootstrap`) is deliberately NOT
+extended. A goal region is canonicalized only in the turn's ledger pass (Tasks 5
+and 7), so advertising `goals` on the pregame channel would let the model emit a
+record that the bootstrap validator rejects and a region the settlement cannot
+match. Do not touch those surfaces.
 
-Run: `node --test src/Game/AI/projectOpSchema.test.js`
-Expected: PASS. Record the measured margin (the assertion reports the char
-count only on failure; if you need the number, log `JSON.stringify(jumpSchema).length`
-in a scratch node invocation, do not commit the scratch change).
+- [ ] **Step 1: Write the failing source-text test**
+
+Add to `src/Game/AI/jumpPromptCraft.test.js` (it already holds `gameplaySource`):
+
+```js
+test("the war directive teaches the goals declaration", () => {
+  assert.match(gameplaySource, /leave, ceasefire, resume, end or goals; for start/);
+  assert.match(gameplaySource, /warId~goals~polity:kind/);
+});
+```
+
+The anchor binds to the in-turn directive; the GM prompt uses a `war:start`
+vocabulary and cannot satisfy it. Run:
+`node --test src/Game/AI/jumpPromptCraft.test.js`
+Expected: FAIL.
 
 - [ ] **Step 2: Edit the prompt**
 
@@ -407,14 +424,17 @@ Keep it on the existing paragraph; do not add a new paragraph or a new field.
 
 - [ ] **Step 3: Run the schema test**
 
+Run: `node --test src/Game/AI/jumpPromptCraft.test.js`
+Expected: PASS.
+
 Run: `node --test src/Game/AI/projectOpSchema.test.js`
-Expected: PASS with `jumpChars < 29500`. If it fails, shorten the clause; do not
-raise the ceiling.
+Expected: PASS (the schema is untouched; this is a no-regression check, not a
+budget check).
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/Game/AI/gameplayPrompts.js
+git add src/Game/AI/gameplay.js src/Game/AI/jumpPromptCraft.test.js
 git commit -m "docs(ai): tell the model how to declare war goals"
 ```
 
