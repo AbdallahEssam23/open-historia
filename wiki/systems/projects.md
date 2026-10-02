@@ -30,6 +30,14 @@ type and by how mobilised each country is, inflicts more casualties, and a forma
 limit is destroyed outright. A province changes hands only when its defender breaks - holding the
 field is not the same as taking the ground.
 
+A battle decides the ground it was fought on; it does not decide the war. Each war carries a declared
+**goal** on each side, and the engine tracks how far that side has got and how **weary** it is.
+Weariness grows with elapsed time, with the losses a side takes, and with how heavily it is
+mobilised. Once it crosses the threshold a peace is compelled: the victor's declared goal sets the
+terms, a capitulating side loses the regions declared against it, and a war fought for nothing ends
+as a white peace. Goals are declared through the [war ledger](/wiki/war/), not written by hand. A
+war you are a party to is left open, because the engine does not settle your wars on your behalf.
+
 ![The Projects and Operations board](/wiki/img/projects-board.jpg)
 *A board on a campaign that has been running a while. Note the counts — **Mine (4)**,
 **Foreign (2)** — the tag chips, the priority control on each card, and that an **ongoing** effort
