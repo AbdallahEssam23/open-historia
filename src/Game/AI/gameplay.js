@@ -6706,7 +6706,18 @@ const applySimulationResult = async ({
     date: nextGame.gameDate,
     playerPolity: normalizeString(baseGame.country),
   });
-  for (const settlement of settlementOutcome.settlements) {
+  // The adapter reads the pre-turn world, so a war this same turn's warUpdates
+  // already ends or ceasefires is still "active" there. The model's own peace
+  // must stand, and a ceasefire is not a settlement, so withhold those ids.
+  const modelClosedWarIds = new Set(
+    warUpdates
+      .filter((update) => ["end", "ceasefire"].includes(normalizeString(update.op)))
+      .map((update) => normalizeString(update.id))
+      .filter(Boolean),
+  );
+  const dueSettlements = settlementOutcome.settlements
+    .filter((settlement) => !modelClosedWarIds.has(normalizeString(settlement.warId)));
+  for (const settlement of dueSettlements) {
     const event = buildSettlementEvent(settlement, { date: nextGame.gameDate, round: nextGame.round });
     if (!event) continue;
     freshEvents.push(normalizeEventEntry(event, freshEvents.length));
@@ -6844,7 +6855,7 @@ const applySimulationResult = async ({
   worldWithImpacts = warMerge.world;
   // Reparations move real reserves, so they are paid once the war is closed and
   // the peace event's transfers have already landed.
-  worldWithImpacts = applyWarReparations(worldWithImpacts, settlementOutcome.settlements);
+  worldWithImpacts = applyWarReparations(worldWithImpacts, dueSettlements);
 
   // Espionage resolves on the world the whole turn produced - after the standing
   // orders above have advanced, so an agent's round is decided against where the
