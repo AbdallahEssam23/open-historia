@@ -260,8 +260,8 @@ combat reserve cost is applied and before the economy advances:
 4. take the returned world and colours forward.
 
 The whole step is wrapped so a failure never loses a completed turn: the events
-and the date are already correct, and the supply step is simply skipped for that
-turn, and the skipped period is not replayed later. The economy keeps its own
+and the date are already correct, so the supply step is simply skipped for that
+turn and the skipped period is not replayed later. The economy keeps its own
 place at the end of the turn and its own one-period lag; attrition changes
 readiness, not the upkeep charged this period.
 
