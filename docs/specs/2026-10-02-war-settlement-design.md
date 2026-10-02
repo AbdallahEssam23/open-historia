@@ -176,8 +176,11 @@ side at or above `WEARINESS_CAPITULATION`.
    holds.
 2. Both capitulate: the victor is the side with the higher goal score, tie
    broken by the lower weariness, then by side A.
-3. No capitulation and not `compelled` and no side at goal score `1`: return
-   `null` (no peace is due).
+3. No capitulation, not `compelled`, and no side has achieved a declared aim:
+   return `null` (no peace is due). An aim is achieved when the side's kind is
+   not `status_quo` and its score is `1`, so a `status_quo` side - satisfied
+   from the outset - never forces a peace by its satisfaction alone; only
+   weariness closes a goal-less war.
 4. Otherwise the victor is the side with the higher goal score, tie broken by
    the lower weariness, then by side A.
 
