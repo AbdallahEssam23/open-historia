@@ -195,6 +195,32 @@ test("a blank strength defaults to full and is not destroyed by accident", () =>
   assert.equal(row.destroyed, false);
 });
 
+test("a region id that collides with Object.prototype is safe", () => {
+  const regions = [
+    region("__proto__", "France", "France", ["r1"]),
+    region("r1", "France", "France", ["__proto__"]),
+  ];
+  const result = deriveSupplyAttrition({
+    wars: [], regions, months: 1,
+    units: [unit("u1", "France", "__proto__")],
+  });
+  assert.equal(byId(result).u1.state, "supplied");
+});
+
+test("a contested region is contact, and the summary counts the damage", () => {
+  const regions = [
+    region("r1", "France", "France", ["r2"]),
+    region("r2", "Germany", "Germany", ["r1"]),
+  ];
+  const result = deriveSupplyAttrition({
+    wars: WAR, regions, months: 1,
+    units: [unit("u1", "France", "r2"), unit("u2", "Germany", "r2")],
+  });
+  assert.equal(byId(result).u1.contact, true);
+  assert.equal(byId(result).u1.state, "strained");
+  assert.equal(result.summary.damaged, 2);
+});
+
 test("the period multiplies the loss, and zero months costs nothing", () => {
   const at = (months) => byId(deriveSupplyAttrition({
     wars: WAR, regions: GRAPH, months,
@@ -357,8 +383,12 @@ export const deriveSupplyAttrition = ({ wars = [], units = [], regions = [], mon
     })),
   });
   const inContact = (regionId) => {
+    // fronts.regions is keyed with Object.fromEntries, so an interior region id
+    // that collides with Object.prototype ("__proto__", "constructor") would
+    // otherwise resolve to an inherited member; an own-property check is the
+    // same guard frontLines.js applies when it builds the index.
+    if (!Object.hasOwn(fronts.regions, regionId)) return false;
     const row = fronts.regions[regionId];
-    if (!row) return false;
     return row.roles.includes("front") || row.roles.includes("contested");
   };
 
