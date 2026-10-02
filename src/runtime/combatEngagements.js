@@ -178,6 +178,8 @@ export const resolveEventEngagements = (events, world, { round = 0 } = {}) => {
       casualtyCount: outcome.casualties.length,
       destroyedCount: outcome.casualties.filter((entry) => entry.destroyed).length,
       winner: outcome.winner,
+      sideA: { adjustedPower: outcome.sideA.adjustedPower, lossFraction: outcome.sideA.lossFraction, power: outcome.sideA.power },
+      sideB: { adjustedPower: outcome.sideB.adjustedPower, lossFraction: outcome.sideB.lossFraction, power: outcome.sideB.power },
     });
   });
 

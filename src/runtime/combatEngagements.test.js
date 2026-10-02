@@ -60,6 +60,19 @@ test("a unit outside the region never fights", () => {
   assert.equal(ids.includes("f2"), false);
 });
 
+test("each result carries the core's per-side summary", () => {
+  const out = resolveEventEngagements([battle()], world(), { round: 7 });
+  assert.equal(out.results.length, 1);
+  const { sideA, sideB } = out.results[0];
+  for (const loss of [sideA.lossFraction, sideB.lossFraction]) {
+    assert.equal(typeof loss, "number");
+    assert.ok(loss >= 0 && loss <= 1, `lossFraction ${loss} is in 0..1`);
+  }
+  assert.equal(typeof sideA.adjustedPower, "number");
+  assert.equal(typeof sideB.adjustedPower, "number");
+  assert.ok(sideA.power + sideB.power > 0);
+});
+
 test("a side with no unit in the region resolves nothing", () => {
   const w = world();
   w.units = w.units.filter((unit) => unit.ownerCode !== "France");
