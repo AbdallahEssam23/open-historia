@@ -20,6 +20,11 @@ import {
   tallyAppliedEvents,
   withReceiptDraft,
 } from "../../runtime/applicationReceipt.js";
+import {
+  applyCombatReserveCost,
+  mergeEngagementResults,
+  resolveEventEngagements,
+} from "../../runtime/combatEngagements.js";
 import { buildUnitDirectorInput, directGeneratedUnitOps } from "./nativeUnitDirector.js";
 import { buildTerritoryDirectorInput, directGeneratedTerritoryOps } from "./nativeTerritoryDirector.js";
 import { expandWholeCountryTransfer, wholeCountrySourceToken } from "./territoryTransferScope.js";
@@ -6657,6 +6662,30 @@ const applySimulationResult = async ({
   // turn (every ledger rebuilt), and this function reads two fields of it — the
   // history it prepends to and the unit system. Derived once, not twice.
   const baseWorldNormalized = normalizeWorldState(baseWorld);
+  // Resolve every declared battle against the pre-turn roster, then fold the
+  // engine's ops into the very events the model wrote. The engine owns the
+  // numbers and the ownership outcome; the model keeps the moves that put
+  // forces on the map.
+  // baseWorldNormalized is the pre-turn world normalized just above; passing it
+  // avoids re-normalizing the whole world per event inside the adapter.
+  const engagementOutcome = resolveEventEngagements(freshEvents, baseWorldNormalized, { round: nextGame.round });
+  mergeEngagementResults(freshEvents, engagementOutcome.results);
+  for (const result of engagementOutcome.results) {
+    const event = freshEvents[result.eventIndex];
+    if (receipt && event) {
+      noteReceipt(receipt, "adjusted",
+        `"${normalizeString(event.title)}": the engine resolved the engagement in ${result.controlRegionId}`
+        + ` (${result.casualtyCount} formation(s) damaged, ${result.destroyedCount} destroyed)`
+        + (result.controlToCode ? `; the region fell to ${result.controlToCode}.` : "; the defender held."));
+    }
+  }
+  for (const entry of engagementOutcome.unresolved) {
+    const event = freshEvents[entry.eventIndex];
+    if (receipt && event) {
+      noteReceipt(receipt, "adjusted",
+        `"${normalizeString(event.title)}": left as narrative; ${entry.reason}.`);
+    }
+  }
   const impactMerge = applyEventImpactsToWorld({
     colors: baseColors,
     events: freshEvents,
@@ -6704,6 +6733,7 @@ const applySimulationResult = async ({
   });
   let nextColors = impactMerge.colors;
   let impactedWorld = impactMerge.world;
+  impactedWorld = applyCombatReserveCost(impactedWorld, engagementOutcome.reserveCost);
   // A polity renamed this turn — by an event's polityChanges, or a record whose
   // display name still differed from its key — is re-keyed everywhere the world
   // state does not carry: the game's own polity, the queued orders, the chats
