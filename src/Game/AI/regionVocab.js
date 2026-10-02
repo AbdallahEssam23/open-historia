@@ -39,25 +39,12 @@
 // layer that promptContext.js imports — its only import is the owner-name
 // canonicaliser, which is plain data and safe to load anywhere.
 
-import { toCountryName } from "../../runtime/ownerNames.js";
+import { regionOwnerName } from "../../runtime/regionOwners.js";
+
+export { regionOwnerName };
 
 const norm = (value) => String(value ?? "").trim();
 const lower = (value) => norm(value).toLowerCase();
-
-// The in-game owner of a region, ALWAYS as the full country name ("Spain"): an
-// explicit override wins, else the base country from the catalog (so stock maps
-// report real ownership, not ""). It used to answer with the GADM CODE, which is
-// where the model learned to write "ESP" — and since a transfer's owner is stored
-// verbatim, that minted a phantom "ESP" country beside the real Spain. A legacy
-// override still holding a code is canonicalised here rather than handed on.
-// It also has to be the name for the FOCUS matching to work at all: the focus set is
-// built from the player's country and chat partners, which are names, so a code here
-// never matched and the player's own regions were left out of the enumerated list.
-export const regionOwnerName = (region, overrides) => {
-  const override = norm(overrides?.[region?.id]);
-  if (override) return toCountryName(override);
-  return norm(region?.country) || toCountryName(norm(region?.countryCode));
-};
 
 // Group the catalog by current owner. Returns Map(lowerKey -> {label, regions}).
 const groupByOwner = (catalog, overrides) => {
