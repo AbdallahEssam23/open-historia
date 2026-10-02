@@ -88,6 +88,7 @@ import {
 } from "./gameplaySchemas.js";
 import { buildOwnerAliasMap, canonicalOwnerName, toCountryName } from "../../runtime/ownerNames.js";
 import { editDistance, foldRegionKey, matchRegionName, stripRegionAffixes } from "./regionMatch.js";
+import { resolveCombatRegionIds } from "./combatRegionResolution.js";
 import { PLACEMENT_DIRECTIVE, distanceKm as placementDistanceKm, nearestInteriorPoint, pointInGeometry, resolvePlacement } from "./placement.js";
 import { FOOTPRINT_KM, obstaclesOf, spaceOut } from "../../runtime/featureSpacing.js";
 import { LOOKUP_DIRECTIVE, LOOKUP_TOOLS, buildLookupContext, executeLookup, placesNamedIn } from "./lookupTools.js";
@@ -5791,6 +5792,10 @@ export const validateGeneratedWorldChanges = async (candidate, world, {
   }
   for (const entry of unresolvedControlOps) {
     noteReceipt(receipt, "dropped", describeUnresolvedTerritory(entry, "regionControlOps", titleAt(entry?.path)));
+  }
+  const combatRegionResolution = resolveCombatRegionIds(containers, getPrimedScenarioRegionCatalog() ?? []);
+  if (combatRegionResolution.dropped) {
+    console.info(`[ai] cleared ${combatRegionResolution.dropped} unresolvable combatRegion value(s).`);
   }
   // Units and structures placed by name (`at`), and everything placed kept clear
   // of what already stands (resolvePlacements above). Never an error: a place
