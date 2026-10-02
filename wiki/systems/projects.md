@@ -34,8 +34,8 @@ A battle decides the ground it was fought on; it does not decide the war. Each w
 **goal** on each side, and the engine tracks how far that side has got and how **weary** it is.
 Weariness grows with elapsed time, with the losses a side takes, and with how heavily it is
 mobilised. Once it crosses the threshold a peace is compelled: the victor's declared goal sets the
-terms, a capitulating side loses the regions declared against it, and a war fought for nothing ends
-as a white peace. Goals are declared through the [war ledger](/wiki/war/), not written by hand. A
+terms, a side that capitulates to a victor seeking annexation loses the regions declared against it,
+and a war fought for nothing ends as a white peace. Goals are declared through the [war ledger](/wiki/war/), not written by hand. A
 war you are a party to is left open, because the engine does not settle your wars on your behalf.
 
 ![The Projects and Operations board](/wiki/img/projects-board.jpg)
