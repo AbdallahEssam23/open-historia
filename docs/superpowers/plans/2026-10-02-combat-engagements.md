@@ -552,6 +552,16 @@ Expected: FAIL with "Cannot find module".
 
 Create `src/runtime/combatEngagements.js`:
 
+Note (shipped deviations, see the committed file and ledger): the adapter as
+committed additionally (a) keys its side buckets by `foldKey(owner)` and stores
+the roster's canonical spelling so a declared polity is matched
+case-insensitively while reserve-cost and posture keys keep the world's
+spelling, (b) returns each side in the war's declared `sideA`/`sideB` order
+(filtered to polities with units in the region) so `leadingPolity` credits the
+first declared winning combatant, and (c) records an `unresolved` note when an
+active-war event carries no `combatRegion` (not only when a side has no units).
+The code below is the pre-review shape; the committed file is authoritative.
+
 ```js
 // Open Historia - the engagement adapter (c) 2026 Nicholas Krol,
 // AGPL-3.0-or-later (see LICENSE).
