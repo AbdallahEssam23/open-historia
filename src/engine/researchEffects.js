@@ -80,7 +80,8 @@ export const normalizeResearchEffects = (value) => {
 };
 
 export const researchEffectTotalsFor = (map, polity) =>
-  totalsShape(map?.[String(polity ?? "")]);
+  // Trim to match normalizeResearchEffects, which stores trimmed polity names.
+  totalsShape(map?.[String(polity ?? "").trim()]);
 
 export const productionTimeMultiplier = (points) =>
   1 / (1 + PRODUCTION_SPEED_PER_POINT * clampPoints(points));

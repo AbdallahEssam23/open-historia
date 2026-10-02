@@ -169,11 +169,10 @@ export const stepPolityPools = (polity, { pools = null, posture: postureName = D
   const population = Math.max(0, Number(polity?.population) || 0);
   const gdp = Math.max(0, Number(polity?.gdp) || 0);
   const industryShare = clamp(Number(polity?.gdpBreakdown?.industry) || 0, 0, 100) / 100;
-  // A research effect can only speed regeneration; a missing or invalid
-  // multiplier is the no-op, so every existing caller computes what it did.
-  const regen = Number.isFinite(Number(regenMultiplier)) && Number(regenMultiplier) > 0
-    ? Number(regenMultiplier)
-    : 1;
+  // A missing or non-positive multiplier is the no-op; a positive one scales
+  // regeneration, so every existing caller computes what it did.
+  const rawRegen = Number(regenMultiplier);
+  const regen = Number.isFinite(rawRegen) && rawRegen > 0 ? rawRegen : 1;
 
   let manpower = Math.max(0, Number(base.manpower) || 0)
     + population * FORCE_POOLS.MANPOWER_PER_CAPITA_MONTHLY * effects.extraction * regen;
