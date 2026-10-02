@@ -287,6 +287,11 @@ The war is closed by the ledger's own `end`, so there is exactly one writer of
 - A player war, a non-active war, a war started this round and every GM apply
   war are skipped; the first is noted on the receipt as `withheld`, the rest
   silently.
+- A war the turn's own `warUpdates` ends or ceasefires is not settled: the
+  model's negotiated peace stands, and a ceasefire is a war that is not settled
+  (see the open question below). The adapter reads the pre-turn world, so the
+  caller withholds these ids from the settlement set before the events and the
+  reparations are built.
 - A settlement is noted on the receipt as `adjusted` ("the war with X closed:
   N regions, reparations ..."), using the existing note kinds.
 - No clock and no entropy: weariness accumulates from the date difference the

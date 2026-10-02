@@ -30,6 +30,7 @@ The spec left five mechanics to the plan. They are decided here and the executor
 4. **Goal regions are canonicalized inside `applyWarUpdates`.** The ledger gains an optional `resolveRegion` argument (default identity). Inside `applySimulationResult`, `gameplay.js` builds a resolver from the primed region catalog and passes it to `applyWarUpdates`, so a declared goal region is folded to a known region id at the moment the war is saved. The `resolveCombatRegionIds` call site (~5801) belongs to a different function and is left alone. The runtime adapter never imports from `Game/AI`: because the ledger canonicalizes on write, the adapter only ever reads region ids.
 5. **A `reparations` campaign pays only reparations; an `annex` campaign takes only land.** On a capitulation an `annex` victor takes every declared target, including one the loser still controls (the collapse compels the cession); on a compelled peace it takes only the declared regions it already holds. A transfer is a treaty cession, so it always runs `fromCode = codeLoser` to `toCode = codeVictor` - never from the current de-facto controller, or an already-occupied region would transfer to its own holder and the legal owner would keep it. The terms are paid to and from the first named belligerent of a side when a side is a coalition.
 6. **A `status_quo` side never forces a peace by its satisfaction alone.** `warGoalScore` returns `1` for `status_quo`, but the peace-due trigger counts an aim as achieved only when `kind !== "status_quo"` and the score is `1`. Otherwise a war with no declared goals would end as a white peace the turn it starts, contradicting the spec's own prose that only weariness closes it. The spec's section 3 rule 3 is corrected to match during Task 1.
+7. **A war the turn itself ends or ceasefires is not settled.** The adapter reads the pre-turn world, where such a war is still `active`, so `gameplay.js` withholds the ids the turn's own `warUpdates` ends or ceasefires before the peace events and the reparations are built. The model's negotiated peace stands, and a ceasefire is treated as a war that is not settled, as the spec's open question states.
 
 ---
 
@@ -500,7 +501,18 @@ Immediately after the engagement loop that ends at ~6688, and before
     date: nextGame.gameDate,
     playerPolity: normalizeString(baseGame.country),
   });
-  for (const settlement of settlementOutcome.settlements) {
+  // The adapter reads the pre-turn world, so a war this same turn's warUpdates
+  // already ends or ceasefires is still "active" there. The model's own peace
+  // must stand, and a ceasefire is not a settlement, so withhold those ids.
+  const modelClosedWarIds = new Set(
+    warUpdates
+      .filter((update) => ["end", "ceasefire"].includes(normalizeString(update.op)))
+      .map((update) => normalizeString(update.id))
+      .filter(Boolean),
+  );
+  const dueSettlements = settlementOutcome.settlements
+    .filter((settlement) => !modelClosedWarIds.has(normalizeString(settlement.warId)));
+  for (const settlement of dueSettlements) {
     const event = buildSettlementEvent(settlement, { date: nextGame.gameDate, round: nextGame.round });
     if (!event) continue;
     freshEvents.push(normalizeEventEntry(event, freshEvents.length));
@@ -536,7 +548,7 @@ Immediately after `worldWithImpacts = warMerge.world;` (~6805), insert:
 ```js
   // Reparations move real reserves, so they are paid once the war is closed and
   // the peace event's transfers have already landed.
-  worldWithImpacts = applyWarReparations(worldWithImpacts, settlementOutcome.settlements);
+  worldWithImpacts = applyWarReparations(worldWithImpacts, dueSettlements);
 ```
 
 - [ ] **Step 6: Add the integration assertion**
