@@ -28,6 +28,10 @@ test("the turn attrits after the battles and before the economy", () => {
 
 test("the turn applies the attrition ops as a board-only synthetic event", () => {
   assert.ok(gameplay.indexOf("SUPPLY_ATTRITION_EVENT_ID") > 0, "the event id is missing");
+  assert.match(gameplay, /import \{ readSupplyAttrition \} from "\.\.\/\.\.\/runtime\/supplyAttrition\.js"/);
   assert.match(gameplay, /boardOnlyEventIds: \[SUPPLY_ATTRITION_EVENT_ID\]/);
   assert.match(gameplay, /impacts: \{ unitOps: supply\.ops \}/);
+  // The research path carries a second engineSourced flag, so anchor this one to
+  // the supply event; otherwise dropping the supply flag would still pass.
+  assert.match(gameplay, /engineSourced: true,\s*boardOnlyEventIds: \[SUPPLY_ATTRITION_EVENT_ID\]/);
 });
