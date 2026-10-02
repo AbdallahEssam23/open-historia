@@ -626,6 +626,14 @@ test("the turn passes the weariness and the resolver to the war ledger", () => {
   assert.ok(mergeAt > 0, "the ledger is not handed the weariness");
   assert.ok(gameplay.indexOf("resolveRegion: regionResolver.resolve") > 0, "the ledger is not handed the resolver");
 });
+
+test("the turn withholds a war it closes itself from settlement", () => {
+  const closedAt = gameplay.indexOf("const modelClosedWarIds = new Set(");
+  const dueAt = gameplay.indexOf("const dueSettlements = settlementOutcome.settlements");
+  const reparationAt = gameplay.indexOf("applyWarReparations(worldWithImpacts, dueSettlements)");
+  assert.ok(closedAt > 0 && dueAt > closedAt, "the model-closed wars are not withheld");
+  assert.ok(reparationAt > 0, "reparations are paid from the unfiltered settlement set");
+});
 ```
 
 Adjust the exact anchors to the final source if formatting differs, but keep the
