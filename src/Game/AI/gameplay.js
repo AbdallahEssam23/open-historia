@@ -30,6 +30,7 @@ import {
   buildSettlementEvent,
   resolveWarSettlements,
 } from "../../runtime/warSettlement.js";
+import { readSupplyAttrition } from "../../runtime/supplyAttrition.js";
 import { buildUnitDirectorInput, directGeneratedUnitOps } from "./nativeUnitDirector.js";
 import { buildTerritoryDirectorInput, directGeneratedTerritoryOps } from "./nativeTerritoryDirector.js";
 import { expandWholeCountryTransfer, wholeCountrySourceToken } from "./territoryTransferScope.js";
@@ -1416,6 +1417,8 @@ const WORLD_SIMULATION_HISTORICAL_ANCHOR_MAX_ITEMS = 18;
 // feed; it exists only so applyProjectOps has something to look up when deciding
 // not to stamp.
 const RESEARCH_EVENT_ID = "engine-research";
+// The board-only carrier for supply attrition, beside the research carrier.
+const SUPPLY_ATTRITION_EVENT_ID = "engine-supply-attrition";
 
 // The deterministic engine owns the standard economy, so the periodic AI stats
 // batch would be a second writer of the same fields. Kept as a named switch
@@ -6779,6 +6782,43 @@ const applySimulationResult = async ({
   let nextColors = impactMerge.colors;
   let impactedWorld = impactMerge.world;
   impactedWorld = applyCombatReserveCost(impactedWorld, engagementOutcome.reserveCost);
+  // Supply attrition: a formation worn down by standing on a front or cut off
+  // behind one. It runs on the world the battles have already reshaped and
+  // BEFORE the economy, so this period's readiness loss is in the roster the
+  // economy reads. The ops travel the one unit path as a board-only synthetic
+  // event, exactly as the production completions do: the engine owns the loss,
+  // the map shows it, and no narrative event is written. A failure here must
+  // never lose a completed turn; the next turn repairs a skipped period.
+  try {
+    const supply = readSupplyAttrition(impactedWorld, getPrimedScenarioRegionCatalog() ?? [], {
+      fromDate: baseGame.gameDate || "",
+      toDate: nextGame.gameDate || "",
+    });
+    if (supply.ops.length) {
+      const applied = applyEventImpactsToWorld({
+        colors: nextColors,
+        events: [{
+          id: SUPPLY_ATTRITION_EVENT_ID,
+          date: nextGame.gameDate || "",
+          title: "Supply attrition",
+          description: "",
+          impacts: { unitOps: supply.ops },
+        }],
+        world: impactedWorld,
+        engineSourced: true,
+        boardOnlyEventIds: [SUPPLY_ATTRITION_EVENT_ID],
+      });
+      impactedWorld = applied.world;
+      nextColors = applied.colors;
+      logDebugEvent("turn", `Supply attrition wore down ${supply.summary.damaged} formation(s), ${supply.summary.destroyed} lost.`, {
+        supplied: supply.summary.supplied,
+        strained: supply.summary.strained,
+        isolated: supply.summary.isolated,
+      });
+    }
+  } catch (error) {
+    console.warn("[engine] the supply attrition step failed; the completed turn is preserved.", error);
+  }
   // A polity renamed this turn — by an event's polityChanges, or a record whose
   // display name still differed from its key — is re-keyed everywhere the world
   // state does not carry: the game's own polity, the queued orders, the chats
