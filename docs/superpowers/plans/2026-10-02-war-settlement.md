@@ -255,7 +255,7 @@ git commit -m "feat(runtime): resolve war settlements and move the reparations"
 **Files:**
 - Modify: `src/Game/AI/nativeWarLedger.js`
 - Modify: `src/runtime/gameState.js` (`normalizeWorldWar`)
-- Test: `src/Game/AI/nativeWarLedger.test.js` (extend) or, when that file does not exist, `src/Game/AI/nativeWarLedger.warSettlement.test.js` (new)
+- Test: `src/Game/AI/warLedger.test.js` (extend; this is the existing ledger suite, it imports `./nativeWarLedger.js`)
 - Modify: `docs/specs/2026-10-02-war-settlement-design.md` (correct the example)
 
 **Interfaces:**
@@ -278,7 +278,7 @@ Add tests that:
 - `normalizeWorldState` round-trips a war carrying `goals` and `weariness` without dropping either (the runtime normalizer is the writer of the persisted world; without this, the next turn's adapter sees a war with no goals).
 - `validateWarLedgerPayload` accepts a payload whose only war record is a link-free `goals` op.
 
-Run: `node --test src/Game/AI/nativeWarLedger.test.js`
+Run: `node --test src/Game/AI/warLedger.test.js`
 Expected: FAIL.
 
 - [ ] **Step 2: Implement the op and the fields**
@@ -317,7 +317,7 @@ design, only the example and the reason.
 
 - [ ] **Step 4: Run the tests**
 
-Run: `node --test src/Game/AI/nativeWarLedger.test.js`
+Run: `node --test src/Game/AI/warLedger.test.js`
 Expected: PASS.
 
 Run: `node --test "src/Game/AI/*.test.js"`
@@ -326,7 +326,7 @@ Expected: PASS, no regression.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/Game/AI/nativeWarLedger.js src/Game/AI/nativeWarLedger.test.js docs/specs/2026-10-02-war-settlement-design.md
+git add src/Game/AI/nativeWarLedger.js src/runtime/gameState.js src/Game/AI/warLedger.test.js docs/specs/2026-10-02-war-settlement-design.md
 git commit -m "feat(ai): declare war goals and persist weariness in the ledger"
 ```
 
