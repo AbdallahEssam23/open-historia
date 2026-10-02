@@ -36,8 +36,8 @@
 // resolvable.
 //
 // Unit-tested directly (regionVocab.test.js) without pulling in the browser-only asset
-// layer that promptContext.js imports — its only import is the owner-name
-// canonicaliser, which is plain data and safe to load anywhere.
+// layer that promptContext.js imports — its only import is the shared owner read
+// (regionOwners.js), which is plain data and safe to load anywhere.
 
 import { regionOwnerName } from "../../runtime/regionOwners.js";
 

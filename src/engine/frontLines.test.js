@@ -124,6 +124,25 @@ test("duplicate adjacency, unit and war entries are deduped", () => {
   assert.deepEqual(result.byWar.map((entry) => entry.warId), ["w1"]);
 });
 
+test("one region contested under two overlapping wars gives one entry per war", () => {
+  const result = deriveFrontLines({
+    wars: [
+      war("w1", "active", ["France"], ["Germany"]),
+      war("w2", "active", ["France"], ["Germany"]),
+    ],
+    units: [unit("France", "r1"), unit("Germany", "r1")],
+    regions: [region("r1", "Germany")],
+  });
+  assert.deepEqual(result.contested, [
+    { regionId: "r1", warId: "w1", controller: "Germany", sideA: ["France"], sideB: ["Germany"] },
+    { regionId: "r1", warId: "w2", controller: "Germany", sideA: ["France"], sideB: ["Germany"] },
+  ]);
+  assert.deepEqual(result.byWar.map((entry) => [entry.warId, entry.contested]), [
+    ["w1", ["r1"]],
+    ["w2", ["r1"]],
+  ]);
+});
+
 test("a unit with no region never contests a region", () => {
   const result = deriveFrontLines({
     wars: [war("w1", "active", ["France"], ["Germany"])],

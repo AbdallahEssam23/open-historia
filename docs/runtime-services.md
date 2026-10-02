@@ -66,8 +66,10 @@ wars as a pure read, with no stored state:
 - **A contested region** is a region where units of two enemy polities are both
   present (read from `unit.regionId`), reported once per region and per war.
 
-The result is `{ edges, contested, byWar, regions }`, every list totally
-ordered by code-unit comparison. It is computed on demand and never written to
+The result is `{ edges, contested, byWar, regions }`. Its top-level lists and
+each region's `roles`/`warIds` are ordered by code-unit comparison, while the
+`sideA`/`sideB` arrays inside `contested` and `byWar` follow declared/roster
+order. It is computed on demand and never written to
 `world`: there is no field, no normalizer and no migration, and asking twice
 gives the same answer. The pure core is `src/engine/frontLines.js`; the adapter
 only reads the world and the catalog into its plain inputs.

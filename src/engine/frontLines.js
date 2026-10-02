@@ -8,8 +8,10 @@
 
 const name = (value) => String(value ?? "").trim();
 const list = (value) => (Array.isArray(value) ? value : []);
-// The same folded membership key the war ledger and the combat adapter use.
-const foldKey = (value) => name(value).toLocaleLowerCase();
+// Case folding for membership keys. Locale-independent on purpose: the
+// derivation must be byte-identical across machines, unlike the ledger's
+// locale-sensitive fold, which only ever compares within one process.
+const foldKey = (value) => name(value).toLowerCase();
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 const dedupe = (values) => {
