@@ -70,8 +70,12 @@ export const deriveSupplyAttrition = ({ wars = [], units = [], regions = [], mon
     })),
   });
   const inContact = (regionId) => {
+    // fronts.regions is keyed with Object.fromEntries, so an interior region id
+    // that collides with Object.prototype ("__proto__", "constructor") would
+    // otherwise resolve to an inherited member; an own-property check is the
+    // same guard frontLines.js applies when it builds the index.
+    if (!Object.hasOwn(fronts.regions, regionId)) return false;
     const row = fronts.regions[regionId];
-    if (!row) return false;
     return row.roles.includes("front") || row.roles.includes("contested");
   };
 

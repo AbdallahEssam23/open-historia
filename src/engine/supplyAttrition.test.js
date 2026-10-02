@@ -137,6 +137,32 @@ test("a blank strength defaults to full and is not destroyed by accident", () =>
   assert.equal(row.destroyed, false);
 });
 
+test("a region id that collides with Object.prototype is safe", () => {
+  const regions = [
+    region("__proto__", "France", "France", ["r1"]),
+    region("r1", "France", "France", ["__proto__"]),
+  ];
+  const result = deriveSupplyAttrition({
+    wars: [], regions, months: 1,
+    units: [unit("u1", "France", "__proto__")],
+  });
+  assert.equal(byId(result).u1.state, "supplied");
+});
+
+test("a contested region is contact, and the summary counts the damage", () => {
+  const regions = [
+    region("r1", "France", "France", ["r2"]),
+    region("r2", "Germany", "Germany", ["r1"]),
+  ];
+  const result = deriveSupplyAttrition({
+    wars: WAR, regions, months: 1,
+    units: [unit("u1", "France", "r2"), unit("u2", "Germany", "r2")],
+  });
+  assert.equal(byId(result).u1.contact, true);
+  assert.equal(byId(result).u1.state, "strained");
+  assert.equal(result.summary.damaged, 2);
+});
+
 test("the period multiplies the loss, and zero months costs nothing", () => {
   const at = (months) => byId(deriveSupplyAttrition({
     wars: WAR, regions: GRAPH, months,
