@@ -6675,7 +6675,7 @@ const applySimulationResult = async ({
     if (receipt && event) {
       noteReceipt(receipt, "adjusted",
         `"${normalizeString(event.title)}": the engine resolved the engagement in ${result.controlRegionId}`
-        + ` (${result.casualtyCount} formation(s) damaged, ${result.destroyedCount} destroyed)`
+        + ` (${result.casualtyCount - result.destroyedCount} damaged, ${result.destroyedCount} destroyed)`
         + (result.controlToCode ? `; the region fell to ${result.controlToCode}.` : "; the defender held."));
     }
   }
