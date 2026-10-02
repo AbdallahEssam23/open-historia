@@ -137,6 +137,18 @@ test("settleWar returns nothing until a peace is due", () => {
   assert.equal(settleWar(baseWar()), null);
 });
 
+test("a war with no declared goal waits for weariness, never settling on score alone", () => {
+  const settlement = settleWar({
+    warId: "war-goalless",
+    date: "1915-01-01",
+    goalsA: null,
+    goalsB: null,
+    codeA: "A",
+    codeB: "B",
+  });
+  assert.equal(settlement, null);
+});
+
 test("settleWar ends once a side has taken every declared target", () => {
   const settlement = settleWar(baseWar({
     goalsA: { kind: "annex", targetRegionIds: ["r1"], note: "" },

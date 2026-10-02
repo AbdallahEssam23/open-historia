@@ -181,6 +181,13 @@ export const settleWar = (input = {}) => {
   const wb = clamp(wearinessB, 0, 1);
   const { compelled, capitulationA, capitulationB } = warPressure({ wearinessA: wa, wearinessB: wb });
 
+  // "Goal achieved" means a war aim that can be attained: status_quo wants
+  // nothing, so its score of 1 is satisfaction from the outset, not a reason
+  // to close the war. Only an annex or reparations side at full score, or
+  // weariness, forces a peace.
+  const achievedA = goals.a.kind !== "status_quo" && scoreA >= 1;
+  const achievedB = goals.b.kind !== "status_quo" && scoreB >= 1;
+
   let victor;
   let capitulation = false;
   if (capitulationA && capitulationB) {
@@ -192,7 +199,7 @@ export const settleWar = (input = {}) => {
   } else if (capitulationB) {
     victor = "a";
     capitulation = true;
-  } else if (!compelled && scoreA < 1 && scoreB < 1) {
+  } else if (!compelled && !achievedA && !achievedB) {
     return null;
   } else {
     victor = pickVictor(scoreA, scoreB, wa, wb);
