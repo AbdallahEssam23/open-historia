@@ -107,3 +107,30 @@ test("merging replaces the model's numbers and its claim on the region", () => {
   assert.equal(event.impacts.regionTransfers.length, 0, "the model's claim on the region is dropped");
   assert.deepEqual(event.impacts.regionControlOps, out.results[0].regionControlOps);
 });
+
+test("the control target follows the war's declared side order", () => {
+  const w = world();
+  w.wars[0].sideA = ["Alpha", "Beta"];
+  w.wars[0].sideB = ["France"];
+  // Beta is listed on the roster before Alpha, but the war declares Alpha first.
+  w.units = [
+    { id: "b1", ownerCode: "Beta", type: "armor", strength: 100, regionId: "ALSACE" },
+    { id: "a1", ownerCode: "Alpha", type: "armor", strength: 100, regionId: "ALSACE" },
+    { id: "f1", ownerCode: "France", type: "garrison", strength: 10, regionId: "ALSACE" },
+  ];
+  const out = resolveEventEngagements([battle()], w, { round: 7 });
+  assert.equal(out.unresolved.length, 0);
+  assert.equal(out.results.length, 1);
+  assert.equal(out.results[0].winner, "a");
+  assert.equal(out.results[0].controlToCode, "Alpha");
+  assert.equal(out.results[0].regionControlOps[0].fromCode, "France");
+});
+
+test("an active-war declaration with no region draws an unresolved note", () => {
+  const event = { ...battle() };
+  delete event.combatRegion;
+  const out = resolveEventEngagements([event], world(), { round: 7 });
+  assert.equal(out.results.length, 0);
+  assert.equal(out.unresolved.length, 1);
+  assert.match(out.unresolved[0].reason, /region/i);
+});

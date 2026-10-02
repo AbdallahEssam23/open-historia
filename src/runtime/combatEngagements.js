@@ -22,6 +22,11 @@ const list = (value) => (Array.isArray(value) ? value : []);
 const canonicalPolity = (value) => toCountryName(name(value)) || name(value);
 const ownerOf = (unit) => canonicalPolity(unit?.ownerCode);
 
+const findActiveWar = (warId, world) =>
+  list(world?.wars).find(
+    (entry) => name(entry?.id) === warId && name(entry?.status).toLowerCase() === "active",
+  );
+
 // Build the neutral engagement description, or null when the event is not a
 // resolvable declaration (no war, no active war, no region, or a side absent
 // from the field is left to the caller as an unresolved note).
@@ -29,9 +34,7 @@ export const buildEngagement = (event, world, { round = 0 } = {}) => {
   const warId = name(event?.warId);
   const regionId = name(event?.combatRegion);
   if (!warId || !regionId) return null;
-  const war = list(world?.wars).find(
-    (entry) => name(entry?.id) === warId && name(entry?.status).toLowerCase() === "active",
-  );
+  const war = findActiveWar(warId, world);
   if (!war) return null;
 
   const sideAKeys = new Set(list(war.sideA).map(foldKey));
@@ -56,8 +59,21 @@ export const buildEngagement = (event, world, { round = 0 } = {}) => {
     });
   }
 
-  const toSide = (bucket) =>
-    [...bucket.entries()].map(([polity, units]) => ({ polity, posture: posture[polity] || "peacetime", units }));
+  // The core credits the province to the first polity of the winning side that
+  // has units, so each side must be returned in the war's declared order, not
+  // in roster order. Keep only declared polities that fielded a unit, deduped.
+  const toSide = (declared, bucket) => {
+    const seen = new Set();
+    const side = [];
+    for (const declaredName of list(declared)) {
+      const polity = canonicalPolity(declaredName);
+      const key = foldKey(polity);
+      if (seen.has(key) || !bucket.has(polity)) continue;
+      seen.add(key);
+      side.push({ polity, posture: posture[polity] || "peacetime", units: bucket.get(polity) });
+    }
+    return side;
+  };
 
   // The war declares a side as a list of polities; the buckets only hold the
   // ones that actually fielded a unit. Keep the declared names so an unresolved
@@ -78,8 +94,8 @@ export const buildEngagement = (event, world, { round = 0 } = {}) => {
     controllerPolity,
     sideAPolities,
     sideBPolities,
-    sideA: toSide(bucketA),
-    sideB: toSide(bucketB),
+    sideA: toSide(war.sideA, bucketA),
+    sideB: toSide(war.sideB, bucketB),
   };
 };
 
@@ -106,7 +122,18 @@ export const resolveEventEngagements = (events, world, { round = 0 } = {}) => {
 
   list(events).forEach((event, eventIndex) => {
     const input = buildEngagement(event, world, { round });
-    if (!input) return;
+    if (!input) {
+      // An active-war declaration with no region is still a battle declaration:
+      // it stays narrative and draws a note explaining what was missing.
+      const warId = name(event?.warId);
+      if (warId && !name(event?.combatRegion) && findActiveWar(warId, world)) {
+        unresolved.push({
+          eventIndex,
+          reason: `the declaration for ${warId} named no combat region`,
+        });
+      }
+      return;
+    }
     const sideAEmpty = input.sideA.length === 0;
     if (sideAEmpty || input.sideB.length === 0) {
       const absent = sideAEmpty ? input.sideAPolities : input.sideBPolities;
