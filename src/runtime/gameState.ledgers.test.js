@@ -73,6 +73,20 @@ test("an event keeps its war metadata", () => {
   assert.deepEqual(plain.combatants, []);
 });
 
+test("an event keeps its combatRegion and defaults it to empty", () => {
+  const withRegion = normalizeEventEntry({
+    title: "Battle of Alsace",
+    date: "1870-07-19",
+    warId: "war-x",
+    combatants: ["Prussia", "France"],
+    combatRegion: "  ALSACE  ",
+  }, 0);
+  assert.equal(withRegion.combatRegion, "ALSACE");
+
+  const without = normalizeEventEntry({ title: "A quiet year", date: "1870-01-01" }, 0);
+  assert.equal(without.combatRegion, "");
+});
+
 // Both diplomatic ledgers resolve their parties through ONE identity index built
 // for the call (see diplomaticIdentityIndex in normalizeWorldState), because the
 // per-name default rebuilt that index over the whole world for every party. This

@@ -950,6 +950,9 @@ const eventSchema = {
       maxItems: 8,
       items: nonEmptyTextSchema("One canonical belligerent polity name."),
     },
+    combatRegion: textSchema(
+      "For actual battlefield combat, the region (name or id) where the battle is fought. Required for the engine to resolve the engagement.",
+    ),
     impacts: jumpImpactsSchema,
   },
   required: ["date", "title", "description"],

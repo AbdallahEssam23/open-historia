@@ -3060,6 +3060,7 @@ export const normalizeEventEntry = (entry, index = 0) => {
       storylineIds: [],
       warId: "",
       combatants: [],
+      combatRegion: "",
       source: "scenario",
       title,
     };
@@ -3100,6 +3101,10 @@ export const normalizeEventEntry = (entry, index = 0) => {
         .map((name) => toCountryName(normalizeOptionalString(name)) || normalizeOptionalString(name))
         .filter(Boolean),
     )].slice(0, 8),
+    // The region a declared battle is fought in. Optional on every event, but
+    // required for the engine to resolve an engagement; absent means the event
+    // stays narrative (runtime/combatEngagements.js).
+    combatRegion: normalizeOptionalString(entry.combatRegion),
     source: normalizeOptionalString(entry.source) || "scenario",
     title,
   };
