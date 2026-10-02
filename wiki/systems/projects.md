@@ -12,7 +12,9 @@ declared with a **domain** (what field it is in) and a **scale** (how large it i
 on the engine advances it for you: each month your country's **research points** go to **one
 programme at a time**, in priority order. You steer it the way you steer anything else here - by
 setting its priority, and by keeping it running - and you never set its progress yourself. When it
-finishes, whatever the programme was for is released.
+finishes, it grants your country a lasting modifier - faster building, faster regeneration of its
+forces, or faster growth - depending on its field and its size. You can see the modifier on the
+**Forces** panel and on the programme's own card.
 
 Physical production is not on this board. What a country actually builds - a division, a ship, a
 factory - is the deterministic economy's production line, paid from its reserves and shown
