@@ -51,6 +51,29 @@ The settlement core is the sixth deterministic system, and it runs in the same t
 
 ---
 
+## Front lines - `src/runtime/frontLines.js`
+
+`readFrontLines(world, catalog)` derives the operational shape of the active
+wars as a pure read, with no stored state:
+
+- **Effective control** is `regionOwnershipOverrides[id] ?? region.country`,
+  canonicalized to the full country name by `regionOwnerName`
+  (`src/runtime/regionOwners.js`, also re-exported by `Game/AI/regionVocab.js`).
+- **A front edge** is an adjacent pair of regions whose controllers are enemies
+  in one `active` war (one on `sideA`, the other on `sideB`, compared
+  case-insensitively). It carries the pair and the sorted list of wars that make
+  it hostile.
+- **A contested region** is a region where units of two enemy polities are both
+  present (read from `unit.regionId`), reported once per region and per war.
+
+The result is `{ edges, contested, byWar, regions }`, every list totally
+ordered by code-unit comparison. It is computed on demand and never written to
+`world`: there is no field, no normalizer and no migration, and asking twice
+gives the same answer. The pure core is `src/engine/frontLines.js`; the adapter
+only reads the world and the catalog into its plain inputs.
+
+---
+
 ## Library store — `src/runtime/library.js`
 
 The single source of truth for the player's **games**, **scenarios**, and which of each is active. It holds one module-scope object (`libraryState`), exposes it through a `useSyncExternalStore` subscription, and wraps every catalog mutation as an `/api/*` call that refreshes the store afterwards.
