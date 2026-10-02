@@ -630,8 +630,12 @@ test("the turn passes the weariness and the resolver to the war ledger", () => {
 test("the turn withholds a war it closes itself from settlement", () => {
   const closedAt = gameplay.indexOf("const modelClosedWarIds = new Set(");
   const dueAt = gameplay.indexOf("const dueSettlements = settlementOutcome.settlements");
+  const filterAt = gameplay.indexOf(
+    ".filter((settlement) => !modelClosedWarIds.has(normalizeString(settlement.warId)))",
+  );
   const reparationAt = gameplay.indexOf("applyWarReparations(worldWithImpacts, dueSettlements)");
   assert.ok(closedAt > 0 && dueAt > closedAt, "the model-closed wars are not withheld");
+  assert.ok(filterAt > dueAt, "the settlements are not filtered by the model-closed ids");
   assert.ok(reparationAt > 0, "reparations are paid from the unfiltered settlement set");
 });
 ```
