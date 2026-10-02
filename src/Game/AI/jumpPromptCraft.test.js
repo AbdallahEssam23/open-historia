@@ -195,4 +195,6 @@ test("the live records go into the template, and the request ends on the writing
 test("the war directive teaches the goals declaration", () => {
   assert.match(gameplaySource, /leave, ceasefire, resume, end or goals; for start/);
   assert.match(gameplaySource, /warId~goals~polity:kind/);
+  // Four tildes put a stray "~" in the note field and clobber the war's note.
+  assert.equal(/polity:kind~~~~/.test(gameplaySource), false, "the goals shape must end on three tildes");
 });
