@@ -47,6 +47,7 @@ import {
   writeWorldState,
 } from "../../runtime/gameState.js";
 import { toCountryName } from "../../runtime/ownerNames.js";
+import { researchEffectLabel } from "../../engine/researchEffects.js";
 import { refreshRuntimeState } from "../../runtime/runtimeStore.js";
 import { useRuntimeState } from "../../runtime/useRuntimeState.js";
 import {
@@ -425,6 +426,12 @@ const ProjectCard = memo(({ project, gameDate, round, eventTitles, expanded, bus
     ? project.eventIds.map((id) => ({ id, entry: eventTitles.get(id) })).filter((row) => row.entry)
     : [];
 
+  // A completed research programme shows what it actually granted, derived from
+  // the same table the engine applies, so the board explains the modifier.
+  const researchContribution = project.kind === "research"
+    ? researchEffectLabel(project.domain, project.scale)
+    : "";
+
   return (
     <div style={cardStyle}>
       <div style={{ alignItems: "baseline", display: "flex", gap: "0.4rem", justifyContent: "space-between" }}>
@@ -487,6 +494,12 @@ const ProjectCard = memo(({ project, gameDate, round, eventTitles, expanded, bus
       {project.kind === "research" && (project.domain || project.scale) && (
         <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.65rem", marginTop: "0.35rem", textTransform: "capitalize" }}>
           {[project.domain, project.scale].filter(Boolean).join(" / ")}
+        </div>
+      )}
+
+      {researchContribution && project.status === "complete" && (
+        <div style={{ color: "#c4b5fd", fontSize: "0.65rem", marginTop: "0.2rem" }}>
+          {researchContribution}
         </div>
       )}
 

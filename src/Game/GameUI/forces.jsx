@@ -11,6 +11,8 @@ import {
 } from "../Map/unitsController.js";
 import { UNIT_TYPES, readWorldStateView } from "../../runtime/gameState.js";
 import { ensurePolityNames, polityDisplayName } from "../../runtime/polityNames.js";
+import { toCountryName } from "../../runtime/ownerNames.js";
+import { researchEffectTotalsLabel } from "../../engine/researchEffects.js";
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_TOP, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
@@ -110,6 +112,7 @@ export const ForcesPanel = ({ mapRef, topOffset = "0px", open = false, onToggle 
   const [deployComposition, setDeployComposition] = useState("");
   const [deployName, setDeployName] = useState("");
   const [productionLine, setProductionLine] = useState(null);
+  const [researchEffects, setResearchEffects] = useState(null);
   const isMobile = useIsMobile();
   const isTouch = useTouchPrimary();
   // On a phone, either way up, the deploy form scrolls with the units under
@@ -146,7 +149,9 @@ export const ForcesPanel = ({ mapRef, topOffset = "0px", open = false, onToggle 
       .then((world) => {
         if (cancelled) return;
         const code = getPlayerCode();
-        setProductionLine(world?.economyEngine?.production?.[code] ?? null);
+        const player = toCountryName(code) || code;
+        setProductionLine(world?.economyEngine?.production?.[player] ?? null);
+        setResearchEffects(world?.economyEngine?.researchEffects?.[player] ?? null);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -338,6 +343,14 @@ export const ForcesPanel = ({ mapRef, topOffset = "0px", open = false, onToggle 
                     Waiting: {(item.count ?? 1)}x {item.type} ({item.monthsTotal ?? 0} months)
                   </div>
                 ))}
+              </div>
+            )}
+            {researchEffects && researchEffectTotalsLabel(researchEffects) && (
+              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "8px", padding: "8px", marginBottom: "10px" }}>
+                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)", marginBottom: "5px" }}>Research effects</div>
+                <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>
+                  {researchEffectTotalsLabel(researchEffects)}
+                </div>
               </div>
             )}
             <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)", margin: "0 0 5px" }}>
