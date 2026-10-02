@@ -35,18 +35,30 @@ const belligerentsOf = (war) => {
   return out;
 };
 
-// The declared target regions a side's lead polity currently administers. Both
-// sides of the comparison fold through toCountryName so a code in the override
-// meets a name in the declaration.
-const heldRegions = (goal, lead, overrides) => {
-  if (!goal || !lead) return [];
+// A side's belligerents as lowercased canonical names, for membership tests.
+const canonicalKeys = (values) => {
+  const keys = new Set();
+  for (const raw of list(values)) {
+    const polity = canonical(raw);
+    if (polity) keys.add(polity.toLowerCase());
+  }
+  return keys;
+};
+
+// The declared target regions any belligerent of the side currently
+// administers: a coalition's target counts as held whoever in the coalition
+// sits on it. Both sides of the comparison fold through toCountryName so a code
+// in the override meets a name in the declaration.
+const heldRegions = (goal, memberKeys, overrides) => {
+  if (!goal || !memberKeys || memberKeys.size === 0) return [];
   const seen = new Set();
   const out = [];
   for (const raw of list(goal.targetRegionIds)) {
     const regionId = asString(raw);
     if (!regionId || seen.has(regionId)) continue;
     seen.add(regionId);
-    if (canonical(overrides?.[regionId]) === lead) out.push(regionId);
+    const owner = canonical(overrides?.[regionId]).toLowerCase();
+    if (owner && memberKeys.has(owner)) out.push(regionId);
   }
   return out;
 };
@@ -106,8 +118,8 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
     const leadB = canonical(list(war.sideB)[0]);
     const goalsA = war.goals?.a ?? null;
     const goalsB = war.goals?.b ?? null;
-    const heldA = heldRegions(goalsA, leadA, overrides);
-    const heldB = heldRegions(goalsB, leadB, overrides);
+    const heldA = heldRegions(goalsA, canonicalKeys(war.sideA), overrides);
+    const heldB = heldRegions(goalsB, canonicalKeys(war.sideB), overrides);
 
     const prior = normalizeWeariness(war.weariness);
     const months = monthsBetweenDates(prior?.throughDate || startedDate, turnDate);

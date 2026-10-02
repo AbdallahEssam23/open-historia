@@ -116,6 +116,56 @@ test("two battle results naming one war yield one settlement", () => {
   assert.equal(out.settlements.length, 1);
 });
 
+test("the victor follows the summed advantage across the war's battles", () => {
+  const out = resolveWarSettlements({
+    world: world([
+      war({
+        weariness: { a: 0.6, b: 0.6, throughDate: "1870-03-01" },
+        goals: {
+          a: { kind: "reparations", targetRegionIds: [], note: "" },
+          b: { kind: "reparations", targetRegionIds: [], note: "" },
+        },
+      }),
+    ]),
+    events: [{ warId: "war-1" }, { warId: "war-1" }],
+    engagements: [
+      battle(0, { adjustedPower: 100, lossFraction: 0 }, { adjustedPower: 10, lossFraction: 0 }),
+      battle(1, { adjustedPower: 1, lossFraction: 0 }, { adjustedPower: 100, lossFraction: 0 }),
+    ],
+    date: "1870-03-01",
+    playerPolity: "",
+  });
+  assert.equal(out.settlements.length, 1);
+  // Summed: A 101, B 110. The first battle alone would make A the victor.
+  assert.equal(out.settlements[0].victor, "b");
+  assert.equal(out.settlements[0].loser, "a");
+});
+
+test("the max loss fraction decides the tiebreak when the advantage ties", () => {
+  const out = resolveWarSettlements({
+    world: world([
+      war({
+        weariness: { a: 0.5, b: 0.5, throughDate: "1870-03-01" },
+        goals: {
+          a: { kind: "reparations", targetRegionIds: [], note: "" },
+          b: { kind: "reparations", targetRegionIds: [], note: "" },
+        },
+      }),
+    ]),
+    events: [{ warId: "war-1" }, { warId: "war-1" }],
+    engagements: [
+      battle(0, { adjustedPower: 100, lossFraction: 0.4 }, { adjustedPower: 100, lossFraction: 0.1 }),
+      battle(1, { adjustedPower: 100, lossFraction: 0.1 }, { adjustedPower: 100, lossFraction: 0.1 }),
+    ],
+    date: "1870-03-01",
+    playerPolity: "",
+  });
+  assert.equal(out.settlements.length, 1);
+  // The advantage ties at 0.5. A's max loss of 0.4 lifts its weariness to 0.7
+  // against B's 0.55, so B wins the tiebreak; the last battle's 0.1 would tie.
+  assert.equal(out.settlements[0].victor, "b");
+});
+
 test("held declared targets follow the lead polity through the owner canonicalization", () => {
   const out = resolveWarSettlements({
     world: world([
@@ -138,6 +188,32 @@ test("held declared targets follow the lead polity through the owner canonicaliz
   assert.equal(out.settlements[0].victor, "a");
   assert.deepEqual(out.settlements[0].transfers, [
     { regionId: "DEU.1_1", fromCode: "France", toCode: "Germany" },
+  ]);
+});
+
+test("a declared target held by any side member counts as held", () => {
+  const out = resolveWarSettlements({
+    world: world([
+      war({
+        sideA: ["Prussia", "Bavaria"],
+        sideB: ["France"],
+        weariness: { a: 0.6, b: 0.6, throughDate: "1870-03-01" },
+        goals: {
+          a: { kind: "annex", targetRegionIds: ["ALSACE"], note: "" },
+          b: { kind: "status_quo", targetRegionIds: [], note: "" },
+        },
+      }),
+    ], { regionOwnershipOverrides: { ALSACE: "Bavaria" } }),
+    events: [],
+    engagements: [],
+    date: "1870-03-01",
+    playerPolity: "",
+  });
+  assert.equal(out.settlements.length, 1);
+  // Bavaria, not the lead Prussia, sits on ALSACE; the whole side still holds it.
+  assert.equal(out.settlements[0].victor, "a");
+  assert.deepEqual(out.settlements[0].transfers, [
+    { regionId: "ALSACE", fromCode: "France", toCode: "Prussia" },
   ]);
 });
 
