@@ -22,6 +22,14 @@ read-only in the **Forces** panel. Research is not paid from the reserves and ha
 queue: it is a programme on this board, advanced by the engine, and it is the labs your country
 has actually built - and the people behind them - that set the rate.
 
+## Battles are resolved, not written
+
+A battle is not on this board and not something you roll for. When forces actually meet, the engine
+resolves the engagement deterministically: the side that is present and stronger, weighted by unit
+type and by how mobilised each country is, inflicts more casualties, and a formation broken past its
+limit is destroyed outright. A province changes hands only when its defender breaks - holding the
+field is not the same as taking the ground.
+
 ![The Projects and Operations board](/wiki/img/projects-board.jpg)
 *A board on a campaign that has been running a while. Note the counts — **Mine (4)**,
 **Foreign (2)** — the tag chips, the priority control on each card, and that an **ongoing** effort
