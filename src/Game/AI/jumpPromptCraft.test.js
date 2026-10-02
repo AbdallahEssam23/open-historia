@@ -191,3 +191,8 @@ test("the live records go into the template, and the request ends on the writing
     assert.ok(!gameplaySource.includes(gone), `${gone} is appended again`);
   }
 });
+
+test("the war directive teaches the goals declaration", () => {
+  assert.match(gameplaySource, /leave, ceasefire, resume, end or goals; for start/);
+  assert.match(gameplaySource, /warId~goals~polity:kind/);
+});
