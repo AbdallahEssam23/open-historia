@@ -210,7 +210,7 @@ adjustedB)`. The side with the larger adjusted power wins; a tie is held by the
 defender. Each side loses a fraction of its current strength:
 
 ```
-lossFraction(side) = clamp(0.35 * shareOpponent, 0.03, 0.45)
+lossFraction(side) = clamp(0.45 * shareOpponent, 0.03, 0.45)
 ```
 
 The loss is applied uniformly to every unit on that side:

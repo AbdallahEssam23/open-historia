@@ -48,7 +48,7 @@
 - Produces:
   - `UNIT_COMBAT_WEIGHT: { garrison, infantry, artillery, armor, air, naval }`
   - `MOBILIZATION_COMBAT_MULTIPLIER: { demobilized, peacetime, partial, total }`
-  - `COMBAT_LOSS_BASE = 0.35`, `COMBAT_LOSS_MIN = 0.03`, `COMBAT_LOSS_MAX = 0.45`
+  - `COMBAT_LOSS_BASE = 0.45`, `COMBAT_LOSS_MIN = 0.03`, `COMBAT_LOSS_MAX = 0.45`
   - `COMBAT_JITTER_MIN = 0.85`, `COMBAT_JITTER_SPAN = 0.3`
   - `UNIT_DESTRUCTION_THRESHOLD = 15`, `CONTROL_THRESHOLD = 0.4`
   - `engagementRoll(key) -> number` in `[0, 1)`
@@ -239,7 +239,7 @@ export const MOBILIZATION_COMBAT_MULTIPLIER = Object.freeze({
   total: 1.5,
 });
 
-export const COMBAT_LOSS_BASE = 0.35;
+export const COMBAT_LOSS_BASE = 0.45;
 export const COMBAT_LOSS_MIN = 0.03;
 export const COMBAT_LOSS_MAX = 0.45;
 export const COMBAT_JITTER_MIN = 0.85;
