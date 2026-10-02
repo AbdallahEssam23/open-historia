@@ -76,6 +76,13 @@ test("K17 canonical key still ignores event id and createdAt", () => {
   assert.equal(eventCanonicalKey(a), eventCanonicalKey(b));
 });
 
+test("K19 canonical key distinguishes same prose with a different battle region", () => {
+  const oldEvent = ev({ warId: "war-x", combatants: ["France", "Prussia"], combatRegion: "Alsace" });
+  const corrected = ev({ warId: "war-x", combatants: ["France", "Prussia"], combatRegion: "Lorraine" });
+  assert.equal(eventContentKey(oldEvent), eventContentKey(corrected));
+  assert.notEqual(eventCanonicalKey(oldEvent), eventCanonicalKey(corrected));
+});
+
 test("K18 dedupeEventLog keyed canonically keeps same-prose events with different effects and drops true repeats", () => {
   const first = ev({ id: "a", impacts: { regionTransfers: [{ regionId: "Guangzhouwan", fromCode: "France", toCode: "Germany" }] } });
   const corrected = ev({ id: "b", impacts: { regionTransfers: [{ regionId: "Metropolitan-France", fromCode: "France", toCode: "Germany" }] } });

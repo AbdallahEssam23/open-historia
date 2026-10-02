@@ -45,6 +45,10 @@ export const eventCanonicalKey = (event) => {
     impacts: event?.impacts && typeof event.impacts === "object" ? event.impacts : null,
     warId: norm(event?.warId).toLowerCase(),
     combatants,
+    // A GM correction can reuse the same prose and impacts while re-aiming the
+    // battle at another region; without this the correction reads as an exact
+    // duplicate and the events write choke-point drops it.
+    combatRegion: norm(event?.combatRegion).toLowerCase(),
   })}`;
 };
 
