@@ -25,6 +25,11 @@ import {
   mergeEngagementResults,
   resolveEventEngagements,
 } from "../../runtime/combatEngagements.js";
+import {
+  applyWarReparations,
+  buildSettlementEvent,
+  resolveWarSettlements,
+} from "../../runtime/warSettlement.js";
 import { buildUnitDirectorInput, directGeneratedUnitOps } from "./nativeUnitDirector.js";
 import { buildTerritoryDirectorInput, directGeneratedTerritoryOps } from "./nativeTerritoryDirector.js";
 import { expandWholeCountryTransfer, wholeCountrySourceToken } from "./territoryTransferScope.js";
@@ -93,7 +98,7 @@ import {
 } from "./gameplaySchemas.js";
 import { buildOwnerAliasMap, canonicalOwnerName, toCountryName } from "../../runtime/ownerNames.js";
 import { editDistance, foldRegionKey, matchRegionName, stripRegionAffixes } from "./regionMatch.js";
-import { resolveCombatRegionIds } from "./combatRegionResolution.js";
+import { buildRegionResolver, resolveCombatRegionIds } from "./combatRegionResolution.js";
 import { PLACEMENT_DIRECTIVE, distanceKm as placementDistanceKm, nearestInteriorPoint, pointInGeometry, resolvePlacement } from "./placement.js";
 import { FOOTPRINT_KM, obstaclesOf, spaceOut } from "../../runtime/featureSpacing.js";
 import { LOOKUP_DIRECTIVE, LOOKUP_TOOLS, buildLookupContext, executeLookup, placesNamedIn } from "./lookupTools.js";
@@ -6662,6 +6667,10 @@ const applySimulationResult = async ({
   // turn (every ledger rebuilt), and this function reads two fields of it — the
   // history it prepends to and the unit system. Derived once, not twice.
   const baseWorldNormalized = normalizeWorldState(baseWorld);
+  // One resolver for this turn's goal declarations, built from the same primed
+  // catalog the combat-region resolver uses, so a declared goal region is
+  // canonicalized at the moment the ledger saves it.
+  const regionResolver = buildRegionResolver(getPrimedScenarioRegionCatalog() ?? []);
   // Resolve every declared battle against the pre-turn roster, then fold the
   // engine's ops into the very events the model wrote. The engine owns the
   // numbers and the ownership outcome; the model keeps the moves that put
@@ -6685,6 +6694,31 @@ const applySimulationResult = async ({
       noteReceipt(receipt, "adjusted",
         `"${normalizeString(event.title)}": left as narrative; ${entry.reason}.`);
     }
+  }
+  // War settlement runs once, on the pre-turn world and this turn's battle
+  // results, before the impacts land: the peace event it writes must travel
+  // through the same door every other territorial change uses, and the war must
+  // still be active when the ledger closes it below.
+  const settlementOutcome = resolveWarSettlements({
+    world: baseWorldNormalized,
+    events: freshEvents,
+    engagements: engagementOutcome.results,
+    date: nextGame.gameDate,
+    playerPolity: normalizeString(baseGame.country),
+  });
+  for (const settlement of settlementOutcome.settlements) {
+    const event = buildSettlementEvent(settlement, { date: nextGame.gameDate, round: nextGame.round });
+    if (!event) continue;
+    freshEvents.push(normalizeEventEntry(event, freshEvents.length));
+    warUpdates.push({ eventIds: [event.id], id: settlement.warId, op: "end" });
+    if (receipt) {
+      noteReceipt(receipt, "adjusted",
+        `The war ${settlement.warId} closed: ${settlement.white ? "white peace" : "settlement"}`
+        + ` (${settlement.transfers.length} region(s) moved).`);
+    }
+  }
+  for (const entry of settlementOutcome.unresolved) {
+    if (receipt) noteReceipt(receipt, "withheld", `The war ${entry.warId} was left open: ${entry.reason}.`);
   }
   const impactMerge = applyEventImpactsToWorld({
     colors: baseColors,
@@ -6804,8 +6838,13 @@ const applySimulationResult = async ({
     events: freshEvents,
     stopDate: nextGame.gameDate,
     round: nextGame.round,
+    weariness: settlementOutcome.weariness,
+    resolveRegion: regionResolver.resolve,
   });
   worldWithImpacts = warMerge.world;
+  // Reparations move real reserves, so they are paid once the war is closed and
+  // the peace event's transfers have already landed.
+  worldWithImpacts = applyWarReparations(worldWithImpacts, settlementOutcome.settlements);
 
   // Espionage resolves on the world the whole turn produced - after the standing
   // orders above have advanced, so an agent's round is decided against where the

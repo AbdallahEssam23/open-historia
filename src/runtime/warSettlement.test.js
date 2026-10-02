@@ -7,6 +7,7 @@ import {
   buildSettlementEvent,
   resolveWarSettlements,
 } from "./warSettlement.js";
+import { applyWarUpdates } from "../Game/AI/nativeWarLedger.js";
 
 const war = (over = {}) => ({
   id: "war-1",
@@ -285,4 +286,35 @@ test("applyWarReparations returns the same world when nothing is owed", () => {
     }]),
     broke,
   );
+});
+
+// The turn's contract: the weariness the adapter derives is the map the ledger
+// persists, and the `end` record the caller appends closes the war. Pure: the
+// ledger imports no browser module, so this needs no gameplay.js.
+test("the settled weariness persists and the appended end closes the war", () => {
+  const outcome = resolveWarSettlements({
+    world: world([war({ weariness: { a: 0.6, b: 0.6, throughDate: "1870-02-01" } })]),
+    events: [],
+    engagements: [],
+    date: "1870-03-01",
+    playerPolity: "",
+  });
+  assert.equal(outcome.settlements.length, 1);
+  const settlement = outcome.settlements[0];
+  const peace = buildSettlementEvent(settlement, { date: "1870-03-01", round: 4 });
+
+  const merge = applyWarUpdates({
+    world: world([war()]),
+    updates: [{ eventIds: [peace.id], id: settlement.warId, op: "end" }],
+    events: [peace],
+    stopDate: "1870-03-01",
+    round: 4,
+    weariness: outcome.weariness,
+  });
+  const ended = merge.world.wars.find((entry) => entry.id === settlement.warId);
+  assert.equal(ended.status, "ended");
+  assert.equal(ended.endedDate, "1870-03-01");
+  assert.equal(ended.weariness.a, outcome.weariness[settlement.warId].a);
+  assert.equal(ended.weariness.b, outcome.weariness[settlement.warId].b);
+  assert.equal(ended.weariness.throughDate, "1870-03-01");
 });
