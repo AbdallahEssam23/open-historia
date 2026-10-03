@@ -134,6 +134,10 @@ test("the roster is capped and the overflow is counted", () => {
   const lines = text.split("\n").filter((line) => line.startsWith("- "));
   assert.equal(lines.length, OPERATIONS_ROW_CAP);
   assert.match(text, /\+4 more out of supply\./);
+
+  // A longer policy line must not push the overflow notice out of the budget.
+  const realistic = buildOperationsDigest({ formations, policyInForce: "replacements" });
+  assert.match(realistic, /\+4 more out of supply\./);
 });
 
 test("a block longer than the character cap is clamped on a line boundary", () => {
@@ -142,6 +146,13 @@ test("a block longer than the character cap is clamped on a line boundary", () =
   );
   const text = buildOperationsDigest({ formations, policyInForce: "none", cap: 40 });
   assert.ok(text.length <= OPERATIONS_CHAR_CAP, `got ${text.length}`);
+  // The fixed section header is the only line that does not end in a period;
+  // every clamped body line must, or a mid-line truncation slipped through.
+  const lines = text.split("\n").filter(Boolean);
+  assert.equal(lines[0], "[Your Forces in the Field, as simulated]");
+  for (const line of lines.slice(1)) {
+    assert.ok(line.endsWith("."), `partial line: ${line}`);
+  }
 });
 
 test("the input is not mutated and the output is ASCII", () => {
@@ -257,6 +268,9 @@ export const buildOperationsDigest = ({
   // Only the rows left out that are out of supply are counted; a below-strength
   // row dropped by the cap is already in the summary's below-strength total.
   const overflow = ordered.slice(limit).filter((row) => name(row.state) !== "supplied").length;
+  // The overflow notice is reserved before the clamp and emitted after the kept
+  // rows, so the count the block exists to give can never be silently dropped.
+  const overflowLine = overflow > 0 ? `+${overflow} more out of supply.` : "";
 
   const fixed = [
     "[Your Forces in the Field, as simulated]",
@@ -265,18 +279,17 @@ export const buildOperationsDigest = ({
   ].join("\n");
 
   const detail = shown.map(rowLineFor);
-  if (overflow > 0) detail.push(`+${overflow} more out of supply.`);
 
   // A line that would overflow the cap is dropped whole rather than truncated,
   // so the model is never handed half a fact, like the economy digest.
-  let used = fixed.length;
+  let used = fixed.length + (overflowLine ? overflowLine.length + 1 : 0);
   const kept = [];
   for (const line of detail) {
     if (used + line.length + 1 > budget) break;
     kept.push(line);
     used += line.length + 1;
   }
-  return [fixed, ...kept].join("\n");
+  return [fixed, ...kept, overflowLine].filter(Boolean).join("\n");
 };
 ```
 
