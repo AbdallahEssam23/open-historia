@@ -33,6 +33,12 @@ import {
 import { readSupplyAttrition } from "../../runtime/supplyAttrition.js";
 import { readReinforcement, readReinforcementPolicies } from "../../runtime/reinforcement.js";
 import {
+  applyWarCasus,
+  buildWarCasusDigest,
+  readRecordedUnjustWars,
+  readWarCasus,
+} from "../../runtime/casusBelli.js";
+import {
   applyTreatyBreaches,
   applyTreatyJoins,
   buildTreatyBreachDigest,
@@ -585,10 +591,12 @@ const buildWarLedgerDirective = (variables) => {
   const canonicalWarContext = normalizeString(variables?.canonicalWarContext);
   const treatyObligations = normalizeString(variables?.treatyObligations);
   const treatyBreach = normalizeString(variables?.treatyBreach);
+  const warCasus = normalizeString(variables?.warCasus);
   return `[Wars]
-${canonicalWarContext || "No wars are recorded."}${treatyObligations ? `\n${treatyObligations}` : ""}${treatyBreach ? `\n${treatyBreach}` : ""}
+${canonicalWarContext || "No wars are recorded."}${treatyObligations ? `\n${treatyObligations}` : ""}${treatyBreach ? `\n${treatyBreach}` : ""}${warCasus ? `\n${warCasus}` : ""}
 Only this ledger makes polities belligerents — tension, an alliance or a mobilisation does not — and a war real history holds begins here only when you open it, with a warUpdates record and the event that starts it. Every battle, offensive, invasion, bombardment, siege or front carries event.warId, event.combatants naming both sides, and event.combatRegion naming the region it is fought in. If you write fighting, open the war in the same answer: a declaration, an entry, an exit, a ceasefire, a resumption or a peace each needs a warUpdates record and an event carrying the same warId, or the engine strips the war from the fighting and records peace. Two sides genuinely trading blows are at war; if you cannot say who is fighting whom, it is unrest, a raid or a deployment, so write it as that. A polity at peace does not live under war conditions — rationing, war taxes, mobilisation — because others are fighting, unless the war reaches it through something concrete (lost imports, refugees, sanctions). Nobody may join a war on ${playerName}'s behalf; another power declaring war on ${playerName} is that power's decision, and yours to write.
 A treaty is not narrative: a party bound by an active alliance, mutual defense or guarantee is drawn into the war by the engine, so when an ally appears in a war it was not fighting, narrate its entry rather than re-declaring the join or writing it out.
+A power that begins a war with no recorded claim against the target and no recorded breach by it is marked as an unjust aggressor, so a war you mean to fight should rest on a reason the world can see.
 warUpdates is one string, one record per line, fields separated by ~ (never inside a field): warId~op~actorsCSV~opponentsCSV~eventNumbersCSV~note. op is start, join-a, join-b, leave, ceasefire, resume, end or goals; for start the actors are the side that starts the war (side A) and the opponents side B; for join and leave the actors are the polities joining or leaving; eventNumbersCSV may be blank. goals declares war aims: warId~goals~polity:kind[:region|region];polity:kind~~~, kind annex, reparations or status_quo. Give a war a stable id (war-france-germany-1914) and reuse it. An empty string when nothing changes.`;
 };
 
@@ -7007,6 +7015,44 @@ const applySimulationResult = async ({
   } catch (error) {
     console.warn("[engine] the treaty breach step failed; the completed turn is preserved.", error);
   }
+  // A war begun this turn is judged for a recorded warrant: a claim on land a
+  // defender holds, or a breach by a defender against the aggressor. It runs
+  // after the breach pre-pass, so a promise broken this turn justifies a war
+  // begun this turn, and before the obligation step. Reading the start records,
+  // not the war records, is what keeps a later joiner from being judged an
+  // aggressor. A failure here must never lose a completed turn.
+  try {
+    const casusStarts = warUpdates
+      .filter((update) => normalizeString(update?.op).toLowerCase() === "start")
+      .map((update) => ({
+        warId: normalizeString(update?.id),
+        aggressors: normalizeArray(update?.actors),
+        defenders: normalizeArray(update?.opponents),
+      }))
+      .filter((start) => start.warId);
+    if (casusStarts.length) {
+      const casusOutcome = readWarCasus(worldWithImpacts, {
+        starts: casusStarts,
+        catalog: getPrimedScenarioRegionCatalog() ?? [],
+      });
+      if (casusOutcome.wars.length) {
+        worldWithImpacts = applyWarCasus(worldWithImpacts, casusOutcome.wars, {
+          date: nextGame.gameDate,
+          round: nextGame.round,
+        });
+      }
+      // Log even when every aggressor held a warrant, so the judgement is on the
+      // trail whether or not a cost fell.
+      if (casusOutcome.summary.judged) {
+        logDebugEvent("turn", `Wars judged for just cause: ${casusOutcome.summary.unjust} unjust of ${casusOutcome.summary.judged}.`, {
+          unjust: casusOutcome.summary.unjust,
+          justified: casusOutcome.summary.justified,
+        });
+      }
+    }
+  } catch (error) {
+    console.warn("[engine] the casus belli step failed; the completed turn is preserved.", error);
+  }
   // Treaty obligations: an active alliance, mutual defense or guarantee draws a
   // non-player party into a war the engine already tracks. It runs on the world
   // this turn's warUpdates just produced, so a war opened now drags its allies
@@ -13161,6 +13207,9 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
       });
       variables.treatyBreach = buildTreatyBreachDigest({
         breaches: readRecordedBreaches(bundle.world),
+      });
+      variables.warCasus = buildWarCasusDigest({
+        wars: readRecordedUnjustWars(bundle.world),
       });
       const researchState = projected.research?.[playerPolity];
       const researchProgrammes = researchQueueFor(researchState?.programmes);
