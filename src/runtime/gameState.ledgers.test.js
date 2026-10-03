@@ -142,3 +142,31 @@ test("a breached status and its breachedBy survive a normalize round trip", () =
   assert.equal(world.agreements[0].breachedBy, "Russia");
   assert.equal(world.agreements[0].endedDate, "1914-09-01");
 });
+
+test("a war's unjust aggressors survive a normalizeWorldState round trip", () => {
+  const world = normalizeWorldState({
+    polityOverrides: { Italy: { code: "Italy" }, Ethiopia: { code: "Ethiopia" } },
+    wars: [
+      {
+        id: "w1",
+        status: "active",
+        aggressor: "a",
+        sideA: ["Italy"],
+        sideB: ["Ethiopia"],
+        startedDate: "1935-10-03",
+        unjustAggressors: ["ITA", "italy"],
+      },
+    ],
+  });
+  const war = world.wars.find((entry) => entry.id === "w1");
+  assert.deepEqual(war.unjustAggressors, ["Italy"]);
+});
+
+test("a war without unjust aggressors normalizes to an empty list", () => {
+  const world = normalizeWorldState({
+    polityOverrides: { Italy: { code: "Italy" }, Ethiopia: { code: "Ethiopia" } },
+    wars: [{ id: "w1", status: "active", sideA: ["Italy"], sideB: ["Ethiopia"], startedDate: "1935-10-03" }],
+  });
+  const war = world.wars.find((entry) => entry.id === "w1");
+  assert.deepEqual(war.unjustAggressors, []);
+});

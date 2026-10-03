@@ -367,3 +367,34 @@ test("a link-free goals record is a valid war ledger payload", () => {
   };
   assert.equal(validateWarLedgerPayload(candidate, { world: warWorld }), "");
 });
+
+test("an unrelated war update preserves a war's unjust aggressors", () => {
+  const events = [{
+    id: "e1",
+    date: "1935-10-03",
+    title: "Italy invades Ethiopia",
+    description: "Italian forces cross the border.",
+    kind: "diplomacy",
+    warId: "war-ethiopia-1935",
+  }];
+  const started = applyWarUpdates({
+    world: { polityOverrides: {}, wars: [] },
+    updates: "war-ethiopia-1935~start~Italy~Ethiopia~1~invasion",
+    events,
+    stopDate: "1935-10-03",
+    round: 1,
+  });
+  const marked = {
+    ...started.world,
+    wars: started.world.wars.map((war) => ({ ...war, unjustAggressors: ["Italy"] })),
+  };
+  const merged = applyWarUpdates({
+    world: marked,
+    updates: "war-ethiopia-1935~goals~Italy:annex:eritrea~~~",
+    events,
+    stopDate: "1935-10-04",
+    round: 2,
+  });
+  const war = merged.wars.find((entry) => entry.id === "war-ethiopia-1935");
+  assert.deepEqual(war.unjustAggressors, ["Italy"]);
+});

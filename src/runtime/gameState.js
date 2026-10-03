@@ -3368,6 +3368,9 @@ const normalizeWorldWar = (entry, index = 0) => {
     updatedRound: Number.isFinite(Number(entry.updatedRound)) && Number(entry.updatedRound) > 0 ? Math.trunc(Number(entry.updatedRound)) : 0,
     goals: normalizeWarGoals(entry.goals),
     weariness: normalizeWeariness(entry.weariness),
+    unjustAggressors: uniquePolities(entry.unjustAggressors)
+      .slice()
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
   };
 };
 

@@ -86,6 +86,9 @@ const normalizeWar = (entry, index = 0) => {
     updatedRound: Math.max(0, Math.trunc(Number(entry.updatedRound) || 0)),
     goals: normalizeWarGoals(entry.goals),
     weariness: normalizeWeariness(entry.weariness),
+    unjustAggressors: uniquePolities(entry.unjustAggressors)
+      .slice()
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
   };
   war.title = deriveWarTitle(war);
   return war;
