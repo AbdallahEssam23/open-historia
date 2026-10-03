@@ -232,6 +232,44 @@ the breach still lands in the ledger and the events.
 
 ---
 
+## Just cause and the cost of an unjust war
+
+`src/engine/casusBelli.js` exports `deriveWarCasus`, the third branch of the
+mechanical diplomacy layer. The model does not declare a `casus belli`; the
+engine infers one from the board when a `start` record opens a war. For each
+aggressor in the start record's `actors`, it accepts the war only when the world
+already records a warrant against one of the start record's `opponents`: an
+unresolved claim on a region a defender currently holds (`world.regionClaimants`,
+with the holder read through `regionOwnerName`), or a recorded breach by a
+defender against a party the aggressor belongs to (`status: "breached"`,
+`breachedBy`, and the aggressor is not the breaker itself). The claim is checked
+before the breach, so the kind is a total function of the sets. A declared but
+false warrant is indistinguishable from no warrant: the engine asks only whether
+a true warrant exists.
+
+The runtime adapter (`src/runtime/casusBelli.js`) adds `readWarCasus` (read the
+world, canonicalize, call the engine), `applyWarCasus` (charge and mark),
+`readRecordedUnjustWars` (the wars the world already marks) and
+`buildWarCasusDigest` (a capped 6/360 block). Each causeless aggressor pays
+`UNJUST_WAR_REPUTATION_PENALTY` 15 off its `internationalReputation` (treated as
+50 when unset), and `UNJUST_WAR_RELATION_PENALTY` 25 off its relation with each
+wronged defender (created at 0 when absent), both clamped, through the shared
+`src/runtime/diplomaticCost.js:applyDiplomaticCost` that the treaty-breach cost
+also uses. The war stores the unjust aggressors in `unjustAggressors`, a sorted,
+deduped, bounded list that survives both war normalizers (a coalition's
+justified member is spared while its causeless member is marked).
+
+The turn (`gameplay.js`, `applySimulationResult`) runs the judgement in a pre-pass
+between the breach pre-pass and the obligation step, on the world the war ledger
+just merged, so a war begun this turn is judged the same turn and a breach
+declared this turn can justify it. The jump prompt (`simulateTimelineJump`) builds
+`variables.warCasus` from `readRecordedUnjustWars(bundle.world)`, and
+`buildWarLedgerDirective` prints it under `[Wars]` after the breach block. The
+interactive path is deferred, as it was for the standing obligations and the
+breach digest.
+
+---
+
 ## Library store — `src/runtime/library.js`
 
 The single source of truth for the player's **games**, **scenarios**, and which of each is active. It holds one module-scope object (`libraryState`), exposes it through a `useSyncExternalStore` subscription, and wraps every catalog mutation as an `/api/*` call that refreshes the store afterwards.
