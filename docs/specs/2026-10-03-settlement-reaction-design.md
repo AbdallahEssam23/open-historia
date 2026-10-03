@@ -215,9 +215,10 @@ turn's events, and the model narrates the price the engine already decided.
 The core's tests run under a bare `node --test` and assert:
 
 - The two constants are the declared values.
-- A settlement with both flags absent or false is byte-identical to the
-  settlement the core produced before this increment (the regression witness),
-  so a war with no recorded unjust aggressor is unchanged.
+- A settlement with both flags absent or false reproduces every field the core
+  produced before this increment, and `punitive` is `false` (the regression
+  witness), so a war with no recorded unjust aggressor settles on exactly the
+  terms it did before.
 - Legitimacy flips an even race to the just side: with equal raw scores and
   equal weariness that compels a peace, `unjustA: true` makes side B the victor
   where side A won before, and `unjustB: true` mirrors it.
@@ -225,7 +226,9 @@ The core's tests run under a bare `node --test` and assert:
   is far higher still wins.
 - The `achieved` gate is read on the raw score (Option A): an unjust side that
   plainly attained its declared aim, with no weariness compulsion, still makes a
-  peace due and still wins it.
+  peace due, so legitimacy decides that peace rather than stalling a war the side
+  has already won on the map. A raw score high enough to survive the factor still
+  wins, which the dominance case above asserts.
 - A punitive defeat doubles the reparations share and leaves the manpower cap in
   force; an unjust victor's terms are ordinary.
 - A punitive annex takes every declared target, including one the victor does
