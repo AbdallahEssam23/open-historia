@@ -711,7 +711,7 @@ Create `src/runtime/reinforcement.js`:
 //
 // Reads the world and the catalog into the pure core's plain inputs and maps the
 // result to the unit ops and the reserve draw the turn already applies.
-// Read-only: it writes nothing and imports no Game/AI module.
+// Read-only: it writes nothing and imports nothing from the game layer.
 
 import { deriveReinforcement } from "../engine/reinforcement.js";
 import { monthsBetweenDates } from "../engine/economyMath.js";
@@ -1501,7 +1501,7 @@ Confirm each of the following and report the evidence:
 - Every slice commit carries the `Co-authored-by: monkeycode-ai` trailer added by the hook.
 - No `ENGINE_VERSION` bump and no `package.json` change: `git diff <base>..HEAD -- src/runtime/economyEngine.js package.json` shows no `ENGINE_VERSION` line change and no `package.json` entry.
 - `src/engine/reinforcement.js` imports exactly `./forcePools.js` and `./economyMath.js`.
-- `src/runtime/reinforcement.js` contains no `Game/AI` reference.
+- `src/runtime/reinforcement.js` imports no `Game/AI` module: every `from "..."` specifier in it is engine or runtime. (Do not grep the raw text for the literal string, or the adapter's own header comment trips the check; assert the import specifiers, as the wiring guard's "the adapter imports no Game/AI module" test does.)
 - The only new `world.economyEngine` fields are `reinforcement` and `pendingReinforcement`.
 
 - [ ] **Step 6: Report**
