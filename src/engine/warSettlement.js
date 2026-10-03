@@ -31,6 +31,8 @@ export const MOBILIZATION_WEARINESS_DRAG = Object.freeze({
 
 export const REPARATION_SHARE = 0.25;
 export const REPARATION_MANPOWER_CAP = 1000000;
+export const UNJUST_LEGITIMACY_FACTOR = 0.75;
+export const UNJUST_REPARATION_SHARE = 0.5;
 
 const asString = (value) => String(value ?? "").trim();
 
@@ -143,6 +145,11 @@ const pickVictor = (scoreA, scoreB, wearinessA, wearinessB) => {
   return "a";
 };
 
+// A side that began the war without a recorded warrant scores at a discount: its
+// raw progress is scaled before the victor is chosen, so it loses an otherwise
+// even race. An absent flag is a just side.
+const legitimacy = (unjust) => (unjust ? UNJUST_LEGITIMACY_FACTOR : 1);
+
 // The peace, or nothing while no peace is due. The victor's declared kind, not
 // any inferred controller, decides the terms.
 export const settleWar = (input = {}) => {
@@ -161,21 +168,27 @@ export const settleWar = (input = {}) => {
     codeB = "",
     poolsA = {},
     poolsB = {},
+    unjustA = false,
+    unjustB = false,
   } = input ?? {};
 
   const goals = { a: goalFor(goalsA), b: goalFor(goalsB) };
-  const scoreA = warGoalScore({
+  const rawScoreA = warGoalScore({
     kind: goals.a.kind,
     targetRegionIds: goals.a.targetRegionIds,
     heldRegionIds: heldRegionIdsA,
     advantage: advantageA,
   });
-  const scoreB = warGoalScore({
+  const rawScoreB = warGoalScore({
     kind: goals.b.kind,
     targetRegionIds: goals.b.targetRegionIds,
     heldRegionIds: heldRegionIdsB,
     advantage: advantageB,
   });
+  // The gate reads the raw score, so a war a side has won on the map still
+  // closes; only the choice of victor weighs legitimacy.
+  const scoreA = rawScoreA * legitimacy(unjustA);
+  const scoreB = rawScoreB * legitimacy(unjustB);
 
   const wa = clamp(wearinessA, 0, 1);
   const wb = clamp(wearinessB, 0, 1);
@@ -185,8 +198,8 @@ export const settleWar = (input = {}) => {
   // nothing, so its score of 1 is satisfaction from the outset, not a reason
   // to close the war. Only an annex or reparations side at full score, or
   // weariness, forces a peace.
-  const achievedA = goals.a.kind !== "status_quo" && scoreA >= 1;
-  const achievedB = goals.b.kind !== "status_quo" && scoreB >= 1;
+  const achievedA = goals.a.kind !== "status_quo" && rawScoreA >= 1;
+  const achievedB = goals.b.kind !== "status_quo" && rawScoreB >= 1;
 
   let victor;
   let capitulation = false;
@@ -206,6 +219,8 @@ export const settleWar = (input = {}) => {
   }
 
   const loser = victor === "a" ? "b" : "a";
+  // The unjust side is the mark the casus layer wrote; only its defeat is punished.
+  const punitive = Boolean(loser === "a" ? unjustA : unjustB);
   const heldSource = victor === "a" ? heldRegionIdsA : heldRegionIdsB;
   const heldVictor = new Set(
     (Array.isArray(heldSource) ? heldSource : []).map(asString).filter(Boolean),
@@ -225,7 +240,7 @@ export const settleWar = (input = {}) => {
       // compelled peace takes only the declared targets already held. The
       // transfer is legal, so it runs loser to victor regardless of who
       // currently sits in the region.
-      if (capitulation || heldVictor.has(regionId)) {
+      if (capitulation || punitive || heldVictor.has(regionId)) {
         transfers.push({ regionId, fromCode: codeLoser, toCode: codeVictor });
       }
     }
@@ -234,13 +249,14 @@ export const settleWar = (input = {}) => {
   let reparations = { fromCode: "", toCode: "", manpower: 0, materiel: 0 };
   if (victorKind === "reparations") {
     const pools = (victor === "a" ? poolsB : poolsA) ?? {};
+    const share = punitive ? UNJUST_REPARATION_SHARE : REPARATION_SHARE;
     const manpower = Math.min(
       REPARATION_MANPOWER_CAP,
-      Math.max(0, roundTo(Math.max(0, Number(pools.manpower) || 0) * REPARATION_SHARE, 0)),
+      Math.max(0, roundTo(Math.max(0, Number(pools.manpower) || 0) * share, 0)),
     );
     const materiel = Math.max(
       0,
-      roundTo(Math.max(0, Number(pools.materiel) || 0) * REPARATION_SHARE, 2),
+      roundTo(Math.max(0, Number(pools.materiel) || 0) * share, 2),
     );
     reparations = { fromCode: codeLoser, toCode: codeVictor, manpower, materiel };
   }
@@ -252,6 +268,7 @@ export const settleWar = (input = {}) => {
     loser,
     capitulation,
     white: transfers.length === 0 && reparations.manpower === 0 && reparations.materiel === 0,
+    punitive,
     transfers,
     reparations,
   };

@@ -5,6 +5,8 @@ import {
   MOBILIZATION_WEARINESS_DRAG,
   REPARATION_MANPOWER_CAP,
   REPARATION_SHARE,
+  UNJUST_LEGITIMACY_FACTOR,
+  UNJUST_REPARATION_SHARE,
   WAR_GOAL_KINDS,
   WEARINESS_CAPITULATION,
   WEARINESS_COMPEL,
@@ -300,4 +302,160 @@ test("settleWar is deterministic: the same input is byte-identical", () => {
     { regionId: "r1", fromCode: "B", toCode: "A" },
     { regionId: "r2", fromCode: "B", toCode: "A" },
   ]);
+});
+
+test("the unjust-war constants are the declared values", () => {
+  assert.equal(UNJUST_LEGITIMACY_FACTOR, 0.75);
+  assert.equal(UNJUST_REPARATION_SHARE, 0.5);
+});
+
+test("a war with no unjust flag settles on exactly the terms it did before", () => {
+  const input = baseWar({
+    wearinessB: WEARINESS_CAPITULATION,
+    goalsA: { kind: "annex", targetRegionIds: ["r1", "r2"], note: "" },
+    heldRegionIdsA: ["r1"],
+  });
+  const absent = settleWar(input);
+  const explicit = settleWar({ ...input, unjustA: false, unjustB: false });
+  assert.equal(absent.punitive, false);
+  assert.equal(JSON.stringify(absent), JSON.stringify(explicit));
+  // The pre-existing fields this increment must not move:
+  assert.equal(absent.key, "war-1|1915-01-01|a|b");
+  assert.equal(absent.victor, "a");
+  assert.equal(absent.loser, "b");
+  assert.equal(absent.capitulation, true);
+  assert.equal(absent.white, false);
+  assert.deepEqual(absent.transfers, [
+    { regionId: "r1", fromCode: "B", toCode: "A" },
+    { regionId: "r2", fromCode: "B", toCode: "A" },
+  ]);
+});
+
+test("legitimacy flips an even race to the just side", () => {
+  const reparations = { kind: "reparations", targetRegionIds: [], note: "" };
+  const even = baseWar({
+    wearinessA: WEARINESS_COMPEL,
+    wearinessB: WEARINESS_COMPEL,
+    advantageA: 0.5,
+    advantageB: 0.5,
+    goalsA: reparations,
+    goalsB: reparations,
+  });
+  assert.equal(settleWar(even).victor, "a", "the tie defaults to side A");
+  assert.equal(settleWar({ ...even, unjustA: true }).victor, "b");
+  assert.equal(settleWar({ ...even, unjustB: true }).victor, "a");
+});
+
+test("legitimacy does not overturn a clear dominance", () => {
+  const reparations = { kind: "reparations", targetRegionIds: [], note: "" };
+  const out = settleWar(baseWar({
+    wearinessA: WEARINESS_COMPEL,
+    wearinessB: 0.1,
+    advantageA: 0.9,
+    advantageB: 0.1,
+    goalsA: reparations,
+    goalsB: reparations,
+    unjustA: true,
+  }));
+  // 0.9 * 0.75 = 0.675 still beats 0.1.
+  assert.equal(out.victor, "a");
+  assert.equal(out.punitive, false);
+});
+
+test("the achieved gate reads the raw score, so an unjust winner still closes the war", () => {
+  const out = settleWar(baseWar({
+    goalsA: { kind: "annex", targetRegionIds: ["r1"], note: "" },
+    goalsB: { kind: "annex", targetRegionIds: ["r2"], note: "" },
+    heldRegionIdsA: ["r1"],
+    unjustA: true,
+  }));
+  assert.ok(out, "the war closes although the factor lowers the winner's effective score");
+  assert.equal(out.victor, "a");
+  assert.equal(out.punitive, false, "an unjust side that wins is not punished");
+  assert.deepEqual(out.transfers, [{ regionId: "r1", fromCode: "B", toCode: "A" }]);
+});
+
+test("a punitive defeat takes the unjust share under the unchanged cap", () => {
+  const reparations = { kind: "reparations", targetRegionIds: [], note: "" };
+  const defeat = baseWar({
+    wearinessB: WEARINESS_CAPITULATION,
+    goalsA: reparations,
+    codeA: "FR",
+    codeB: "DE",
+    poolsB: { manpower: 4000000, materiel: 100 },
+    unjustB: true,
+  });
+  const punished = settleWar(defeat);
+  assert.equal(punished.victor, "a");
+  assert.equal(punished.punitive, true);
+  assert.deepEqual(punished.reparations, {
+    fromCode: "DE",
+    toCode: "FR",
+    manpower: REPARATION_MANPOWER_CAP,
+    materiel: 50,
+  });
+
+  const ordinary = settleWar({ ...defeat, unjustB: false });
+  assert.equal(ordinary.punitive, false);
+  assert.deepEqual(ordinary.reparations, {
+    fromCode: "DE",
+    toCode: "FR",
+    manpower: REPARATION_MANPOWER_CAP,
+    materiel: 25,
+  });
+});
+
+test("an unjust victor takes its ordinary terms", () => {
+  const reparations = { kind: "reparations", targetRegionIds: [], note: "" };
+  const out = settleWar(baseWar({
+    wearinessB: WEARINESS_CAPITULATION,
+    goalsA: reparations,
+    codeA: "FR",
+    codeB: "DE",
+    poolsB: { manpower: 4000000, materiel: 100 },
+    unjustA: true,
+  }));
+  assert.equal(out.victor, "a");
+  assert.equal(out.punitive, false);
+  assert.deepEqual(out.reparations, {
+    fromCode: "DE",
+    toCode: "FR",
+    manpower: REPARATION_MANPOWER_CAP,
+    materiel: 25,
+  });
+});
+
+test("a punitive annex takes every declared target, held or not", () => {
+  const goalsA = { kind: "annex", targetRegionIds: ["r1", "r2"], note: "" };
+  const goalsB = { kind: "annex", targetRegionIds: ["r9"], note: "" };
+  const compelled = baseWar({
+    wearinessA: WEARINESS_COMPEL,
+    wearinessB: 0.1,
+    goalsA,
+    goalsB,
+    heldRegionIdsA: ["r2"],
+  });
+  assert.deepEqual(settleWar(compelled).transfers, [
+    { regionId: "r2", fromCode: "B", toCode: "A" },
+  ]);
+  assert.deepEqual(settleWar({ ...compelled, unjustB: true }).transfers, [
+    { regionId: "r1", fromCode: "B", toCode: "A" },
+    { regionId: "r2", fromCode: "B", toCode: "A" },
+  ]);
+});
+
+test("punitive is true exactly when the unjust side lost", () => {
+  const reparations = { kind: "reparations", targetRegionIds: [], note: "" };
+  const loses = settleWar(baseWar({
+    wearinessB: WEARINESS_CAPITULATION,
+    goalsA: reparations,
+    unjustB: true,
+  }));
+  assert.equal(loses.punitive, true);
+  const wins = settleWar(baseWar({
+    wearinessB: WEARINESS_CAPITULATION,
+    goalsA: reparations,
+    unjustA: true,
+  }));
+  assert.equal(wins.punitive, false);
 });
