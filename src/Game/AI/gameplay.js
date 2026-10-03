@@ -32,6 +32,7 @@ import {
 } from "../../runtime/warSettlement.js";
 import { readSupplyAttrition } from "../../runtime/supplyAttrition.js";
 import { readReinforcement, readReinforcementPolicies } from "../../runtime/reinforcement.js";
+import { applyTreatyJoins, readTreatyObligations } from "../../runtime/treatyObligations.js";
 import { buildUnitDirectorInput, directGeneratedUnitOps } from "./nativeUnitDirector.js";
 import { buildTerritoryDirectorInput, directGeneratedTerritoryOps } from "./nativeTerritoryDirector.js";
 import { expandWholeCountryTransfer, wholeCountrySourceToken } from "./territoryTransferScope.js";
@@ -6941,6 +6942,28 @@ const applySimulationResult = async ({
     resolveRegion: regionResolver.resolve,
   });
   worldWithImpacts = warMerge.world;
+  // Treaty obligations: an active alliance, mutual defense or guarantee draws a
+  // non-player party into a war the engine already tracks. It runs on the world
+  // this turn's warUpdates just produced, so a war opened now drags its allies
+  // now, and before the reparations so the join is visible to everything later
+  // in the turn. A failure here must never lose a completed turn.
+  try {
+    const obligationOutcome = readTreatyObligations(worldWithImpacts, {
+      playerPolity: normalizeString(baseGame.country),
+    });
+    if (obligationOutcome.joins.length) {
+      worldWithImpacts = applyTreatyJoins(worldWithImpacts, obligationOutcome.joins, {
+        date: nextGame.gameDate,
+        round: nextGame.round,
+      });
+      logDebugEvent("turn", `Treaty obligations drew ${obligationOutcome.summary.joined} polity(ies) into active war(s).`, {
+        joined: obligationOutcome.summary.joined,
+        rejected: obligationOutcome.summary.rejected,
+      });
+    }
+  } catch (error) {
+    console.warn("[engine] the treaty obligation step failed; the completed turn is preserved.", error);
+  }
   // Reparations move real reserves, so they are paid once the war is closed and
   // the peace event's transfers have already landed.
   worldWithImpacts = applyWarReparations(worldWithImpacts, dueSettlements);
