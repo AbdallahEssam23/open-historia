@@ -173,6 +173,24 @@ test("the per-step join cap truncates the derivation and reports it", () => {
   assert.equal(out.summary.truncated, true);
 });
 
+test("reaching the standing cap never abandons the derivation", () => {
+  const honored = Array.from({ length: 140 }, (_, i) => ({
+    id: `h${String(i).padStart(3, "0")}`,
+    type: "alliance",
+    status: "active",
+    parties: ["A", "B"],
+  }));
+  const out = deriveTreatyObligations({
+    wars: [
+      { id: "w1", status: "active", aggressor: "a", sideA: ["A", "B"], sideB: ["Z"] },
+      { id: "w2", status: "active", aggressor: "a", sideA: ["A2"], sideB: ["B2"] },
+    ],
+    agreements: [...honored, { id: "drag", type: "alliance", status: "active", parties: ["A2", "C2"] }],
+  });
+  assert.equal(out.standing.length, 128, "standing is bounded");
+  assert.deepEqual(out.joins, [{ warId: "w2", side: "a", polity: "C2", viaAgreementId: "drag" }]);
+});
+
 test("the pass cap bounds an alliance chain", () => {
   const agreements = [];
   let previous = "A";
@@ -313,6 +331,9 @@ export const deriveTreatyObligations = ({ wars = [], agreements = [] } = {}) => 
     for (const side of ["a", "b"]) {
       const memberKeys = new Set(sides[side].keys());
       for (const agreement of sortedAgreements) {
+        // Standing is a descriptive read: reaching its cap stops the rows, never
+        // the derivation, so a later war still gets its joins.
+        if (standing.length >= MAX_STANDING_OBLIGATIONS) break;
         const type = asString(agreement?.type);
         const parties = partiesOf(agreement);
         const relevant = type === "guarantee"
@@ -327,12 +348,9 @@ export const deriveTreatyObligations = ({ wars = [], agreements = [] } = {}) => 
             agreementType: type,
             polities: onSide,
           });
-          if (standing.length >= MAX_STANDING_OBLIGATIONS) break;
         }
       }
-      if (standing.length >= MAX_STANDING_OBLIGATIONS) break;
     }
-    if (standing.length >= MAX_STANDING_OBLIGATIONS) break;
 
     let pass = 0;
     while (pass < MAX_OBLIGATION_PASSES) {
@@ -378,10 +396,6 @@ export const deriveTreatyObligations = ({ wars = [], agreements = [] } = {}) => 
       proposals.sort((a, b) => compareText(keyOf(a.polity), keyOf(b.polity)));
       const applied = [];
       for (const proposal of proposals) {
-        if (joins.length + applied.length >= MAX_TREATY_JOINS_PER_STEP) {
-          truncated = true;
-          break;
-        }
         const key = keyOf(proposal.polity);
         const other = proposal.side === "a" ? "b" : "a";
         if (sides[proposal.side].has(key)) continue;
@@ -392,6 +406,12 @@ export const deriveTreatyObligations = ({ wars = [], agreements = [] } = {}) => 
         if (sides[proposal.side].size >= MAX_WAR_SIDE) {
           rejections.push({ warId, side: proposal.side, polity: proposal.polity, agreementId: proposal.agreementId, reason: "side-full" });
           continue;
+        }
+        // Only a proposal that would actually be applied counts against the cap,
+        // so a run of no-ops or rejects never flags a truncation.
+        if (joins.length + applied.length >= MAX_TREATY_JOINS_PER_STEP) {
+          truncated = true;
+          break;
         }
         sides[proposal.side].set(key, proposal.polity);
         applied.push({ warId, side: proposal.side, polity: proposal.polity, viaAgreementId: proposal.agreementId });

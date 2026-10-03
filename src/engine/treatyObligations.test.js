@@ -173,3 +173,21 @@ test("reordering wars, agreements and parties never changes the result", () => {
   });
   assert.deepEqual(second, first);
 });
+
+test("reaching the standing cap never abandons the derivation", () => {
+  const honored = Array.from({ length: 140 }, (_, i) => ({
+    id: `h${String(i).padStart(3, "0")}`,
+    type: "alliance",
+    status: "active",
+    parties: ["A", "B"],
+  }));
+  const out = deriveTreatyObligations({
+    wars: [
+      { id: "w1", status: "active", aggressor: "a", sideA: ["A", "B"], sideB: ["Z"] },
+      { id: "w2", status: "active", aggressor: "a", sideA: ["A2"], sideB: ["B2"] },
+    ],
+    agreements: [...honored, { id: "drag", type: "alliance", status: "active", parties: ["A2", "C2"] }],
+  });
+  assert.equal(out.standing.length, 128, "standing is bounded");
+  assert.deepEqual(out.joins, [{ warId: "w2", side: "a", polity: "C2", viaAgreementId: "drag" }]);
+});
