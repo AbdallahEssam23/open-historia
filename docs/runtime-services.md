@@ -107,6 +107,41 @@ front line and a front-line loss can never disagree. The pure core is
 
 ---
 
+## Reinforcement and rotation - `src/runtime/reinforcement.js`
+
+`readReinforcement(world, catalog, { fromDate, toDate, rotations, merges })`
+derives which in-supply formations buy their strength back this period and how a
+declared rotation or merge reshapes the roster, as a pure read applied through
+the turn's existing unit-op seam. It reads the supply states of part two
+(`src/runtime/supplyAttrition.js`) so a formation can never be reinforced in one
+layer and cut off in the other. The pure core is `src/engine/reinforcement.js`.
+
+- **The policy** is declared per polity and takes effect from the next period,
+  exactly as the mobilization posture does: the policy in force is the committed
+  one (`economyEngine.reinforcement`) overridden by last turn's pending
+  declaration (`economyEngine.pendingReinforcement`). `none` reinforces nobody,
+  `replacements` (the default) tops up every in-supply formation weakest first,
+  and `belligerent` only the formations of a polity on a side of an active war.
+- **The reserve draw** buys strength at the same per-point price a battle charges
+  (`UNIT_UPKEEP` times `REINFORCEMENT_POOL_FACTOR`, which a test pins to the
+  combat factor). It is bounded by the period, at
+  `REINFORCEMENT_RATE_PER_MONTH` points per whole month; by full strength; and by
+  what the pools can afford, with the same absolute zero floor. A cut-off
+  formation cannot be reinforced.
+- **Rotation** moves a fresh formation into an exhausted same-type formation's
+  station and the exhausted one back, as two ordinary move ops emitted from one
+  validated order. Both must be in supply and on different regions; both moves
+  arrive in the same turn. **Merging** folds two friend formations of one type on
+  one region into one, capped at full strength, and removes the absorbed one; it
+  needs no supply predicate, so an isolated pair may merge.
+- **The turn** applies the ops in `applySimulationResult`, immediately after the
+  supply attrition step and before the war settlements and the economy, as a
+  board-only synthetic event, and charges the reserve draw through the same
+  reserve-charge path the combat cost uses. A formation named by a rotation or a
+  merge is not reinforced that turn.
+
+---
+
 ## Library store — `src/runtime/library.js`
 
 The single source of truth for the player's **games**, **scenarios**, and which of each is active. It holds one module-scope object (`libraryState`), exposes it through a `useSyncExternalStore` subscription, and wraps every catalog mutation as an `/api/*` call that refreshes the store afterwards.
