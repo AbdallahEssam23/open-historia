@@ -160,6 +160,40 @@ the engine already computed.
 
 ---
 
+## Treaty obligations - `src/runtime/treatyObligations.js`
+
+`readTreatyObligations(world, { playerPolity })` reads `world.wars` and
+`world.agreements`, resolves every war polity and agreement party into one
+canonical key space, and calls the pure core
+`src/engine/treatyObligations.js` (`deriveTreatyObligations`). An active
+`alliance` drags a party onto the side of any fighting partner, offensive or
+defensive; an active `mutual_defense` or `guarantee` pulls the protector in only
+when the protected party was a victim of a war it did not begin. A war records
+which side began it in `aggressor` (`"a"` or `"b"`, default `"a"`, set by the
+`start` op in `nativeWarLedger.js`), because a mutual defense cannot tell an
+attack from an aggression without it. Joins are applied to the fixed point:
+alliances chain, defensive joins do not. Every cap is explicit -
+`MAX_WAR_SIDE` (12), `MAX_TREATY_JOINS_PER_STEP` (32), `MAX_OBLIGATION_PASSES`
+(8) - and a refused join is recorded with a reason (`already-opposed` or
+`side-full`) rather than dropped silently.
+
+`applyTreatyJoins(world, joins, { date, round })` writes the admitted joins back
+as a new normalized world, growing the named side and stamping the date and
+round; it returns the same world for an empty join list. The turn runs both in
+`src/Game/AI/gameplay.js` (`applySimulationResult`) immediately after its own
+`warUpdates` merge and before the reparations, so a war opened this turn drags
+its allies this turn. The player's own polity is never joined; another power's
+alliance with the player, or against the player, still fires.
+
+`buildTreatyObligationDigest({ standing, cap, charCap })` renders the links the
+world already realizes as one capped ASCII block the jump prompt shows through
+`buildWarLedgerDirective`. The row cap is `TREATY_ROW_CAP` (6) and the character
+cap `TREATY_CHAR_CAP` (360), mirroring the economy and operations digests.
+Nothing is stored beyond `aggressor`, and no declaration schema changes: the
+model narrates what the engine enforced.
+
+---
+
 ## Library store — `src/runtime/library.js`
 
 The single source of truth for the player's **games**, **scenarios**, and which of each is active. It holds one module-scope object (`libraryState`), exposes it through a `useSyncExternalStore` subscription, and wraps every catalog mutation as an `/api/*` call that refreshes the store afterwards.
