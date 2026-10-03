@@ -1507,3 +1507,68 @@ Confirm each of the following and report the evidence:
 - [ ] **Step 6: Report**
 
 Write a short pass/fail report to `.superpowers/sdd/slice-7c-gate.md` (the ignored SDD directory, so the gate adds no slice commit) with the exact commands, counts and any pre-existing warnings. Do not commit this report.
+
+---
+
+### Task 8: Producer-side wiring and core hardening (final-review fixes)
+
+**Why this task exists.** The whole-slice review found that Tasks 1-7 wired only the
+consumer side of the declaration: `readReinforcement` reads `result.rotations`,
+`result.merges` and `result.reinforcement`, but nothing ever populated those keys.
+`mergeSegmentPayloads` (`src/Game/AI/jumpSegments.js`) collects the shocks, the
+mobilization and the production orders and drops the three new fields, and
+`finishTimelineJump` (`src/Game/AI/gameplay.js`) assembles the turn `result`
+field-by-field and omits them too. So every declaration was silently discarded and
+the feature was inert, while every consumer test stayed green: the same class of
+regression the mobilization and production wiring guards exist to catch. The review
+also found two core gaps and a docs inaccuracy.
+
+**Files:**
+- Modify: `src/Game/AI/jumpSegments.js` (collect, fold and return the three fields)
+- Modify: `src/Game/AI/gameplay.js` (carry the three fields into `result`)
+- Modify: `src/engine/reinforcement.js` (garrison rotation, the caps, a named region)
+- Modify: `src/engine/reinforcement.test.js`, `src/Game/AI/jumpSegments.test.js`, `src/runtime/reinforcementWiringArchitecture.test.js`
+- Modify: `docs/runtime-services.md` (the price formula and the "accepted order" wording)
+
+- [ ] **Step 1: Carry the declarations through the merge and the result.**
+
+In `mergeSegmentPayloads`, mirror the mobilization handling: collect
+`reinforcement` (fold one entry per polity, last segment winning, skipping a
+malformed or unknown policy so it cannot erase a valid earlier one, using a
+`REINFORCEMENT_POLICIES` set imported from `../../engine/reinforcement.js`),
+concatenate `rotations` and `merges`, and return all three. In the `result` object
+in `finishTimelineJump`, add `reinforcement: merged.reinforcement`,
+`rotations: merged.rotations`, `merges: merged.merges` beside `productionOrders`,
+with the same comment reason the mobilization line carries.
+
+- [ ] **Step 2: Harden the core.**
+
+In `rotationRejection`, reject a rotation whose either formation is a garrison
+(the unit seam refuses to move garrisons, so the swap would be reported but never
+applied) and require both formations to carry a non-empty `regionId` (an empty
+counterpart id would emit a move whose falsy `regionId` falls back to the mover's
+old region in `applyUnitOpBatch`). Cap the processed orders: never process more
+than `MAX_ROTATIONS` rotations or `MAX_MERGES` merges, and record the overflow as
+a rejection so declared and applied state stay consistent.
+
+- [ ] **Step 3: Correct the docs.**
+
+In `docs/runtime-services.md`, write the price as `UNIT_UPKEEP` times
+`REINFORCEMENT_POOL_FACTOR` divided by 100, and change "a formation named by a
+rotation or a merge is not reinforced" to "a formation named by an accepted
+rotation or merge is not reinforced".
+
+- [ ] **Step 4: Cover the propagation.**
+
+Add a `jumpSegments.test.js` case that the merge carries the three fields (policy
+folded one per polity, last winning; rotations and merges concatenated), and
+extend the wiring guard so a field-by-field `result` regression fails a test, in
+the spirit of `forceWiringArchitecture.test.js`. Add core tests for the garrison
+rejection, the named-region requirement and the caps.
+
+- [ ] **Step 5: Verify and commit.**
+
+Run `node --test src/engine/reinforcement.test.js`,
+`node --test src/Game/AI/jumpSegments.test.js`,
+`node --test "src/engine/*.test.js"` and `node --test "src/runtime/*.test.js"`,
+then `npx eslint` on the changed files. Commit with a conventional prefix.
