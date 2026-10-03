@@ -31,6 +31,7 @@ import {
   resolveWarSettlements,
 } from "../../runtime/warSettlement.js";
 import { readSupplyAttrition } from "../../runtime/supplyAttrition.js";
+import { readReinforcement } from "../../runtime/reinforcement.js";
 import { buildUnitDirectorInput, directGeneratedUnitOps } from "./nativeUnitDirector.js";
 import { buildTerritoryDirectorInput, directGeneratedTerritoryOps } from "./nativeTerritoryDirector.js";
 import { expandWholeCountryTransfer, wholeCountrySourceToken } from "./territoryTransferScope.js";
@@ -1419,6 +1420,9 @@ const WORLD_SIMULATION_HISTORICAL_ANCHOR_MAX_ITEMS = 18;
 const RESEARCH_EVENT_ID = "engine-research";
 // The board-only carrier for supply attrition, beside the research carrier.
 const SUPPLY_ATTRITION_EVENT_ID = "engine-supply-attrition";
+// The board-only carrier for reinforcement and consolidation, beside the
+// supply and research carriers.
+const REINFORCEMENT_EVENT_ID = "engine-reinforcement";
 
 // The deterministic engine owns the standard economy, so the periodic AI stats
 // batch would be a second writer of the same fields. Kept as a named switch
@@ -6819,6 +6823,46 @@ const applySimulationResult = async ({
   } catch (error) {
     console.warn("[engine] the supply attrition step failed; the completed turn is preserved.", error);
   }
+  // Reinforcement and consolidation: a formation in supply buys its strength
+  // back from its polity's reserves, a worn formation rotates out for a fresh
+  // one, and two weak formations of a type fold into one. It runs on the world
+  // the battles and attrition have just reshaped and BEFORE the war settlements
+  // and the economy, so the draw competes with the reparations and the
+  // production queue for the same reserves. The ops travel the one unit path as
+  // a board-only synthetic event, exactly as the attrition and the production
+  // completions do. A failure here must never lose a completed turn; a skipped
+  // period is lost, not repaired later.
+  try {
+    const reinforcement = readReinforcement(impactedWorld, getPrimedScenarioRegionCatalog() ?? [], {
+      fromDate: baseGame.gameDate || "",
+      toDate: nextGame.gameDate || "",
+      rotations: normalizeArray(result.rotations),
+      merges: normalizeArray(result.merges),
+    });
+    if (reinforcement.ops.length) {
+      const applied = applyEventImpactsToWorld({
+        colors: nextColors,
+        events: [{
+          id: REINFORCEMENT_EVENT_ID,
+          date: nextGame.gameDate || "",
+          title: "Reinforcement and rotation",
+          description: "",
+          impacts: { unitOps: reinforcement.ops },
+        }],
+        world: impactedWorld,
+        engineSourced: true,
+        boardOnlyEventIds: [REINFORCEMENT_EVENT_ID],
+      });
+      impactedWorld = applied.world;
+      nextColors = applied.colors;
+    }
+    impactedWorld = applyCombatReserveCost(impactedWorld, reinforcement.reserveCost);
+    logDebugEvent("turn", `Reinforcement restored ${reinforcement.summary.pointsRestored} point(s) to ${reinforcement.summary.reinforced} formation(s); ${reinforcement.summary.rotations} rotation(s), ${reinforcement.summary.merges} merge(s).`, {
+      rejected: reinforcement.summary.rejected,
+    });
+  } catch (error) {
+    console.warn("[engine] the reinforcement step failed; the completed turn is preserved.", error);
+  }
   // A polity renamed this turn — by an event's polityChanges, or a record whose
   // display name still differed from its key — is re-keyed everywhere the world
   // state does not carry: the game's own polity, the queued orders, the chats
@@ -7386,6 +7430,9 @@ const applySimulationResult = async ({
       declaredShocks: normalizeArray(result.economicShocks),
       // Declared mobilizations run NEXT period, exactly like the shocks.
       declaredMobilization: normalizeArray(result.mobilization),
+      // Declared reinforcement policies run NEXT period, exactly like the
+      // posture and the shocks.
+      declaredReinforcement: normalizeArray(result.reinforcement),
       declaredProduction: normalizeArray(result.productionOrders),
       upkeep: buildUpkeepTable(baseWorld),
       // Canonicalised for the same reason as the digest dry run: the engine keys
