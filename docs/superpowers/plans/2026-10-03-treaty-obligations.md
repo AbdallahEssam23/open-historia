@@ -439,7 +439,7 @@ git commit -m "feat(engine): derive treaty obligations from wars and agreements"
 
 **Files:**
 - Modify: `src/runtime/gameState.js` (the `normalizeWorldWar` return, around line 3353)
-- Modify: `src/Game/AI/nativeWarLedger.js` (the `normalizeWar` return around line 71, the `start` op around line 300, and `WAR_LEDGER_VERSION` around line 17)
+- Modify: `src/Game/AI/nativeWarLedger.js` (the `normalizeWar` return around line 71, the `start` op around line 300, and `WAR_LEDGER_VERSION` around line 15)
 - Test: `src/runtime/gameState.ledgers.test.js`
 - Test: `src/Game/AI/warLedger.test.js`
 
@@ -574,7 +574,7 @@ Expected: PASS.
 - [ ] **Step 6: Run the runtime and AI suites for regressions**
 
 Run: `node --test "src/runtime/*.test.js"` and `node --test "src/Game/AI/*.test.js"`
-Expected: PASS. A war-record `deepEqual` test that predated the field now fails because the stored shape intentionally changed; update only that assertion to include `aggressor: "a"` and note it in the commit. Nothing else is edited.
+Expected: PASS. If, and only if, a pre-existing war-record assertion fails because the stored shape intentionally changed, update only that assertion to include `aggressor: "a"` and note it in the commit. Do not go looking for one; nothing else is edited.
 
 - [ ] **Step 7: Commit**
 
@@ -671,6 +671,11 @@ test("the digest orders rows, caps them and reports the overflow", () => {
   assert.equal(block.split("\n").length, 8, "a header, six rows and one overflow line");
   assert.match(block, /\+2 more\./);
   assert.equal(buildTreatyObligationDigest({ standing: [] }), "");
+  assert.equal(
+    buildTreatyObligationDigest({ standing, cap: 6, charCap: 60 }),
+    "[Treaty Obligations, as simulated]\n+2 more.",
+    "the character cap drops whole rows on a line boundary",
+  );
 });
 
 test("every obligating type is one the world normalizer recognizes", () => {
@@ -962,6 +967,7 @@ test("the war directive prints the obligations digest the jump prompt builds", (
   const end = gameplay.indexOf("\n};", start);
   const body = gameplay.slice(start, end);
   assert.match(body, /treatyObligations/, "the directive does not read the obligations");
+  assert.match(body, /A treaty is not narrative/, "the directive does not state the engine obeys the treaty");
   assert.ok(gameplay.indexOf("variables.treatyObligations =") > 0, "the jump prompt never sets variables.treatyObligations");
 });
 ```

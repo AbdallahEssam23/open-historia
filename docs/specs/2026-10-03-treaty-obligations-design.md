@@ -328,9 +328,9 @@ silently drop the wiring.
 
 `src/runtime/gameState.ledgers.test.js` gains the `aggressor` cases: a war
 without the field normalizes to `"a"`, an explicit `"b"` survives, and `"a"`
-survives a round trip. `src/Game/AI/diplomaticLedger.test.js` gains the `start`
-op assertion that a started war carries `aggressor: "a"` and that
-`WAR_LEDGER_VERSION` was bumped.
+survives a round trip. `src/Game/AI/warLedger.test.js`, which owns
+`applyWarUpdates`, gains the `start` op assertion that a started war carries
+`aggressor: "a"` and that a war written with `"b"` keeps it.
 
 `src/engine/enginePurity.test.js` covers the new engine module unchanged (no
 imports, no clock, no randomness). The model's own behavior cannot be gated here
