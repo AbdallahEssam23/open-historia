@@ -3,8 +3,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   MAX_OBLIGATION_PASSES,
+  MAX_TREATY_BREACHES_PER_TURN,
   MAX_TREATY_JOINS_PER_STEP,
   MAX_WAR_SIDE,
+  deriveTreatyBreaches,
   deriveTreatyObligations,
 } from "./treatyObligations.js";
 
@@ -216,4 +218,132 @@ test("an inadmissible polity already on a side still drags its alliance partners
     inadmissible: ["C"],
   });
   assert.deepEqual(out.joins, [{ warId: "w1", side: "a", polity: "D", viaAgreementId: "a1" }]);
+});
+
+test("an alliance breach is accepted and names the fighting partner as wronged", () => {
+  const out = deriveTreatyBreaches({
+    wars: [war()],
+    agreements: [agreement({ parties: ["A", "C"] })],
+    breaches: [{ agreementId: "a1", polity: "C" }],
+  });
+  assert.deepEqual(out.breaches, [
+    { agreementId: "a1", agreementType: "alliance", polity: "C", warIds: ["w1"], wrongedPolities: ["A"] },
+  ]);
+  assert.deepEqual(out.rejected, []);
+  assert.equal(out.summary.accepted, 1);
+});
+
+test("a breach of an agreement that binds no one is rejected no-active-obligation", () => {
+  // Z and C are both parties, but neither is on a war side, so the alliance
+  // binds C to nothing: there is no join for the breach to block.
+  const out = deriveTreatyBreaches({
+    wars: [war()],
+    agreements: [agreement({ id: "a1", type: "alliance", parties: ["Z", "C"] })],
+    breaches: [{ agreementId: "a1", polity: "C" }],
+  });
+  assert.deepEqual(out.breaches, []);
+  assert.deepEqual(out.rejected, [{ agreementId: "a1", polity: "C", reason: "no-active-obligation" }]);
+});
+
+test("a breached agreement binds no one in the join derivation", () => {
+  // The pre-pass marks the pact breached before the obligation step reads it:
+  // the same pact that would have drawn C in now draws nobody.
+  const out = deriveTreatyObligations({
+    wars: [war()],
+    agreements: [agreement({ status: "breached" })],
+  });
+  assert.deepEqual(out.joins, []);
+});
+
+test("a mutual defense breach is accepted only for the victim's protector", () => {
+  const defense = deriveTreatyBreaches({
+    wars: [war()],
+    agreements: [agreement({ type: "mutual_defense", parties: ["B", "C"] })],
+    breaches: [{ agreementId: "a1", polity: "C" }],
+  });
+  assert.deepEqual(defense.breaches, [
+    { agreementId: "a1", agreementType: "mutual_defense", polity: "C", warIds: ["w1"], wrongedPolities: ["B"] },
+  ]);
+
+  // The aggressor's protector is not a victim, so it has nothing to refuse.
+  const aggressor = deriveTreatyBreaches({
+    wars: [war()],
+    agreements: [agreement({ type: "mutual_defense", parties: ["A", "C"] })],
+    breaches: [{ agreementId: "a1", polity: "C" }],
+  });
+  assert.deepEqual(aggressor.breaches, []);
+  assert.deepEqual(aggressor.rejected, [{ agreementId: "a1", polity: "C", reason: "no-active-obligation" }]);
+});
+
+test("a guarantee breach names the beneficiary as wronged", () => {
+  const out = deriveTreatyBreaches({
+    wars: [war()],
+    agreements: [agreement({ type: "guarantee", parties: ["B", "G"], guarantor: "G", beneficiary: "B" })],
+    breaches: [{ agreementId: "a1", polity: "G" }],
+  });
+  assert.deepEqual(out.breaches, [
+    { agreementId: "a1", agreementType: "guarantee", polity: "G", warIds: ["w1"], wrongedPolities: ["B"] },
+  ]);
+});
+
+test("a breach with a missing, inactive, or non-party target is rejected", () => {
+  const missing = deriveTreatyBreaches({
+    wars: [war()],
+    agreements: [],
+    breaches: [{ agreementId: "a1", polity: "C" }],
+  });
+  assert.deepEqual(missing.rejected, [{ agreementId: "a1", polity: "C", reason: "agreement-missing" }]);
+
+  const inactive = deriveTreatyBreaches({
+    wars: [war()],
+    agreements: [agreement({ status: "suspended" })],
+    breaches: [{ agreementId: "a1", polity: "C" }],
+  });
+  assert.deepEqual(inactive.rejected, [{ agreementId: "a1", polity: "C", reason: "agreement-inactive" }]);
+
+  const stranger = deriveTreatyBreaches({
+    wars: [war()],
+    agreements: [agreement({ parties: ["A", "C"] })],
+    breaches: [{ agreementId: "a1", polity: "Z" }],
+  });
+  assert.deepEqual(stranger.rejected, [{ agreementId: "a1", polity: "Z", reason: "not-a-party" }]);
+
+  const nonObligating = deriveTreatyBreaches({
+    wars: [war()],
+    agreements: [agreement({ type: "trade_economic", parties: ["A", "C"] })],
+    breaches: [{ agreementId: "a1", polity: "C" }],
+  });
+  assert.deepEqual(nonObligating.rejected, [{ agreementId: "a1", polity: "C", reason: "agreement-missing" }]);
+});
+
+test("the per-turn breach cap accepts the limit and rejects the rest cap-reached", () => {
+  const wars = [war()];
+  const agreements = Array.from({ length: MAX_TREATY_BREACHES_PER_TURN + 2 }, (_, i) => agreement({
+    id: `a${String(i).padStart(3, "0")}`,
+    parties: ["A", `C${i}`],
+  }));
+  const breaches = agreements.map((entry) => ({ agreementId: entry.id, polity: entry.parties[1] }));
+  const out = deriveTreatyBreaches({ wars, agreements, breaches });
+  assert.equal(out.breaches.length, MAX_TREATY_BREACHES_PER_TURN);
+  assert.equal(out.rejected.length, 2);
+  assert.ok(out.rejected.every((row) => row.reason === "cap-reached"));
+});
+
+test("reordering breaches, wars and agreements never changes the breach result", () => {
+  const wars = [war({ id: "w1" }), war({ id: "w2", sideA: ["A2"], sideB: ["B2"] })];
+  const agreements = [
+    agreement({ id: "a1", parties: ["A", "C"] }),
+    agreement({ id: "a2", parties: ["A2", "C2"] }),
+  ];
+  const breaches = [
+    { agreementId: "a2", polity: "C2" },
+    { agreementId: "a1", polity: "C" },
+  ];
+  const first = deriveTreatyBreaches({ wars, agreements, breaches });
+  const second = deriveTreatyBreaches({
+    wars: [...wars].reverse(),
+    agreements: [...agreements].reverse().map((entry) => ({ ...entry, parties: [...entry.parties].reverse() })),
+    breaches: [...breaches].reverse(),
+  });
+  assert.deepEqual(second, first);
 });
