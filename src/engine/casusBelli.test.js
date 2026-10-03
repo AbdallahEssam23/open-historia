@@ -71,6 +71,32 @@ test("the verdict is a function of the sets, not the input order", () => {
   assert.deepEqual(deriveWarCasus(reordered), deriveWarCasus(base));
 });
 
+test("conflicting claim rows with the same key cannot change the verdict", () => {
+  const claims = [claim({ holder: "Italy" }), claim({ holder: "Germany" })];
+  const forward = deriveWarCasus({ aggressors: ["France"], defenders: ["Germany"], claims });
+  const backward = deriveWarCasus({ aggressors: ["France"], defenders: ["Germany"], claims: [...claims].reverse() });
+  assert.deepEqual(forward, backward);
+  assert.deepEqual(forward.aggressors, [{ polity: "France", justified: true, kind: "claim", target: "alsace" }]);
+});
+
+test("conflicting breach rows with the same key cannot change the verdict", () => {
+  const breaches = [
+    breach({ parties: ["Germany", "Italy"] }),
+    breach({ parties: ["Germany", "France"] }),
+  ];
+  const forward = deriveWarCasus({ aggressors: ["France"], defenders: ["Germany"], breaches });
+  const backward = deriveWarCasus({ aggressors: ["France"], defenders: ["Germany"], breaches: [...breaches].reverse() });
+  assert.deepEqual(forward, backward);
+  assert.deepEqual(forward.aggressors, [{ polity: "France", justified: true, kind: "breach", target: "pact" }]);
+});
+
+test("an aggressor written in two cases dedupes to one deterministic spelling", () => {
+  const forward = deriveWarCasus({ aggressors: ["France", "france"], defenders: ["Germany"] });
+  const backward = deriveWarCasus({ aggressors: ["france", "France"], defenders: ["Germany"] });
+  assert.deepEqual(forward, backward);
+  assert.deepEqual(forward.aggressors, [{ polity: "France", justified: false, kind: "", target: "" }]);
+});
+
 test("the returned aggressors are capped", () => {
   const aggressors = Array.from({ length: MAX_CASUS_AGGRESSORS + 3 }, (_, i) => `P${String(i).padStart(2, "0")}`);
   const out = deriveWarCasus({ aggressors, defenders: ["Germany"] });

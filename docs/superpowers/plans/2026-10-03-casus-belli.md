@@ -325,6 +325,32 @@ test("the verdict is a function of the sets, not the input order", () => {
   assert.deepEqual(deriveWarCasus(reordered), deriveWarCasus(base));
 });
 
+test("conflicting claim rows with the same key cannot change the verdict", () => {
+  const claims = [claim({ holder: "Italy" }), claim({ holder: "Germany" })];
+  const forward = deriveWarCasus({ aggressors: ["France"], defenders: ["Germany"], claims });
+  const backward = deriveWarCasus({ aggressors: ["France"], defenders: ["Germany"], claims: [...claims].reverse() });
+  assert.deepEqual(forward, backward);
+  assert.deepEqual(forward.aggressors, [{ polity: "France", justified: true, kind: "claim", target: "alsace" }]);
+});
+
+test("conflicting breach rows with the same key cannot change the verdict", () => {
+  const breaches = [
+    breach({ parties: ["Germany", "Italy"] }),
+    breach({ parties: ["Germany", "France"] }),
+  ];
+  const forward = deriveWarCasus({ aggressors: ["France"], defenders: ["Germany"], breaches });
+  const backward = deriveWarCasus({ aggressors: ["France"], defenders: ["Germany"], breaches: [...breaches].reverse() });
+  assert.deepEqual(forward, backward);
+  assert.deepEqual(forward.aggressors, [{ polity: "France", justified: true, kind: "breach", target: "pact" }]);
+});
+
+test("an aggressor written in two cases dedupes to one deterministic spelling", () => {
+  const forward = deriveWarCasus({ aggressors: ["France", "france"], defenders: ["Germany"] });
+  const backward = deriveWarCasus({ aggressors: ["france", "France"], defenders: ["Germany"] });
+  assert.deepEqual(forward, backward);
+  assert.deepEqual(forward.aggressors, [{ polity: "France", justified: false, kind: "", target: "" }]);
+});
+
 test("the returned aggressors are capped", () => {
   const aggressors = Array.from({ length: MAX_CASUS_AGGRESSORS + 3 }, (_, i) => `P${String(i).padStart(2, "0")}`);
   const out = deriveWarCasus({ aggressors, defenders: ["Germany"] });
@@ -382,22 +408,30 @@ export const deriveWarCasus = ({ aggressors = [], defenders = [], claims = [], b
         holder: asString(claim?.holder),
       }))
       .filter((claim) => claim.regionId && claim.claimant && claim.holder),
-    (claim) => keyOf(claim.claimant) + "\u0000" + keyOf(claim.regionId),
-  ).sort((a, b) => compareText(a.regionId, b.regionId) || comparePolity(a.claimant, b.claimant));
+    (claim) => [keyOf(claim.claimant), keyOf(claim.regionId), keyOf(claim.holder)].join("\u0000"),
+  ).sort((a, b) =>
+    compareText(a.regionId, b.regionId)
+    || comparePolity(a.claimant, b.claimant)
+    || comparePolity(a.holder, b.holder));
 
   const breachRows = uniqueByKey(
     list(breaches)
       .map((breach) => ({
         agreementId: asString(breach?.agreementId),
         breachedBy: asString(breach?.breachedBy),
-        parties: uniqueByKey(list(breach?.parties).map(asString).filter(Boolean), keyOf),
+        parties: uniqueByKey(list(breach?.parties).map(asString).filter(Boolean), keyOf)
+          .sort(comparePolity),
       }))
       .filter((breach) => breach.agreementId && breach.breachedBy && breach.parties.length),
-    (breach) => keyOf(breach.agreementId) + "\u0000" + keyOf(breach.breachedBy),
-  ).sort((a, b) => compareText(a.agreementId, b.agreementId) || comparePolity(a.breachedBy, b.breachedBy));
+    (breach) => [keyOf(breach.agreementId), keyOf(breach.breachedBy), breach.parties.map(keyOf).join("\u0001")].join("\u0000"),
+  ).sort((a, b) =>
+    compareText(a.agreementId, b.agreementId)
+    || comparePolity(a.breachedBy, b.breachedBy)
+    || compareText(a.parties.map(keyOf).join("\u0001"), b.parties.map(keyOf).join("\u0001")));
 
-  const declared = uniqueByKey(list(aggressors).map(asString).filter(Boolean), keyOf)
-    .sort(comparePolity)
+  // Sort before deduping so which case-variant spelling survives is chosen by
+  // content, not by the order the model wrote the list in.
+  const declared = uniqueByKey(list(aggressors).map(asString).filter(Boolean).sort(comparePolity), keyOf)
     .slice(0, MAX_CASUS_AGGRESSORS);
 
   const rows = declared.map((polity) => {
@@ -424,7 +458,7 @@ export const deriveWarCasus = ({ aggressors = [], defenders = [], claims = [], b
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `node --test "src/engine/casusBelli.test.js"`
-Expected: PASS, 9 tests.
+Expected: PASS, 12 tests.
 
 - [ ] **Step 5: Verify the purity guard and lint**
 

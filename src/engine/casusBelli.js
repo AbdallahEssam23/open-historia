@@ -37,22 +37,30 @@ export const deriveWarCasus = ({ aggressors = [], defenders = [], claims = [], b
         holder: asString(claim?.holder),
       }))
       .filter((claim) => claim.regionId && claim.claimant && claim.holder),
-    (claim) => keyOf(claim.claimant) + "\u0000" + keyOf(claim.regionId),
-  ).sort((a, b) => compareText(a.regionId, b.regionId) || comparePolity(a.claimant, b.claimant));
+    (claim) => [keyOf(claim.claimant), keyOf(claim.regionId), keyOf(claim.holder)].join("\u0000"),
+  ).sort((a, b) =>
+    compareText(a.regionId, b.regionId)
+    || comparePolity(a.claimant, b.claimant)
+    || comparePolity(a.holder, b.holder));
 
   const breachRows = uniqueByKey(
     list(breaches)
       .map((breach) => ({
         agreementId: asString(breach?.agreementId),
         breachedBy: asString(breach?.breachedBy),
-        parties: uniqueByKey(list(breach?.parties).map(asString).filter(Boolean), keyOf),
+        parties: uniqueByKey(list(breach?.parties).map(asString).filter(Boolean), keyOf)
+          .sort(comparePolity),
       }))
       .filter((breach) => breach.agreementId && breach.breachedBy && breach.parties.length),
-    (breach) => keyOf(breach.agreementId) + "\u0000" + keyOf(breach.breachedBy),
-  ).sort((a, b) => compareText(a.agreementId, b.agreementId) || comparePolity(a.breachedBy, b.breachedBy));
+    (breach) => [keyOf(breach.agreementId), keyOf(breach.breachedBy), breach.parties.map(keyOf).join("\u0001")].join("\u0000"),
+  ).sort((a, b) =>
+    compareText(a.agreementId, b.agreementId)
+    || comparePolity(a.breachedBy, b.breachedBy)
+    || compareText(a.parties.map(keyOf).join("\u0001"), b.parties.map(keyOf).join("\u0001")));
 
-  const declared = uniqueByKey(list(aggressors).map(asString).filter(Boolean), keyOf)
-    .sort(comparePolity)
+  // Sort before deduping so which case-variant spelling survives is chosen by
+  // content, not by the order the model wrote the list in.
+  const declared = uniqueByKey(list(aggressors).map(asString).filter(Boolean).sort(comparePolity), keyOf)
     .slice(0, MAX_CASUS_AGGRESSORS);
 
   const rows = declared.map((polity) => {

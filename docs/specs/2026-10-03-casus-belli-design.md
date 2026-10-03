@@ -154,11 +154,12 @@ MAX_CASUS_AGGRESSORS          = 12
   list of `{ regionId, claimant, holder }`; `breaches` a list of
   `{ agreementId, breachedBy, parties }`. Every name and key is compared with
   `asString(...).toLowerCase()`, never with a locale collator.
-- The defenders' keys are collected once. The claims are deduped and sorted by
-  `(regionId, claimant)`; the breaches by `(agreementId, breachedBy)`; the
-  aggressors are deduped case-insensitively (first spelling kept) and sorted by
-  key then by raw text, all by plain comparison, so the result cannot depend on
-  the order the model wrote the lists in.
+- The defenders' keys are collected once. A claim row is deduped and sorted by
+  `(regionId, claimant, holder)`; a breach row by `(agreementId, breachedBy,
+  parties)`, with the row's parties themselves deduped and sorted; the
+  aggressors are sorted by key then raw text and deduped case-insensitively, so
+  the surviving spelling is chosen by content. Every comparison is plain, so the
+  result cannot depend on the order the model wrote the lists in.
 - For each aggressor, in that total order, the warrant is looked up in a fixed
   order: an unresolved claim first, then a recorded breach. The first match
   decides `{ kind, target }`; no match yields `{ justified: false, kind: "",
