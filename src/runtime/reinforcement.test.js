@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { readReinforcement } from "./reinforcement.js";
+import { readReinforcement, readReinforcementPolicies } from "./reinforcement.js";
 import { REINFORCEMENT_POOL_FACTOR } from "../engine/reinforcement.js";
 import { COMBAT_POOL_FACTOR } from "./combatEngagements.js";
 
@@ -65,4 +65,16 @@ test("the adapter leaves the world and the catalog unmodified", () => {
   readReinforcement(world, catalog, { fromDate: "2000-01-01", toDate: "2000-03-31" });
   assert.deepEqual(world, WORLD);
   assert.deepEqual(catalog, CATALOG);
+});
+
+test("the policy fold is exposed: committed overridden by the pending declaration", () => {
+  const world = {
+    economyEngine: {
+      reinforcement: { France: "replacements", Germany: "none" },
+      pendingReinforcement: [{ polity: "France", policy: "belligerent" }],
+    },
+  };
+  const { inForce, pending } = readReinforcementPolicies(world);
+  assert.deepEqual(inForce, { France: "replacements", Germany: "none" });
+  assert.deepEqual(pending, { France: "belligerent" });
 });

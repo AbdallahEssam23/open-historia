@@ -13,25 +13,31 @@ import { buildOwnerAliasMap, createOwnerResolver } from "./ownerNames.js";
 const name = (value) => String(value ?? "").trim();
 const list = (value) => (Array.isArray(value) ? value : []);
 
-export const readReinforcement = (world, catalog, { fromDate = "", toDate = "", rotations = [], merges = [] } = {}) => {
+// The policy in force this span: committed, overridden by last turn's pending
+// declaration. This turn's declaration is not read here; the economy commit
+// stores it for next period, exactly as mobilization lags. Exported so the
+// prompt wiring reads the same fold rather than restating it.
+export const readReinforcementPolicies = (world) => {
   const resolveOwner = createOwnerResolver(buildOwnerAliasMap(world?.polityOverrides));
-
-  // The policy in force this span: committed, overridden by last turn's pending
-  // declaration. This turn's declaration is not read here; the economy commit
-  // stores it for next period, exactly as mobilization lags.
-  const committed = world?.economyEngine?.reinforcement;
-  const pending = list(world?.economyEngine?.pendingReinforcement);
-  const policies = {};
-  for (const [rawKey, rawValue] of Object.entries(committed ?? {})) {
+  const inForce = {};
+  for (const [rawKey, rawValue] of Object.entries(world?.economyEngine?.reinforcement ?? {})) {
     const polity = resolveOwner(name(rawKey));
     const policy = name(rawValue).toLowerCase();
-    if (polity && policy) policies[polity] = policy;
+    if (polity && policy) inForce[polity] = policy;
   }
-  for (const entry of pending) {
+  const pending = {};
+  for (const entry of list(world?.economyEngine?.pendingReinforcement)) {
     const polity = resolveOwner(name(entry?.polity ?? entry?.country));
     const policy = name(entry?.policy).toLowerCase();
-    if (polity && policy) policies[polity] = policy;
+    if (polity && policy) pending[polity] = policy;
   }
+  return { inForce, pending };
+};
+
+export const readReinforcement = (world, catalog, { fromDate = "", toDate = "", rotations = [], merges = [] } = {}) => {
+  const resolveOwner = createOwnerResolver(buildOwnerAliasMap(world?.polityOverrides));
+  const { inForce, pending } = readReinforcementPolicies(world);
+  const policies = { ...inForce, ...pending };
 
   const pools = {};
   for (const [rawKey, row] of Object.entries(world?.economyEngine?.pools ?? {})) {
