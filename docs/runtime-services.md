@@ -142,6 +142,24 @@ layer and cut off in the other. The pure core is `src/engine/reinforcement.js`.
 
 ---
 
+## Operations digest - `src/runtime/operationsDigest.js`
+
+`buildOperationsDigest({ formations, policyInForce, pendingPolicy, cap, charCap })`
+renders the player's own formations in the field as one short, capped block the
+jump prompt shows through `buildForcePoolsInstructions`
+(`src/Game/AI/gameplayPrompts.js`): a supply summary, the reinforcement policy in
+force and any pending declaration, and a reminder list of the formations that
+are cut off, strained or below full strength, each with the id a rotation or a
+merge names. It is player-only, so an enemy's supply state is never disclosed,
+and it is a pure string transform with no imports: `src/Game/AI/gameplay.js`
+supplies the rows, joining the supply read of part two to the roster for each
+formation's name, type and current strength. The row cap is `OPERATIONS_ROW_CAP`
+(6) and the character cap `OPERATIONS_CHAR_CAP` (360), mirroring the economy
+digest. Nothing is stored and no engine rule changes: the model is shown what
+the engine already computed.
+
+---
+
 ## Library store — `src/runtime/library.js`
 
 The single source of truth for the player's **games**, **scenarios**, and which of each is active. It holds one module-scope object (`libraryState`), exposes it through a `useSyncExternalStore` subscription, and wraps every catalog mutation as an `/api/*` call that refreshes the store afterwards.
