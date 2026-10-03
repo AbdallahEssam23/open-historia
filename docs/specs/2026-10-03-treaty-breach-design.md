@@ -130,6 +130,11 @@ agreement already carries them.
   party. Whether that party was actually bound is the engine's decision, not
   validation's, so a structurally valid but unbound breach is dropped by the
   engine with a logged reason rather than failing the whole response.
+- `salvageDiplomaticLedgerPayload`, which runs first on the salvage-first turn
+  path and silently drops an unknown operation, gains the identical whitelist
+  entry and the same two structural rules. Without that, a breach row would be
+  stripped as a malformed operation before the validator or the engine ever saw
+  it.
 - `decodeAgreementUpdates` is unchanged: `op` is a free string, and `parties` is
   already parsed.
 
