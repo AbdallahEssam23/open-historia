@@ -315,3 +315,36 @@ test("a segment with no orders contributes an empty list", () => {
   const merged = mergeSegmentPayloads([{ events: [] }]);
   assert.deepEqual(merged.productionOrders, []);
 });
+
+test("reinforcement folds across segments, rotations and merges concatenate", () => {
+  const merged = mergeSegmentPayloads([
+    {
+      events: [],
+      reinforcement: [{ polity: "France", policy: "none" }],
+      rotations: [{ out: "u1", in: "u2" }],
+      merges: [{ survivor: "u3", absorbed: "u4" }],
+    },
+    {
+      events: [],
+      reinforcement: [{ polity: "France", policy: "belligerent" }, { polity: "Germany", policy: "none" }],
+      rotations: [{ out: "u5", in: "u6" }],
+      merges: [{ survivor: "u7", absorbed: "u8" }],
+    },
+  ]);
+  assert.deepEqual(merged.reinforcement, [
+    { polity: "France", policy: "belligerent" },
+    { polity: "Germany", policy: "none" },
+  ]);
+  assert.equal(merged.rotations.length, 2);
+  assert.equal(merged.merges.length, 2);
+});
+
+test("a malformed later reinforcement entry cannot erase a valid policy", () => {
+  const merged = mergeSegmentPayloads([
+    { events: [], reinforcement: [{ polity: "France", policy: "none" }] },
+    { events: [], reinforcement: [{ polity: "France", policy: "" }] },
+    { events: [], reinforcement: [{ polity: "France" }] },
+    { events: [], reinforcement: [{ polity: "France", policy: "junk" }] },
+  ]);
+  assert.deepEqual(merged.reinforcement, [{ polity: "France", policy: "none" }]);
+});

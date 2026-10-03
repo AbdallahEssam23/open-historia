@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const gameplay = readFileSync(new URL("../Game/AI/gameplay.js", import.meta.url), "utf8");
+const jumpSegments = readFileSync(new URL("../Game/AI/jumpSegments.js", import.meta.url), "utf8");
 const adapter = readFileSync(new URL("./reinforcement.js", import.meta.url), "utf8");
 const core = readFileSync(new URL("../engine/reinforcement.js", import.meta.url), "utf8");
 
@@ -48,4 +49,19 @@ test("the reinforcement step is isolated so a failure preserves the completed tu
   );
   assert.ok(commentAt > 0 && stepAt > 0 && warnAt > 0, "the reinforcement step or its catch handler is missing");
   assert.ok(commentAt < stepAt && stepAt < warnAt, "the reinforcement step must sit inside its try/catch");
+});
+
+// The merge and the result object are assembled field by field, so a new
+// declaration is dropped silently unless it is carried through both. This guards
+// the exact regression the whole-slice review found.
+test("the merged declarations reach the turn result field by field", () => {
+  assert.match(gameplay, /reinforcement: merged\.reinforcement/);
+  assert.match(gameplay, /rotations: merged\.rotations/);
+  assert.match(gameplay, /merges: merged\.merges/);
+  assert.match(jumpSegments, /reinforcement\.push\(\.\.\.asArray\(payload\.reinforcement\)\)/);
+  assert.match(jumpSegments, /rotations\.push\(\.\.\.asArray\(payload\.rotations\)\)/);
+  assert.match(jumpSegments, /merges\.push\(\.\.\.asArray\(payload\.merges\)\)/);
+  assert.match(jumpSegments, /reinforcement: \[\.\.\.reinforcementByPolity\.values\(\)\]/);
+  assert.match(jumpSegments, /rotations,/);
+  assert.match(jumpSegments, /merges,/);
 });

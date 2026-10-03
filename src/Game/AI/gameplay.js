@@ -12889,6 +12889,11 @@ const finishTimelineJump = async ({ context, signal, state }) => {
     // Same lag as the shocks and the posture: the merged orders must reach
     // applySimulationResult or the declaration is silently dropped.
     productionOrders: merged.productionOrders,
+    // Same path and lag as the shocks and the posture: the merged declarations
+    // must reach applySimulationResult or the declaration is silently dropped.
+    reinforcement: merged.reinforcement,
+    rotations: merged.rotations,
+    merges: merged.merges,
     mode,
     outreach: merged.diplomaticOutreach,
     stopDate: merged.stopDate,

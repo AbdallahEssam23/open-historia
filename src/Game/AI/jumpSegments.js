@@ -24,11 +24,13 @@
 // merge rules are exactly what wants direct tests.
 
 import { MOBILIZATION_POSTURES } from "../../engine/forcePools.js";
+import { REINFORCEMENT_POLICIES } from "../../engine/reinforcement.js";
 import { scaleEventRange } from "./worldDirection.js";
 
 const normalizeString = (value) => String(value ?? "").trim();
 const asArray = (value) => (Array.isArray(value) ? value : []);
 const MOBILIZATION_POSTURE_SET = new Set(MOBILIZATION_POSTURES);
+const REINFORCEMENT_POLICY_SET = new Set(REINFORCEMENT_POLICIES);
 
 // Below this, one request is comfortably fast enough and splitting would only add
 // round trips and re-send the prompt for nothing.
@@ -261,6 +263,13 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
   // deduplicated by identity: two identical orders are two genuine items, so the
   // list simply concatenates across segments.
   const productionOrders = [];
+  // The model's reinforcement declarations. Like mobilization a policy is one
+  // value per polity, so the list is folded below, last segment winning.
+  const reinforcement = [];
+  // Rotation and merge orders concatenate like production orders: two identical
+  // orders are two genuine items.
+  const rotations = [];
+  const merges = [];
   const summaries = [];
   let clearActions = true;
   let stopDate = "";
@@ -274,7 +283,10 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     storylineUpdates.push(...asLedgerRecords(payload.storylineUpdates));
     economicShocks.push(...asArray(payload.economicShocks));
     mobilization.push(...asArray(payload.mobilization));
+    reinforcement.push(...asArray(payload.reinforcement));
     productionOrders.push(...asArray(payload.productionOrders));
+    rotations.push(...asArray(payload.rotations));
+    merges.push(...asArray(payload.merges));
     const summary = normalizeString(payload.summary);
     if (summary) summaries.push(summary);
     clearActions = payload.clearActions !== false;
@@ -297,6 +309,20 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     mobilizationByPolity.set(polity.toLowerCase(), { polity, posture });
   }
 
+  // Fold to one entry per polity, last segment winning, same rules as the
+  // posture. A malformed policy (missing, empty, unknown) is skipped rather than
+  // set: it must not overwrite a valid earlier declaration, or the polity would
+  // silently lose its policy when normalizeReinforcement drops the bad entry.
+  const reinforcementByPolity = new Map();
+  for (const entry of reinforcement) {
+    if (!entry || typeof entry !== "object") continue;
+    const polity = normalizeString(entry.polity ?? entry.country);
+    if (!polity) continue;
+    const policy = normalizeString(entry.policy).toLowerCase();
+    if (!REINFORCEMENT_POLICY_SET.has(policy)) continue;
+    reinforcementByPolity.set(polity.toLowerCase(), { polity, policy });
+  }
+
   return {
     clearActions,
     agreementUpdates,
@@ -304,7 +330,10 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     economicShocks,
     events,
     mobilization: [...mobilizationByPolity.values()],
+    reinforcement: [...reinforcementByPolity.values()],
     productionOrders,
+    rotations,
+    merges,
     relationUpdates,
     stopDate: stopDate || normalizeString(targetDate),
     storylineUpdates,
