@@ -318,3 +318,54 @@ test("the settled weariness persists and the appended end closes the war", () =>
   assert.equal(ended.weariness.b, outcome.weariness[settlement.warId].b);
   assert.equal(ended.weariness.throughDate, "1870-03-01");
 });
+
+test("a recorded unjust aggressor flips an even race to the other side", () => {
+  const annex = (target) => ({ kind: "annex", targetRegionIds: [target], note: "" });
+  const input = (mark) => ({
+    world: world([war({
+      sideA: ["Germany"],
+      sideB: ["France"],
+      goals: { a: annex("r1"), b: annex("r2") },
+      ...(mark ? { unjustAggressors: mark } : {}),
+    })], { regionOwnershipOverrides: { r1: "Germany", r2: "France" } }),
+    events: [],
+    engagements: [],
+    date: "1870-03-01",
+    playerPolity: "",
+  });
+  const plain = resolveWarSettlements(input());
+  assert.equal(plain.settlements[0].victor, "a", "the even race defaults to side A");
+  assert.equal(plain.settlements[0].punitive, false);
+
+  // DEU folds to Germany through toCountryName, the canonical key space.
+  const marked = resolveWarSettlements(input(["DEU"]));
+  assert.equal(marked.settlements[0].victor, "b");
+  assert.equal(marked.settlements[0].punitive, true);
+});
+
+test("the mark is symmetric and can fall on side B", () => {
+  const annex = (target) => ({ kind: "annex", targetRegionIds: [target], note: "" });
+  const out = resolveWarSettlements({
+    world: world([war({
+      sideA: ["Germany"],
+      sideB: ["France"],
+      goals: { a: annex("r1"), b: annex("r2") },
+      unjustAggressors: ["France"],
+    })], { regionOwnershipOverrides: { r1: "Germany", r2: "France" } }),
+    events: [],
+    engagements: [],
+    date: "1870-03-01",
+    playerPolity: "",
+  });
+  assert.equal(out.settlements[0].victor, "a");
+  assert.equal(out.settlements[0].loser, "b");
+  assert.equal(out.settlements[0].punitive, true);
+});
+
+test("a punitive settlement is named in the peace event", () => {
+  const event = buildSettlementEvent(
+    { warId: "war-1", punitive: true, transfers: [], belligerents: ["Germany", "France"] },
+    { date: "1870-03-01" },
+  );
+  assert.match(event.description, /punitive/i);
+});

@@ -45,6 +45,17 @@ const canonicalKeys = (values) => {
   return keys;
 };
 
+// A side carries the mark when any of its declared members was recorded as an
+// unjust aggressor of this war, compared in the same lowercased canonical key
+// space as every other name in this module.
+const sideIsUnjust = (members, unjustKeys) => {
+  for (const raw of list(members)) {
+    const polity = canonical(raw);
+    if (polity && unjustKeys.has(polity.toLowerCase())) return true;
+  }
+  return false;
+};
+
 // The declared target regions any belligerent of the side currently
 // administers: a coalition's target counts as held whoever in the coalition
 // sits on it. Both sides of the comparison fold through toCountryName so a code
@@ -120,6 +131,9 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
     const goalsB = war.goals?.b ?? null;
     const heldA = heldRegions(goalsA, canonicalKeys(war.sideA), overrides);
     const heldB = heldRegions(goalsB, canonicalKeys(war.sideB), overrides);
+    const unjustKeys = canonicalKeys(war.unjustAggressors);
+    const unjustA = sideIsUnjust(war.sideA, unjustKeys);
+    const unjustB = sideIsUnjust(war.sideB, unjustKeys);
 
     const prior = normalizeWeariness(war.weariness);
     const months = monthsBetweenDates(prior?.throughDate || startedDate, turnDate);
@@ -153,6 +167,8 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
       codeB: leadB,
       poolsA: pools[leadA] ?? {},
       poolsB: pools[leadB] ?? {},
+      unjustA,
+      unjustB,
     });
     if (settlement) settlements.push({ ...settlement, belligerents: sides });
   }
@@ -176,13 +192,16 @@ export const buildSettlementEvent = (settlement, { date = "", round = 0 } = {}) 
     combatants.push(polity);
     if (combatants.length >= 8) break;
   }
+  const description = settlement?.punitive
+    ? `The war ${warId} is settled on punitive terms; the unjust aggressor's defeat is paid for on ${eventDate}.`
+    : `The war ${warId} is settled; the terms take effect on ${eventDate}.`;
   const event = {
     id: `event-peace-${warId}-${eventDate}`,
     kind: "military",
     date: eventDate,
     round: Number(round) || 0,
     title: `Peace settlement: ${warId}`,
-    description: `The war ${warId} is settled; the terms take effect on ${eventDate}.`,
+    description,
     warId,
     combatants,
     impacts: { regionTransfers: [] },
