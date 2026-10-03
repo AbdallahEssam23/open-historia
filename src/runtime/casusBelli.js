@@ -47,13 +47,16 @@ const uniqueNames = (values) => {
 
 // One claim row per (regionId, claimant). The holder is the region's current
 // owner: the override wins, else the catalog base country, folded through the
-// same canonical key space as every other name.
+// same canonical key space as every other name. A region the caller's catalog
+// omits still gets an id-only stub, so an ownership override for it is read
+// rather than lost to `overrides[undefined]`.
 const claimRowsOf = (normalized, readPolity, catalog) => {
   const catalogById = new Map(list(catalog).map((region) => [asString(region?.id), region]));
   const overrides = normalized?.regionOwnershipOverrides ?? {};
   const rows = [];
   for (const [regionId, claimants] of Object.entries(normalized?.regionClaimants ?? {})) {
-    const holder = readPolity(regionOwnerName(catalogById.get(asString(regionId)), overrides));
+    const region = catalogById.get(asString(regionId)) ?? { id: asString(regionId) };
+    const holder = readPolity(regionOwnerName(region, overrides));
     if (!holder) continue;
     for (const claimant of list(claimants)) {
       const name = readPolity(claimant);

@@ -780,6 +780,19 @@ test("the digest a jump builds from the recorded wars is not empty", () => {
   assert.match(block, /^\[Wars Begun Without Just Cause, as simulated\]/);
   assert.match(block, /- Italy began war-ethiopia-1935 without just cause; wronged Ethiopia\./);
 });
+
+test("a claim on a region the caller's catalog omits still reads its override owner", () => {
+  const stored = world({
+    regionClaimants: { alsace: ["France"] },
+    regionOwnershipOverrides: { alsace: "Germany" },
+    wars: [{ id: "w1", status: "active", aggressor: "a", sideA: ["France"], sideB: ["Germany"], startedDate: "1914-08-03" }],
+  });
+  const out = readWarCasus(stored, {
+    starts: [{ warId: "w1", aggressors: ["France"], defenders: ["Germany"] }],
+    catalog: [],
+  });
+  assert.deepEqual(out.wars[0].aggressors, [{ polity: "France", justified: true, kind: "claim", target: "alsace" }]);
+});
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -841,13 +854,16 @@ const uniqueNames = (values) => {
 
 // One claim row per (regionId, claimant). The holder is the region's current
 // owner: the override wins, else the catalog base country, folded through the
-// same canonical key space as every other name.
+// same canonical key space as every other name. A region the caller's catalog
+// omits still gets an id-only stub, so an ownership override for it is read
+// rather than lost to `overrides[undefined]`.
 const claimRowsOf = (normalized, readPolity, catalog) => {
   const catalogById = new Map(list(catalog).map((region) => [asString(region?.id), region]));
   const overrides = normalized?.regionOwnershipOverrides ?? {};
   const rows = [];
   for (const [regionId, claimants] of Object.entries(normalized?.regionClaimants ?? {})) {
-    const holder = readPolity(regionOwnerName(catalogById.get(asString(regionId)), overrides));
+    const region = catalogById.get(asString(regionId)) ?? { id: asString(regionId) };
+    const holder = readPolity(regionOwnerName(region, overrides));
     if (!holder) continue;
     for (const claimant of list(claimants)) {
       const name = readPolity(claimant);
@@ -993,7 +1009,7 @@ export const buildWarCasusDigest = ({
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `node --test "src/runtime/casusBelli.test.js"`
-Expected: PASS, 8 tests.
+Expected: PASS, 9 tests.
 
 - [ ] **Step 5: Run the runtime glob and lint**
 
@@ -1050,8 +1066,15 @@ test("the war directive prints the casus digest the jump prompt builds", () => {
   assert.ok(start > 0, "the war directive builder is missing");
   const end = gameplay.indexOf("\n};", start);
   const body = gameplay.slice(start, end);
-  assert.match(body, /warCasus/, "the directive does not read the casus digest");
+  assert.match(body, /warCasus \?/, "the directive does not print the casus digest");
   assert.ok(gameplay.indexOf("variables.warCasus =") > 0, "the jump prompt never sets variables.warCasus");
+});
+
+test("the turn judges only the starts the war ledger applied", () => {
+  const appliedAt = gameplay.indexOf("warMerge.appliedIds");
+  const casusReadAt = gameplay.indexOf("readWarCasus(worldWithImpacts");
+  assert.ok(appliedAt > 0, "the pre-pass must read the ids the ledger applied");
+  assert.ok(appliedAt < casusReadAt, "the applied-id gate must precede the casus read");
 });
 ```
 
@@ -1102,16 +1125,25 @@ In `applySimulationResult`, immediately after the breach pre-pass `try/catch` cl
   // after the breach pre-pass, so a promise broken this turn justifies a war
   // begun this turn, and before the obligation step. Reading the start records,
   // not the war records, is what keeps a later joiner from being judged an
-  // aggressor. A failure here must never lose a completed turn.
+  // aggressor. Only the starts the ledger actually applied are judged, and each
+  // war once, so a re-issued or duplicated start cannot charge twice. A failure
+  // here must never lose a completed turn.
   try {
+    const appliedWarIds = new Set(normalizeArray(warMerge.appliedIds));
+    const judgedWarIds = new Set();
     const casusStarts = warUpdates
       .filter((update) => normalizeString(update?.op).toLowerCase() === "start")
+      .filter((update) => appliedWarIds.has(normalizeString(update?.id)))
       .map((update) => ({
         warId: normalizeString(update?.id),
         aggressors: normalizeArray(update?.actors),
         defenders: normalizeArray(update?.opponents),
       }))
-      .filter((start) => start.warId);
+      .filter((start) => {
+        if (!start.warId || judgedWarIds.has(start.warId)) return false;
+        judgedWarIds.add(start.warId);
+        return true;
+      });
     if (casusStarts.length) {
       const casusOutcome = readWarCasus(worldWithImpacts, {
         starts: casusStarts,
@@ -1150,7 +1182,7 @@ In `simulateTimelineJump`, beside the `variables.treatyBreach = ...` block, add:
 - [ ] **Step 6: Verify**
 
 Run: `node --test "src/Game/AI/casusBelliWiringArchitecture.test.js"`
-Expected: 2 pass.
+Expected: 3 pass.
 
 Run: `node --check src/Game/AI/gameplay.js`
 Expected: no output (syntax ok).

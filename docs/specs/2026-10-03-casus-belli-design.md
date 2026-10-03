@@ -286,6 +286,13 @@ the same turn the promise breaks. The pre-pass reads the `start` records rather
 than the war records so that a party joining a long war later is never judged an
 aggressor; only the power that wrote the `start` is.
 
+The pre-pass judges only the starts the ledger actually applied: it intersects
+this turn's `start` records with `warMerge.appliedIds`, and de-dupes the
+survivors by war id. A `start` the merge dropped because its war already exists
+is a continuation, not an initiation, so it is left alone; two `start` records
+for one new war are one war, so they are judged once. This is what makes the
+charge exactly once, whatever the model repeats.
+
 The pre-pass logs through `logDebugEvent("turn", ...)` whenever it judged
 anything, including when every aggressor held a warrant, so the trail records
 the judgement even when no cost fell.

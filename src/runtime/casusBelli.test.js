@@ -151,3 +151,16 @@ test("the digest a jump builds from the recorded wars is not empty", () => {
   assert.match(block, /^\[Wars Begun Without Just Cause, as simulated\]/);
   assert.match(block, /- Italy began war-ethiopia-1935 without just cause; wronged Ethiopia\./);
 });
+
+test("a claim on a region the caller's catalog omits still reads its override owner", () => {
+  const stored = world({
+    regionClaimants: { alsace: ["France"] },
+    regionOwnershipOverrides: { alsace: "Germany" },
+    wars: [{ id: "w1", status: "active", aggressor: "a", sideA: ["France"], sideB: ["Germany"], startedDate: "1914-08-03" }],
+  });
+  const out = readWarCasus(stored, {
+    starts: [{ warId: "w1", aggressors: ["France"], defenders: ["Germany"] }],
+    catalog: [],
+  });
+  assert.deepEqual(out.wars[0].aggressors, [{ polity: "France", justified: true, kind: "claim", target: "alsace" }]);
+});
