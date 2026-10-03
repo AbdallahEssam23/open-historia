@@ -123,8 +123,8 @@ layer and cut off in the other. The pure core is `src/engine/reinforcement.js`.
   `replacements` (the default) tops up every in-supply formation weakest first,
   and `belligerent` only the formations of a polity on a side of an active war.
 - **The reserve draw** buys strength at the same per-point price a battle charges
-  (`UNIT_UPKEEP` times `REINFORCEMENT_POOL_FACTOR`, which a test pins to the
-  combat factor). It is bounded by the period, at
+  (`UNIT_UPKEEP` times `REINFORCEMENT_POOL_FACTOR` divided by 100, which a test
+  pins to the combat factor). It is bounded by the period, at
   `REINFORCEMENT_RATE_PER_MONTH` points per whole month; by full strength; and by
   what the pools can afford, with the same absolute zero floor. A cut-off
   formation cannot be reinforced.
@@ -137,8 +137,8 @@ layer and cut off in the other. The pure core is `src/engine/reinforcement.js`.
 - **The turn** applies the ops in `applySimulationResult`, immediately after the
   supply attrition step and before the war settlements and the economy, as a
   board-only synthetic event, and charges the reserve draw through the same
-  reserve-charge path the combat cost uses. A formation named by a rotation or a
-  merge is not reinforced that turn.
+  reserve-charge path the combat cost uses. A formation named by an accepted
+  rotation or merge is not reinforced that turn.
 
 ---
 

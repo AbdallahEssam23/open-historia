@@ -4,7 +4,9 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_REINFORCEMENT_POLICY,
+  MAX_MERGES,
   MAX_REINFORCEMENT,
+  MAX_ROTATIONS,
   REINFORCEMENT_POLICIES,
   deriveReinforcement,
   normalizePendingReinforcement,
@@ -184,4 +186,57 @@ test("the pending shape round-trips a valid declaration", () => {
   );
   assert.equal(REINFORCEMENT_POLICIES.includes("replacements"), true);
   assert.equal(MAX_REINFORCEMENT, 20);
+});
+
+test("a garrison rotation is rejected because the unit seam will not move it", () => {
+  const units = [
+    { id: "u1", ownerCode: "France", type: "garrison", regionId: "r1", strength: 40, lng: 1, lat: 1 },
+    { id: "u2", ownerCode: "France", type: "garrison", regionId: "r2", strength: 90, lng: 2, lat: 2 },
+  ];
+  const result = deriveReinforcement({ ...BASE, units, rotations: [{ out: "u1", in: "u2" }] });
+  assert.deepEqual(result.ops.filter((op) => op.op === "move"), []);
+  assert.equal(result.summary.rejected, 1);
+});
+
+test("a rotation whose counterpart has no named region is rejected", () => {
+  const units = [
+    { id: "u1", ownerCode: "France", type: "infantry", regionId: "r1", strength: 40, lng: 1, lat: 1 },
+    { id: "u2", ownerCode: "France", type: "infantry", regionId: "", strength: 90, lng: 2, lat: 2 },
+  ];
+  const result = deriveReinforcement({ ...BASE, units, rotations: [{ out: "u1", in: "u2" }] });
+  assert.deepEqual(result.ops.filter((op) => op.op === "move"), []);
+  assert.equal(result.summary.rejected, 1);
+});
+
+test("more rotations than the cap are not processed and the overflow is rejected", () => {
+  const units = [];
+  const supply = [];
+  const rotations = [];
+  for (let index = 0; index < MAX_ROTATIONS + 2; index += 1) {
+    const out = `ro${index}`;
+    const into = `ri${index}`;
+    units.push({ id: out, ownerCode: "France", type: "infantry", regionId: `a${index}`, strength: 40, lng: index + 1, lat: 1 });
+    units.push({ id: into, ownerCode: "France", type: "infantry", regionId: `b${index}`, strength: 40, lng: index + 1, lat: 2 });
+    supply.push({ unitId: out, reachable: true }, { unitId: into, reachable: true });
+    rotations.push({ out, in: into });
+  }
+  const result = deriveReinforcement({ ...BASE, units, supply, months: 0, rotations });
+  assert.equal(result.summary.rotations, MAX_ROTATIONS);
+  assert.equal(result.rejections.filter((row) => row.kind === "rotation").length, 2);
+  assert.equal(result.ops.filter((op) => op.op === "move").length, MAX_ROTATIONS * 2);
+});
+
+test("more merges than the cap are not processed and the overflow is rejected", () => {
+  const units = [];
+  const merges = [];
+  for (let index = 0; index < MAX_MERGES + 2; index += 1) {
+    const survivor = `mo${index}`;
+    const absorbed = `mi${index}`;
+    units.push({ id: survivor, ownerCode: "France", type: "infantry", regionId: `c${index}`, strength: 40, lng: index + 1, lat: 1 });
+    units.push({ id: absorbed, ownerCode: "France", type: "infantry", regionId: `c${index}`, strength: 30, lng: index + 1, lat: 1 });
+    merges.push({ survivor, absorbed });
+  }
+  const result = deriveReinforcement({ ...BASE, units, supply: [], months: 0, merges });
+  assert.equal(result.summary.merges, MAX_MERGES);
+  assert.equal(result.rejections.filter((row) => row.kind === "merge").length, 2);
 });

@@ -197,6 +197,12 @@ export const deriveReinforcement = ({
     if (claimed.has(out.id) || claimed.has(into.id)) return "a formation is already committed this turn";
     if (foldKey(out.ownerCode) !== foldKey(into.ownerCode)) return "different polities";
     if (out.type !== into.type) return "different types";
+    // The unit seam refuses to move a garrison, so a "done" rotation would leave
+    // the map unchanged.
+    if (out.type === "garrison" || into.type === "garrison") return "a garrison cannot rotate";
+    // Both stations must be named, or the emitted move's blank regionId would fall
+    // back to the mover's old region when it is applied.
+    if (!out.regionId || !into.regionId) return "a formation has no named region";
     if (out.regionId === into.regionId) return "the two formations stand on one region";
     if (!reachableOf(out) || !reachableOf(into)) return "a formation is out of supply";
     if (!hasStation(out) || !hasStation(into)) return "a formation has no usable station";
@@ -224,6 +230,12 @@ export const deriveReinforcement = ({
     .sort((a, b) => compare(a.out, b.out) || compare(a.in, b.in) || a.index - b.index);
   let rotationCount = 0;
   for (const order of rotationOrders) {
+    // The cap on processed orders; the overflow is recorded so the declared and
+    // applied state stay consistent.
+    if (rotationCount >= MAX_ROTATIONS) {
+      rejections.push({ kind: "rotation", index: order.index, reason: `more than ${MAX_ROTATIONS} rotations in one period` });
+      continue;
+    }
     const reason = rotationRejection(order);
     if (reason) {
       rejections.push({ kind: "rotation", index: order.index, reason });
@@ -247,6 +259,12 @@ export const deriveReinforcement = ({
     .sort((a, b) => compare(a.survivor, b.survivor) || compare(a.absorbed, b.absorbed) || a.index - b.index);
   let mergeCount = 0;
   for (const order of mergeOrders) {
+    // The cap on processed orders; the overflow is recorded so the declared and
+    // applied state stay consistent.
+    if (mergeCount >= MAX_MERGES) {
+      rejections.push({ kind: "merge", index: order.index, reason: `more than ${MAX_MERGES} merges in one period` });
+      continue;
+    }
     const reason = mergeRejection(order);
     if (reason) {
       rejections.push({ kind: "merge", index: order.index, reason });
