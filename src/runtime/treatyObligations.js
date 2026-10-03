@@ -6,6 +6,7 @@
 // a breach is charged to world.internationalReputation and world.relations.
 
 import { BREACH_RELATION_PENALTY, BREACH_REPUTATION_PENALTY, deriveTreatyBreaches, deriveTreatyObligations } from "../engine/treatyObligations.js";
+import { applyDiplomaticCost } from "./diplomaticCost.js";
 import { normalizeWorldState } from "./gameState.js";
 import { buildOwnerAliasMap, createOwnerResolver, toCountryName } from "./ownerNames.js";
 
@@ -118,46 +119,18 @@ export const applyTreatyBreaches = (world, breaches, { date = "", round = 0 } = 
   const pending = list(breaches).filter((breach) => asString(breach?.polity));
   if (!pending.length) return world;
 
-  const normalized = normalizeWorldState(world);
-  const reputation = { ...(normalized?.internationalReputation ?? {}) };
-  const relations = list(normalized?.relations).map((relation) => ({ ...relation }));
-  const pairKey = (a, b) => [keyLower(a), keyLower(b)].sort().join("\u0000");
-  const relationByPair = new Map(relations.map((relation) => [pairKey(relation.a, relation.b), relation]));
-  const stamp = asString(date);
-  const roundNumber = Math.max(0, Math.trunc(Number(round) || 0));
-
-  for (const breach of pending) {
-    const breaker = asString(breach.polity);
-    const priorReputation = Number.isFinite(Number(reputation[breaker])) ? Number(reputation[breaker]) : 50;
-    reputation[breaker] = Math.max(0, Math.min(100, priorReputation - BREACH_REPUTATION_PENALTY));
-    for (const wronged of list(breach.wrongedPolities).map(asString).filter(Boolean)) {
-      if (keyLower(wronged) === keyLower(breaker)) continue;
-      const key = pairKey(breaker, wronged);
-      const prior = relationByPair.get(key);
-      const score = Math.max(-100, Math.min(100, (Number(prior?.score) || 0) - BREACH_RELATION_PENALTY));
-      if (prior) {
-        prior.score = score;
-        prior.status = "";
-        prior.lastUpdatedDate = stamp || prior.lastUpdatedDate;
-        prior.updatedRound = roundNumber || prior.updatedRound;
-      } else {
-        const relation = {
-          id: `relation-breach-${keyLower(breaker)}-${keyLower(wronged)}`.replace(/\s+/g, "-"),
-          a: breaker,
-          b: wronged,
-          score,
-          status: "",
-          summary: `${breaker} broke a treaty with ${wronged}.`,
-          lastUpdatedDate: stamp,
-          updatedRound: roundNumber,
-        };
-        relations.push(relation);
-        relationByPair.set(key, relation);
-      }
-    }
-  }
-
-  return normalizeWorldState({ ...normalized, internationalReputation: reputation, relations });
+  return applyDiplomaticCost(
+    world,
+    pending.map((breach) => ({
+      actor: asString(breach.polity),
+      wronged: list(breach.wrongedPolities).map(asString).filter(Boolean),
+      reputationPenalty: BREACH_REPUTATION_PENALTY,
+      relationPenalty: BREACH_RELATION_PENALTY,
+      reason: "broke a treaty with",
+      relationIdPrefix: "relation-breach",
+    })),
+    { date, round },
+  );
 };
 
 export const buildTreatyBreachDigest = ({
