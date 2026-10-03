@@ -33,8 +33,12 @@ import {
 import { readSupplyAttrition } from "../../runtime/supplyAttrition.js";
 import { readReinforcement, readReinforcementPolicies } from "../../runtime/reinforcement.js";
 import {
+  applyTreatyBreaches,
   applyTreatyJoins,
+  buildTreatyBreachDigest,
   buildTreatyObligationDigest,
+  readRecordedBreaches,
+  readTreatyBreaches,
   readTreatyObligations,
 } from "../../runtime/treatyObligations.js";
 import { buildUnitDirectorInput, directGeneratedUnitOps } from "./nativeUnitDirector.js";
@@ -580,8 +584,9 @@ const buildWarLedgerDirective = (variables) => {
   const playerName = normalizeString(variables?.playerPolity) || "the player's polity";
   const canonicalWarContext = normalizeString(variables?.canonicalWarContext);
   const treatyObligations = normalizeString(variables?.treatyObligations);
+  const treatyBreach = normalizeString(variables?.treatyBreach);
   return `[Wars]
-${canonicalWarContext || "No wars are recorded."}${treatyObligations ? `\n${treatyObligations}` : ""}
+${canonicalWarContext || "No wars are recorded."}${treatyObligations ? `\n${treatyObligations}` : ""}${treatyBreach ? `\n${treatyBreach}` : ""}
 Only this ledger makes polities belligerents — tension, an alliance or a mobilisation does not — and a war real history holds begins here only when you open it, with a warUpdates record and the event that starts it. Every battle, offensive, invasion, bombardment, siege or front carries event.warId, event.combatants naming both sides, and event.combatRegion naming the region it is fought in. If you write fighting, open the war in the same answer: a declaration, an entry, an exit, a ceasefire, a resumption or a peace each needs a warUpdates record and an event carrying the same warId, or the engine strips the war from the fighting and records peace. Two sides genuinely trading blows are at war; if you cannot say who is fighting whom, it is unrest, a raid or a deployment, so write it as that. A polity at peace does not live under war conditions — rationing, war taxes, mobilisation — because others are fighting, unless the war reaches it through something concrete (lost imports, refugees, sanctions). Nobody may join a war on ${playerName}'s behalf; another power declaring war on ${playerName} is that power's decision, and yours to write.
 A treaty is not narrative: a party bound by an active alliance, mutual defense or guarantee is drawn into the war by the engine, so when an ally appears in a war it was not fighting, narrate its entry rather than re-declaring the join or writing it out.
 warUpdates is one string, one record per line, fields separated by ~ (never inside a field): warId~op~actorsCSV~opponentsCSV~eventNumbersCSV~note. op is start, join-a, join-b, leave, ceasefire, resume, end or goals; for start the actors are the side that starts the war (side A) and the opponents side B; for join and leave the actors are the polities joining or leaving; eventNumbersCSV may be blank. goals declares war aims: warId~goals~polity:kind[:region|region];polity:kind~~~, kind annex, reparations or status_quo. Give a war a stable id (war-france-germany-1914) and reuse it. An empty string when nothing changes.`;
@@ -6934,6 +6939,11 @@ const applySimulationResult = async ({
     { playerCode: baseGame.country },
   );
 
+  // A declared breach is resolved before the obligation step so the broken pact
+  // is already non-active when the engine decides which parties a war draws in:
+  // this is what makes a breach block the join it would otherwise have caused.
+  const breachUpdates = agreementUpdates.filter((update) => update?.op === "breach");
+  const otherAgreementUpdates = agreementUpdates.filter((update) => update?.op !== "breach");
   // The war ledger merges BEFORE espionage, so a war declared this turn already
   // counts when the world's services decide whom to spy on; the diplomatic
   // ledger merges after it, so a publicly exposed ring can sour a relation in
@@ -6948,6 +6958,39 @@ const applySimulationResult = async ({
     resolveRegion: regionResolver.resolve,
   });
   worldWithImpacts = warMerge.world;
+  try {
+    const breachOutcome = readTreatyBreaches(worldWithImpacts, {
+      breaches: breachUpdates
+        .map((update) => ({ agreementId: update?.id, polity: normalizeString(update?.parties?.[0]) }))
+        .filter((entry) => entry.agreementId && entry.polity),
+    });
+    if (breachOutcome.breaches.length) {
+      const acceptedUpdates = breachUpdates.filter((update) =>
+        breachOutcome.breaches.some((breach) => breach.agreementId === update.id));
+      const breachMerge = applyDiplomaticUpdates({
+        world: worldWithImpacts,
+        relationUpdates: [],
+        agreementUpdates: acceptedUpdates,
+        events: freshEvents,
+        stopDate: nextGame.gameDate,
+        round: nextGame.round,
+      });
+      worldWithImpacts = applyTreatyBreaches(breachMerge.world, breachOutcome.breaches, {
+        date: nextGame.gameDate,
+        round: nextGame.round,
+      });
+    }
+    // Log even when every declaration was rejected, so a silently dropped
+    // breach leaves a reason in the debug trail rather than vanishing.
+    if (breachOutcome.summary.declared) {
+      logDebugEvent("turn", `Treaty breaches resolved: ${breachOutcome.summary.accepted} accepted, ${breachOutcome.summary.rejected} rejected.`, {
+        accepted: breachOutcome.summary.accepted,
+        rejected: breachOutcome.summary.rejected,
+      });
+    }
+  } catch (error) {
+    console.warn("[engine] the treaty breach step failed; the completed turn is preserved.", error);
+  }
   // Treaty obligations: an active alliance, mutual defense or guarantee draws a
   // non-player party into a war the engine already tracks. It runs on the world
   // this turn's warUpdates just produced, so a war opened now drags its allies
@@ -7078,7 +7121,7 @@ const applySimulationResult = async ({
   const diplomaticMerge = applyDiplomaticUpdates({
     world: worldWithImpacts,
     relationUpdates: [...relationUpdates, ...espionageRelationUpdates],
-    agreementUpdates,
+    agreementUpdates: otherAgreementUpdates,
     events: freshEvents,
     stopDate: nextGame.gameDate,
     round: nextGame.round,
@@ -13099,6 +13142,9 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
       // built from the same world the turn reads.
       variables.treatyObligations = buildTreatyObligationDigest({
         standing: readTreatyObligations(bundle.world, { playerPolity }).standing,
+      });
+      variables.treatyBreach = buildTreatyBreachDigest({
+        breaches: readRecordedBreaches(bundle.world),
       });
       const researchState = projected.research?.[playerPolity];
       const researchProgrammes = researchQueueFor(researchState?.programmes);
