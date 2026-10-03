@@ -501,6 +501,12 @@ export const buildForcePoolsInstructions = ({ digest = "" } = {}) => {
     + "forces, declare one for each named polity in mobilization, choosing from this closed list: "
     + "demobilized, peacetime, partial, total. A posture takes effect from the NEXT period, and total "
     + "mobilization raises production at the cost of output and stability.",
+    "Reserves can also rebuild a formation: under a reinforcement policy you may declare for a polity, one of "
+    + "none, replacements or belligerent, every formation in supply tops itself up automatically. A policy takes "
+    + "effect from the NEXT period. You may also relieve a worn formation in place by naming its id and a fresh "
+    + "formation of the same type in rotations, or fold two weak formations of one type standing together into one "
+    + "in merges, naming the survivor and the absorbed id. The engine owns every cost and result; state no "
+    + "manpower or materiel number.",
     "Declare a posture sparingly and only when the events you are writing justify it. Most periods have none.",
   ].join("\n\n");
   const facts = String(digest ?? "").trim();

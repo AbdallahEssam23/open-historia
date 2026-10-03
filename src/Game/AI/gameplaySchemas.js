@@ -7,6 +7,12 @@ import {
   MAX_UNIT_COUNT,
   PRODUCTION_UNIT_TYPES,
 } from "../../engine/productionQueue.js";
+import {
+  MAX_MERGES,
+  MAX_REINFORCEMENT,
+  MAX_ROTATIONS,
+  REINFORCEMENT_POLICIES,
+} from "../../engine/reinforcement.js";
 import { RESEARCH_DOMAINS, RESEARCH_SCALES } from "../../engine/research.js";
 import {
   TERRITORY_BASIS_DESCRIPTION,
@@ -1072,6 +1078,43 @@ const productionOrderSchema = {
   additionalProperties: false,
 };
 
+// The model's reinforcement declaration: a scoped policy, one per polity, from a
+// closed list. Like mobilization it carries no number the model could invent and
+// takes effect in the NEXT period.
+const reinforcementEntrySchema = {
+  type: "object",
+  properties: {
+    polity: { type: "string", description: "Country it applies to." },
+    policy: { type: "string", enum: [...REINFORCEMENT_POLICIES], description: "Closed list; replacements default." },
+  },
+  required: ["polity", "policy"],
+  additionalProperties: false,
+};
+
+// A rotation order names two unit ids of one polity and type: the worn one in
+// the line and the fresh one that relieves it. It applies this period.
+const rotationOrderSchema = {
+  type: "object",
+  properties: {
+    out: { type: "string", description: "Unit id rotating out of the line." },
+    in: { type: "string", description: "Unit id rotating forward in its place." },
+  },
+  required: ["out", "in"],
+  additionalProperties: false,
+};
+
+// A merge order names two unit ids of one polity and type standing together: the
+// survivor and the absorbed one. It applies this period.
+const mergeOrderSchema = {
+  type: "object",
+  properties: {
+    survivor: { type: "string", description: "Unit id that keeps its identity." },
+    absorbed: { type: "string", description: "Unit id folded into the survivor and removed." },
+  },
+  required: ["survivor", "absorbed"],
+  additionalProperties: false,
+};
+
 export const JUMP_FORWARD_SCHEMA = {
   type: "object",
   description: "A simulated timeline jump containing dated events and the resulting campaign state.",
@@ -1142,6 +1185,30 @@ export const JUMP_FORWARD_SCHEMA = {
         "Production and construction orders for next period: a closed kind and type, effective next period. "
         + "State no cost and no build time; the engine computes both from the reserves.",
       items: productionOrderSchema,
+    },
+    reinforcement: {
+      type: "array",
+      maxItems: MAX_REINFORCEMENT,
+      description:
+        "Reinforcement policies for polities: a closed list, effective next period. "
+        + "State no manpower/materiel numbers; the engine computes them.",
+      items: reinforcementEntrySchema,
+    },
+    rotations: {
+      type: "array",
+      maxItems: MAX_ROTATIONS,
+      description:
+        "Rotations of two formations of one polity and type, effective this period. "
+        + "Name unit ids only; the engine moves both or neither.",
+      items: rotationOrderSchema,
+    },
+    merges: {
+      type: "array",
+      maxItems: MAX_MERGES,
+      description:
+        "Merges of two formations of one polity and type standing together, effective this period. "
+        + "Name unit ids only; the engine adds the strength and removes the absorbed one.",
+      items: mergeOrderSchema,
     },
   },
   // clearActions is deliberately NOT required: simulateTimelineJump already

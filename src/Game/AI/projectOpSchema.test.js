@@ -154,7 +154,12 @@ test("the board no longer costs the jump anything", () => {
   // spells out that a structure's site is required (the engine rejects a building
   // order without one) rather than the brief's one-line placeholder. Measured at
   // 29,154; the guard is a prompt-size guard, not a provider limit.
-  assert.ok(jumpChars < 29500, `the jump schema grew back to ${jumpChars} chars`);
+  // 29,500 -> 31,000: the reinforcement and consolidation declarations joined the
+  // jump contract (the policy closed list, the rotation pair and the merge pair),
+  // ~1,600 chars for three short arrays that save a second call for every turn a
+  // war is being fought. Measured at 30,758; the guard is a prompt-size guard, not
+  // a provider limit.
+  assert.ok(jumpChars < 31000, `the jump schema grew back to ${jumpChars} chars`);
 
   // ...and the game master, which has no second pass to hand the board to, keeps
   // it on its authored events (the provider sees a shallow transport; the
