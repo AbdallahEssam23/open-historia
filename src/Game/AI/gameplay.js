@@ -605,7 +605,7 @@ const buildDiplomaticLedgerDirective = (variables) => {
   return `[Relations and Agreements]
 ${state}
 A relation is the lasting political climate between two polities — friendly, cordial, neutral, cautious, strained, hostile or rival. It is a strong prior for how they deal with each other, never a veto: a friendly government can refuse a dangerous demand and a hostile one can cooperate under necessity. Formal agreements, warmth and war are separate facts. Other powers make their own diplomacy with each other, without waiting for ${playerName}, and it goes on the timeline as events.
-relationUpdates is one string, one record per line: A~B~score~status~eventNumbersCSV~summary — the new absolute score from -100 to 100, status blank to derive it from the score — only when an event changes the climate, never because time passed. agreementUpdates is one string, one record per line: agreementId~op~type~partiesCSV~eventNumbersCSV~title~terms, where op is start, update, suspend, resume, end or expire, and type is alliance, mutual_defense, guarantee, non_aggression, friendship_consultation, trade_economic, military_cooperation, military_access, neutrality, peace_settlement or other; give it a stable id (franco-russian-alliance-1894) and reuse it; only start needs the type, parties and title. Every record needs an event that causes it; eventNumbersCSV may be blank.
+relationUpdates is one string, one record per line: A~B~score~status~eventNumbersCSV~summary — the new absolute score from -100 to 100, status blank to derive it from the score — only when an event changes the climate, never because time passed. agreementUpdates is one string, one record per line: agreementId~op~type~partiesCSV~eventNumbersCSV~title~terms, where op is start, update, suspend, resume, end, expire or breach, and type is alliance, mutual_defense, guarantee, non_aggression, friendship_consultation, trade_economic, military_cooperation, military_access, neutrality, peace_settlement or other; give it a stable id (franco-russian-alliance-1894) and reuse it; only start needs the type, parties and title, and a breach names the one party that broke the treaty in partiesCSV, with type, title and terms blank, and is dropped when that party was not bound. Every record needs an event that causes it; eventNumbersCSV may be blank.
 Empty strings when nothing changes.`;
 };
 
@@ -6965,23 +6965,39 @@ const applySimulationResult = async ({
         .filter((entry) => entry.agreementId && entry.polity),
     });
     if (breachOutcome.breaches.length) {
-      const acceptedUpdates = breachUpdates.filter((update) =>
-        breachOutcome.breaches.some((breach) => breach.agreementId === update.id));
-      const breachMerge = applyDiplomaticUpdates({
-        world: worldWithImpacts,
-        relationUpdates: [],
-        agreementUpdates: acceptedUpdates,
-        events: freshEvents,
-        stopDate: nextGame.gameDate,
-        round: nextGame.round,
+      // The breaker is matched through the same owner resolver the breach reader
+      // used, so a declaration written with an alias still maps to the party the
+      // engine accepted. Matching the agreement id alone would let a rejected
+      // non-party overwrite breachedBy on the record the engine did accept.
+      const resolveBreaker = createOwnerResolver(buildOwnerAliasMap(worldWithImpacts?.polityOverrides));
+      const readBreaker = (value) => resolveBreaker(value) || toCountryName(value) || normalizeString(value);
+      const acceptedUpdates = breachUpdates.filter((update) => {
+        const breaker = readBreaker(normalizeString(update?.parties?.[0])).toLowerCase();
+        return breachOutcome.breaches.some((breach) =>
+          breach.agreementId === update.id && breach.polity.toLowerCase() === breaker);
       });
-      worldWithImpacts = applyTreatyBreaches(breachMerge.world, breachOutcome.breaches, {
-        date: nextGame.gameDate,
-        round: nextGame.round,
-      });
+      if (acceptedUpdates.length) {
+        const breachMerge = applyDiplomaticUpdates({
+          world: worldWithImpacts,
+          relationUpdates: [],
+          agreementUpdates: acceptedUpdates,
+          events: freshEvents,
+          stopDate: nextGame.gameDate,
+          round: nextGame.round,
+        });
+        // Charge only the breaches whose agreement record actually landed. One the
+        // merge dropped as unbound (no causal event) must not cost reputation while
+        // the pact stays active and still draws its allies into the war.
+        const landed = new Set(breachMerge.appliedAgreementIds);
+        const charged = breachOutcome.breaches.filter((breach) => landed.has(breach.agreementId));
+        worldWithImpacts = applyTreatyBreaches(breachMerge.world, charged, {
+          date: nextGame.gameDate,
+          round: nextGame.round,
+        });
+      }
     }
     // Log even when every declaration was rejected, so a silently dropped
-    // breach leaves a reason in the debug trail rather than vanishing.
+    // breach leaves a trace in the debug trail rather than vanishing.
     if (breachOutcome.summary.declared) {
       logDebugEvent("turn", `Treaty breaches resolved: ${breachOutcome.summary.accepted} accepted, ${breachOutcome.summary.rejected} rejected.`, {
         accepted: breachOutcome.summary.accepted,

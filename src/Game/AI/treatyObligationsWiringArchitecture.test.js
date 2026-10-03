@@ -43,3 +43,22 @@ test("the war directive prints the breach digest the jump prompt builds", () => 
   assert.match(body, /treatyBreach/, "the directive does not read the breach digest");
   assert.ok(gameplay.indexOf("variables.treatyBreach =") > 0, "the jump prompt never sets variables.treatyBreach");
 });
+
+test("the diplomatic directive tells the model it may breach a treaty", () => {
+  const start = gameplay.indexOf("const buildDiplomaticLedgerDirective = (variables) => {");
+  assert.ok(start > 0, "the diplomatic directive builder is missing");
+  const end = gameplay.indexOf("\n};", start);
+  const body = gameplay.slice(start, end);
+  assert.match(
+    body,
+    /op is start, update, suspend, resume, end, expire or breach/,
+    "the agreement op list does not offer a breach",
+  );
+});
+
+test("a resolved breach is removed from the later diplomatic merge", () => {
+  assert.ok(
+    gameplay.includes("agreementUpdates: otherAgreementUpdates"),
+    "the later merge still receives the breach records and would apply them twice",
+  );
+});
