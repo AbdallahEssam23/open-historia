@@ -490,7 +490,7 @@ export const buildEconomyEngineInstructions = ({ digest = "" } = {}) => {
 // The force-pools block: the rule and the facts. Like the economy, the pools
 // are computed locally and are not the model's to invent; what it controls is
 // the mobilization posture, declared sparingly and taking effect next period.
-export const buildForcePoolsInstructions = ({ digest = "" } = {}) => {
+export const buildForcePoolsInstructions = ({ digest = "", operations = "" } = {}) => {
   const rules = [
     "[National Forces]",
     "Every polity keeps a manpower pool and a materiel pool, computed locally by the same deterministic "
@@ -507,10 +507,22 @@ export const buildForcePoolsInstructions = ({ digest = "" } = {}) => {
     + "formation of the same type in rotations, or fold two weak formations of one type standing together into one "
     + "in merges, naming the survivor and the absorbed id. The engine owns every cost and result; state no "
     + "manpower or materiel number.",
+    "Your own forces' real state is given below; treat it as fact. Choose the policy by what the war asks "
+    + "of you: replacements (the default) keeps every in-supply formation topped up, for a general war or a "
+    + "full treasury; belligerent tops up only the formations of a polity fighting an active war, for a "
+    + "limited war or thin reserves; none stops the top-ups, to husband reserves after a peace or to save for "
+    + "production. Relieve a worn in-supply formation by rotating in a fresh one of the same type when both "
+    + "are in supply; fold two weak formations of one type standing together into one by merging, which works "
+    + "even in a pocket. The engine owns every cost and result; declare only what the period's events "
+    + "justify, and most periods have none.",
     "Declare a posture sparingly and only when the events you are writing justify it. Most periods have none.",
   ].join("\n\n");
   const facts = String(digest ?? "").trim();
-  return facts ? `${rules}\n\n[The Period's Reserves, as simulated]\n${facts}` : rules;
+  const field = String(operations ?? "").trim();
+  const parts = [rules];
+  if (facts) parts.push(`[The Period's Reserves, as simulated]\n${facts}`);
+  if (field) parts.push(field);
+  return parts.join("\n\n");
 };
 
 // The production block: the rule and the facts. The rule exists because the
