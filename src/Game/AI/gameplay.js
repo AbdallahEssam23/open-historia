@@ -32,7 +32,11 @@ import {
 } from "../../runtime/warSettlement.js";
 import { readSupplyAttrition } from "../../runtime/supplyAttrition.js";
 import { readReinforcement, readReinforcementPolicies } from "../../runtime/reinforcement.js";
-import { applyTreatyJoins, readTreatyObligations } from "../../runtime/treatyObligations.js";
+import {
+  applyTreatyJoins,
+  buildTreatyObligationDigest,
+  readTreatyObligations,
+} from "../../runtime/treatyObligations.js";
 import { buildUnitDirectorInput, directGeneratedUnitOps } from "./nativeUnitDirector.js";
 import { buildTerritoryDirectorInput, directGeneratedTerritoryOps } from "./nativeTerritoryDirector.js";
 import { expandWholeCountryTransfer, wholeCountrySourceToken } from "./territoryTransferScope.js";
@@ -575,9 +579,11 @@ const relationStatusForScore = (value) => {
 const buildWarLedgerDirective = (variables) => {
   const playerName = normalizeString(variables?.playerPolity) || "the player's polity";
   const canonicalWarContext = normalizeString(variables?.canonicalWarContext);
+  const treatyObligations = normalizeString(variables?.treatyObligations);
   return `[Wars]
-${canonicalWarContext || "No wars are recorded."}
+${canonicalWarContext || "No wars are recorded."}${treatyObligations ? `\n${treatyObligations}` : ""}
 Only this ledger makes polities belligerents — tension, an alliance or a mobilisation does not — and a war real history holds begins here only when you open it, with a warUpdates record and the event that starts it. Every battle, offensive, invasion, bombardment, siege or front carries event.warId, event.combatants naming both sides, and event.combatRegion naming the region it is fought in. If you write fighting, open the war in the same answer: a declaration, an entry, an exit, a ceasefire, a resumption or a peace each needs a warUpdates record and an event carrying the same warId, or the engine strips the war from the fighting and records peace. Two sides genuinely trading blows are at war; if you cannot say who is fighting whom, it is unrest, a raid or a deployment, so write it as that. A polity at peace does not live under war conditions — rationing, war taxes, mobilisation — because others are fighting, unless the war reaches it through something concrete (lost imports, refugees, sanctions). Nobody may join a war on ${playerName}'s behalf; another power declaring war on ${playerName} is that power's decision, and yours to write.
+A treaty is not narrative: a party bound by an active alliance, mutual defense or guarantee is drawn into the war by the engine, so when an ally appears in a war it was not fighting, narrate its entry rather than re-declaring the join or writing it out.
 warUpdates is one string, one record per line, fields separated by ~ (never inside a field): warId~op~actorsCSV~opponentsCSV~eventNumbersCSV~note. op is start, join-a, join-b, leave, ceasefire, resume, end or goals; for start the actors are side A and the opponents side B; for join and leave the actors are the polities joining or leaving; eventNumbersCSV may be blank. goals declares war aims: warId~goals~polity:kind[:region|region];polity:kind~~~, kind annex, reparations or status_quo. Give a war a stable id (war-france-germany-1914) and reuse it. An empty string when nothing changes.`;
 };
 
@@ -13087,6 +13093,12 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
         formations,
         policyInForce: inForce?.[playerKey] ?? "",
         pendingPolicy: pending?.[playerKey] ?? "",
+      });
+      // The treaty links the world already realizes, so the model narrates an
+      // ally's entry instead of inventing or contradicting it. Capped and
+      // built from the same world the turn reads.
+      variables.treatyObligations = buildTreatyObligationDigest({
+        standing: readTreatyObligations(bundle.world, { playerPolity }).standing,
       });
       const researchState = projected.research?.[playerPolity];
       const researchProgrammes = researchQueueFor(researchState?.programmes);
