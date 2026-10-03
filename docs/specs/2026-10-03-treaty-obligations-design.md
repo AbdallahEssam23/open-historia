@@ -137,9 +137,11 @@ agreement. The three obligating type strings are hardcoded in the engine because
 the purity guard forbids importing the runtime enum; a test asserts they equal
 the `WORLD_AGREEMENT_TYPE_SET` values so the two cannot drift.
 
-For each war, `aggressorSide` is `war.aggressor` (`"a"` unless it is `"b"`),
-`defenderSide` is the other, and a polity is a **victim** when it sits on
-`defenderSide`.
+For each war, `aggressorSide` is `war.aggressor` (`"a"` unless it is `"b"`) and
+`defenderSide` is the other. A polity is a **victim** when it is recorded on
+`defenderSide` *before the derivation begins*: a polity that joins during the
+fixed point is a belligerent but never a victim, so a defensive join does not
+manufacture the very fact that would trigger the next one.
 
 - **`alliance` (offensive and defensive):** every party is bound to join the
   side of any other party already fighting. If the partner fights on the
