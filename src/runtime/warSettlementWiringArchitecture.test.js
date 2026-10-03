@@ -47,3 +47,13 @@ test("the turn withholds a war it closes itself from settlement", () => {
   assert.ok(filterAt > dueAt, "the settlements are not filtered by the model-closed ids");
   assert.ok(reparationAt > 0, "reparations are paid from the unfiltered settlement set");
 });
+
+test("the adapter reads a war's recorded unjust aggressors", () => {
+  assert.match(adapter, /war\.unjustAggressors/);
+  assert.match(adapter, /unjustA/);
+  assert.match(adapter, /unjustB/);
+});
+
+test("the turn's peace receipt names a punitive settlement", () => {
+  assert.match(gameplay, /settlement\.punitive/);
+});
