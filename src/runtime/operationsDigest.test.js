@@ -74,6 +74,9 @@ test("the roster is capped and the overflow is counted", () => {
   const lines = text.split("\n").filter((line) => line.startsWith("- "));
   assert.equal(lines.length, OPERATIONS_ROW_CAP);
   assert.match(text, /\+4 more out of supply\./);
+
+  const realistic = buildOperationsDigest({ formations, policyInForce: "replacements" });
+  assert.match(realistic, /\+4 more out of supply\./);
 });
 
 test("a block longer than the character cap is clamped on a line boundary", () => {
@@ -82,6 +85,13 @@ test("a block longer than the character cap is clamped on a line boundary", () =
   );
   const text = buildOperationsDigest({ formations, policyInForce: "none", cap: 40 });
   assert.ok(text.length <= OPERATIONS_CHAR_CAP, `got ${text.length}`);
+  // The fixed section header is the only line that does not end in a period;
+  // every clamped body line must, or a mid-line truncation slipped through.
+  const lines = text.split("\n").filter(Boolean);
+  assert.equal(lines[0], "[Your Forces in the Field, as simulated]");
+  for (const line of lines.slice(1)) {
+    assert.ok(line.endsWith("."), `partial line: ${line}`);
+  }
 });
 
 test("the input is not mutated and the output is ASCII", () => {

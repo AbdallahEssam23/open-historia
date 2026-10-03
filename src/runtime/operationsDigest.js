@@ -91,16 +91,16 @@ export const buildOperationsDigest = ({
   ].join("\n");
 
   const detail = shown.map(rowLineFor);
-  if (overflow > 0) detail.push(`+${overflow} more out of supply.`);
+  const overflowLine = overflow > 0 ? `+${overflow} more out of supply.` : "";
 
   // A line that would overflow the cap is dropped whole rather than truncated,
   // so the model is never handed half a fact, like the economy digest.
-  let used = fixed.length;
+  let used = fixed.length + (overflowLine ? overflowLine.length + 1 : 0);
   const kept = [];
   for (const line of detail) {
     if (used + line.length + 1 > budget) break;
     kept.push(line);
     used += line.length + 1;
   }
-  return [fixed, ...kept].join("\n");
+  return [fixed, ...kept, overflowLine].filter(Boolean).join("\n");
 };
