@@ -2,7 +2,8 @@
 // The adapter between the stored world and the pure obligation core. It reads
 // the world, resolves every war polity and agreement party into one canonical
 // key space, calls the engine, and turns the joins into a new normalized world.
-// It never imports the Game/AI layer and writes nothing but world.wars.
+// It never imports the Game/AI layer; the joins are written to world.wars, and
+// a breach is charged to world.internationalReputation and world.relations.
 
 import { BREACH_RELATION_PENALTY, BREACH_REPUTATION_PENALTY, deriveTreatyBreaches, deriveTreatyObligations } from "../engine/treatyObligations.js";
 import { normalizeWorldState } from "./gameState.js";
@@ -95,13 +96,22 @@ export const readRecordedBreaches = (world) => {
   const normalized = normalizeWorldState(world);
   return list(normalized?.agreements)
     .filter((agreement) => asString(agreement?.status) === "breached")
-    .map((agreement) => ({
-      agreementId: asString(agreement?.id),
-      agreementType: asString(agreement?.type),
-      breachedBy: asString(agreement?.breachedBy),
-      polities: list(agreement?.parties).map(asString).filter(Boolean),
-    }))
-    .sort((a, b) => compareText(a.agreementId, b.agreementId) || compareText(a.breachedBy, b.breachedBy));
+    .map((agreement) => {
+      const breachedBy = asString(agreement?.breachedBy);
+      // The digest row shape: the breaker, and the other recorded parties as the
+      // wronged. The war context is gone by the time this is read from state, so
+      // every non-breaker party is reported wronged.
+      const wronged = list(agreement?.parties)
+        .map(asString)
+        .filter((polity) => polity && keyLower(polity) !== keyLower(breachedBy));
+      return {
+        agreementId: asString(agreement?.id),
+        agreementType: asString(agreement?.type),
+        polity: breachedBy,
+        wrongedPolities: wronged,
+      };
+    })
+    .sort((a, b) => compareText(a.agreementId, b.agreementId) || compareText(a.polity, b.polity));
 };
 
 export const applyTreatyBreaches = (world, breaches, { date = "", round = 0 } = {}) => {

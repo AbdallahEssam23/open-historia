@@ -162,8 +162,21 @@ test("readRecordedBreaches returns the agreements the world already broke", () =
   });
   const rows = readRecordedBreaches(stored);
   assert.deepEqual(rows, [
-    { agreementId: "broken", agreementType: "alliance", breachedBy: "Italy", polities: ["Germany", "Italy"] },
+    { agreementId: "broken", agreementType: "alliance", polity: "Italy", wrongedPolities: ["Germany"] },
   ]);
+});
+
+test("the digest a jump builds from the recorded breaches is not empty", () => {
+  const stored = world({
+    agreements: [
+      { id: "broken", type: "alliance", status: "breached", parties: ["Germany", "Italy"], breachedBy: "Italy" },
+    ],
+  });
+  // The jump wires readRecordedBreaches straight into buildTreatyBreachDigest;
+  // this bridges the two shapes so a silent empty block cannot slip through.
+  const block = buildTreatyBreachDigest({ breaches: readRecordedBreaches(stored) });
+  assert.match(block, /^\[Treaty Breaches, as simulated\]/);
+  assert.match(block, /- Italy broke broken \(alliance\); wronged Germany\./);
 });
 
 test("the breach digest orders rows, caps them and reports the overflow", () => {
