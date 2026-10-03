@@ -17,6 +17,11 @@ import {
   postureFor,
 } from "../engine/forcePools.js";
 import {
+  DEFAULT_REINFORCEMENT_POLICY,
+  normalizeReinforcement,
+  normalizeReinforcementMap,
+} from "../engine/reinforcement.js";
+import {
   markerKindFor,
   normalizeProductionOrders,
   normalizeProductionQueue,
@@ -272,6 +277,7 @@ export const advanceWorldEconomy = (
     declaredShocks = [],
     declaredMobilization = [],
     declaredProduction = [],
+    declaredReinforcement = [],
     playerPolity = "",
     tracked = [],
     campaignId = "",
@@ -298,6 +304,7 @@ export const advanceWorldEconomy = (
       posture: {},
       shortfall: committed.shortfall,
       declaredMobilization: [],
+      declaredReinforcement: [],
       production: committed.production,
       completionBatches: [],
       researchOps: [],
@@ -316,6 +323,15 @@ export const advanceWorldEconomy = (
   for (const entry of pendingNow) posture[entry.polity] = entry.posture;
   const { valid: declaredNow, rejected: declaredMobilizationRejected } =
     normalizeMobilization(declaredMobilization, { knownPolities });
+
+  // The reinforcement policy in force this period, on the same one-period lag as
+  // the posture: committed, overridden by last turn's pending declaration. This
+  // turn's declaration is stored for next period.
+  const reinforcement = { ...normalizeReinforcementMap(world?.economyEngine?.reinforcement) };
+  const { valid: pendingReinforcementNow } = normalizeReinforcement(world?.economyEngine?.pendingReinforcement, { knownPolities });
+  for (const entry of pendingReinforcementNow) reinforcement[entry.polity] = entry.policy;
+  const { valid: declaredReinforcementNow, rejected: declaredReinforcementRejected } =
+    normalizeReinforcement(declaredReinforcement, { knownPolities });
 
   const { valid: appliedOrders, rejected: pendingProductionRejected } =
     normalizeProductionOrders(world?.economyEngine?.pendingProduction, { knownPolities });
@@ -369,6 +385,13 @@ export const advanceWorldEconomy = (
       .filter((name) => posture[name] && posture[name] !== DEFAULT_POSTURE)
       .map((name) => [name, posture[name]]),
   );
+  // Only non-default policies are stored, so an absent name reads as
+  // replacements.
+  const committedReinforcement = Object.fromEntries(
+    stableOrder(Object.keys(reinforcement))
+      .filter((name) => reinforcement[name] && reinforcement[name] !== DEFAULT_REINFORCEMENT_POLICY)
+      .map((name) => [name, reinforcement[name]]),
+  );
   const shortfall = normalizeUpkeepShortfall(state.shortfall);
 
   // Fold this span's completions into the committed totals, using the pair the
@@ -401,6 +424,8 @@ export const advanceWorldEconomy = (
       ...(declaredProductionNow.length ? { pendingProduction: declaredProductionNow } : {}),
       ...(Object.keys(committedMobilization).length ? { mobilization: committedMobilization } : {}),
       ...(declaredNow.length ? { pendingMobilization: declaredNow } : {}),
+      ...(Object.keys(committedReinforcement).length ? { reinforcement: committedReinforcement } : {}),
+      ...(declaredReinforcementNow.length ? { pendingReinforcement: declaredReinforcementNow } : {}),
       ...(Object.keys(shortfall).length ? { upkeepShortfall: shortfall } : {}),
       ...(Object.keys(researchEffectsNext).length ? { researchEffects: researchEffectsNext } : {}),
     },
@@ -434,7 +459,7 @@ export const advanceWorldEconomy = (
     });
   }
 
-  const rejectedAll = [...rejected, ...declaredRejected, ...declaredMobilizationRejected];
+  const rejectedAll = [...rejected, ...declaredRejected, ...declaredMobilizationRejected, ...declaredReinforcementRejected];
   if (rejectedAll.length) nextWorld.economyEngine.rejectedShocks = rejectedAll;
   const rejectedProductionAll = [
     ...declaredProductionRejected,
@@ -488,6 +513,7 @@ export const advanceWorldEconomy = (
     posture,
     shortfall,
     declaredMobilization: declaredNow,
+    declaredReinforcement: declaredReinforcementNow,
     production: state.production,
     completionBatches,
     researchOps,

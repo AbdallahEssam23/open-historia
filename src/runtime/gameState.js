@@ -25,6 +25,7 @@ import {
   normalizePools,
   normalizeUpkeepShortfall,
 } from "../engine/forcePools.js";
+import { normalizePendingReinforcement, normalizeReinforcementMap } from "../engine/reinforcement.js";
 import { normalizeProductionQueue } from "../engine/productionQueue.js";
 import { normalizeResearchEffects } from "../engine/researchEffects.js";
 import { normalizeWarGoals, normalizeWeariness } from "../engine/warSettlement.js";
@@ -3578,6 +3579,11 @@ const normalizeEconomyEngine = (value) => {
   if (Object.keys(mobilization).length) out.mobilization = mobilization;
   const pendingMobilization = normalizePendingMobilization(value.pendingMobilization);
   if (pendingMobilization.length) out.pendingMobilization = pendingMobilization;
+  // The reinforcement policy the same two sparse fields carry.
+  const reinforcement = normalizeReinforcementMap(value.reinforcement);
+  if (Object.keys(reinforcement).length) out.reinforcement = reinforcement;
+  const pendingReinforcement = normalizePendingReinforcement(value.pendingReinforcement);
+  if (pendingReinforcement.length) out.pendingReinforcement = pendingReinforcement;
   const upkeepShortfall = normalizeUpkeepShortfall(value.upkeepShortfall);
   if (Object.keys(upkeepShortfall).length) out.upkeepShortfall = upkeepShortfall;
   // The production line, the orders declared last turn and the orders the last
