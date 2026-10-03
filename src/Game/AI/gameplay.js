@@ -31,7 +31,7 @@ import {
   resolveWarSettlements,
 } from "../../runtime/warSettlement.js";
 import { readSupplyAttrition } from "../../runtime/supplyAttrition.js";
-import { readReinforcement } from "../../runtime/reinforcement.js";
+import { readReinforcement, readReinforcementPolicies } from "../../runtime/reinforcement.js";
 import { buildUnitDirectorInput, directGeneratedUnitOps } from "./nativeUnitDirector.js";
 import { buildTerritoryDirectorInput, directGeneratedTerritoryOps } from "./nativeTerritoryDirector.js";
 import { expandWholeCountryTransfer, wholeCountrySourceToken } from "./territoryTransferScope.js";
@@ -98,7 +98,7 @@ import {
   normalizeGameplayPayload,
   validateGameplayPayload,
 } from "./gameplaySchemas.js";
-import { buildOwnerAliasMap, canonicalOwnerName, toCountryName } from "../../runtime/ownerNames.js";
+import { buildOwnerAliasMap, canonicalOwnerName, createOwnerResolver, toCountryName } from "../../runtime/ownerNames.js";
 import { editDistance, foldRegionKey, matchRegionName, stripRegionAffixes } from "./regionMatch.js";
 import { buildRegionResolver, resolveCombatRegionIds } from "./combatRegionResolution.js";
 import { PLACEMENT_DIRECTIVE, distanceKm as placementDistanceKm, nearestInteriorPoint, pointInGeometry, resolvePlacement } from "./placement.js";
@@ -306,6 +306,7 @@ import { addGameDays, compareGameDates, diffGameDays, gameDateDayNumber, normali
 import { authoredImpactTargets, stampResolvedImpacts, withAuthorImpacts, withoutAuthorImpacts } from "../../runtime/scriptedImpacts.js";
 import { advanceWorldEconomy, buildUpkeepTable } from "../../runtime/economyEngine.js";
 import { buildEconomyDigest } from "../../runtime/economyDigest.js";
+import { buildOperationsDigest } from "../../runtime/operationsDigest.js";
 import { DEFAULT_POSTURE } from "../../engine/forcePools.js";
 import { researchQueueFor } from "../../engine/research.js";
 import {
@@ -2645,7 +2646,10 @@ This live instruction supersedes older frozen country-stat prompts and all earli
   // The deterministic force pools: the rule, then the reserves the engine
   // actually simulated. Guarded because older saves carry no digest yet.
   if (jumpTask) {
-    const forceBlock = buildForcePoolsInstructions({ digest: variables?.forcePoolsDigest });
+    const forceBlock = buildForcePoolsInstructions({
+      digest: variables?.forcePoolsDigest,
+      operations: variables?.operationsDigest,
+    });
     if (forceBlock) systemPrompt = `${systemPrompt}\n\n${forceBlock}`;
   }
 
@@ -13029,6 +13033,37 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
         playerPosture: postureNow,
         postureChanged: postureNow !== committedPosture,
         playerShortfall: projected.shortfall?.[playerPolity] ?? null,
+      });
+      // The player's own formations in the field: the supply state part two
+      // derives and the policy part three puts in force. The model is otherwise
+      // blind to both, so it cannot direct a rotation or a merge. Player-only
+      // and capped; built from the same reads the turn itself uses.
+      const resolveOwner = createOwnerResolver(buildOwnerAliasMap(bundle.world?.polityOverrides));
+      const playerKey = resolveOwner(playerPolity) || playerPolity;
+      const supplyById = new Map(
+        readSupplyAttrition(bundle.world, getPrimedScenarioRegionCatalog() ?? [], {
+          fromDate: originDate,
+          toDate: targetDate,
+        }).units.map((row) => [normalizeString(row.unitId), row]),
+      );
+      const formations = (Array.isArray(bundle.world?.units) ? bundle.world.units : [])
+        .filter((unit) => resolveOwner(normalizeString(unit?.ownerCode)) === playerKey)
+        .map((unit) => {
+          const supply = supplyById.get(normalizeString(unit?.id));
+          return {
+            id: normalizeString(unit?.id),
+            name: normalizeString(unit?.name) || normalizeString(unit?.id),
+            type: normalizeString(unit?.type),
+            strength: unit?.strength,
+            state: supply?.state,
+            reachable: supply?.reachable,
+          };
+        });
+      const { inForce, pending } = readReinforcementPolicies(bundle.world);
+      variables.operationsDigest = buildOperationsDigest({
+        formations,
+        policyInForce: inForce?.[playerKey] ?? "",
+        pendingPolicy: pending?.[playerKey] ?? "",
       });
       const researchState = projected.research?.[playerPolity];
       const researchProgrammes = researchQueueFor(researchState?.programmes);
