@@ -71,11 +71,12 @@ other agreement type is a promise with no mechanical clause and is untouched.
 - No change to the stored shape of an agreement, a relation or a war beyond the
   single `aggressor` field. No `terms` are parsed; type and parties are the whole
   input.
-- No diplomacy for the player. The engine never joins the player's own polity;
-  the model decides the player's entry. But a war the player is in is not
-  skipped: an ally's obligation to enter the player's war, or an enemy's ally to
-  enter against the player, still fires, because that is another power's
-  decision, not the player's.
+- No diplomacy for the player. The engine never adds the player's own polity, so
+  a withheld player join is never a chain node and propagates nothing; the model
+  decides the player's entry. But a war the player is in is not skipped: an
+  ally's obligation to enter the player's war, or an enemy's ally to enter
+  against the player, still fires, because that is another power's decision, not
+  the player's.
 - No breaking of treaties. This branch honors promises; a breach would need a
   reason, a reputation cost and a declaration surface, and is a later branch.
 - No new declaration field or schema change. The model still declares wars with
@@ -184,7 +185,8 @@ is recorded as a rejection, and a cap that truncates the derivation is flagged.
 
 ### 5. The engine output
 
-`deriveTreatyObligations({ wars = [], agreements = [] })` returns:
+`deriveTreatyObligations({ wars = [], agreements = [], inadmissible = [] })`
+returns:
 
 ```
 {
@@ -205,6 +207,13 @@ engine makes this turn is already history by the next prompt: without a standing
 read the model would be told nothing the turn after the ally joined. It is
 bounded by `MAX_STANDING_OBLIGATIONS = 128`.
 
+`inadmissible` is a list of polity keys the engine never adds. A barred polity is
+skipped before any other check, so it is neither added nor recorded as a
+rejection. This matters because a polity that joins becomes a chain node: the
+fixed point would otherwise drag that polity's own alliance partners in. A barred
+polity already recorded on a side still participates, because it is in the
+initial sides, so a war the barred polity is in still drags its partners.
+
 ### 6. The runtime adapter
 
 `src/runtime/treatyObligations.js` exports two functions.
@@ -213,11 +222,12 @@ bounded by `MAX_STANDING_OBLIGATIONS = 128`.
 with `normalizeWorldState`, resolves every war polity and agreement party into
 one canonical key space with
 `createOwnerResolver(buildOwnerAliasMap(world?.polityOverrides))` and
-`toCountryName`, calls `deriveTreatyObligations`, drops any join whose polity is
-the canonical player, and returns the result with display names restored. It
-reads only; it is the direct analogue of `resolveWarSettlements`, which takes
-the player polity the same way. Wars are not skipped: only the player's own
-admission is withheld.
+`toCountryName`, and passes the canonical player key as `inadmissible` to
+`deriveTreatyObligations`. The player is therefore never added inside the engine
+and is never a chain node, so a withheld player admission propagates nothing to
+its allies. It reads only; it is the direct analogue of `resolveWarSettlements`,
+which takes the player polity the same way. Wars are not skipped: only the
+player's own admission is withheld.
 
 `applyTreatyJoins(world, joins, { date, round })` returns a new normalized world
 with each join's polity appended to the named side of its war (deduped, capped
@@ -302,6 +312,9 @@ rule states no number and no polity.
   the reverse.
 - An alliance chain is applied to a fixed point, while a defense join propagates
   nothing.
+- An `inadmissible` polity is never added and never becomes a chain node, so a
+  third party allied only to it is not dragged in; a barred polity already on a
+  side still drags its alliance partners.
 - A join is rejected with `side-full` at `MAX_WAR_SIDE` and with
   `already-opposed` against the other side; a party already on the target side is
   a no-op.
@@ -313,7 +326,10 @@ rule states no number and no polity.
 `src/runtime/treatyObligations.test.js` (adapter):
 
 - `readTreatyObligations` reads a stored world, resolves names into one key
-  space, drops a join naming the player polity, and returns joins and standing.
+  space, withholds the player polity from the derivation, and returns joins and
+  standing.
+- A player allied to a belligerent and to a neutral third party yields no joins
+  at all: the withheld player admission does not drag the third party in.
 - `applyTreatyJoins` grows the named side, sets the date and round, and returns
   the same world for an empty join list.
 - `buildTreatyObligationDigest` orders rows, caps at `cap` with the `+N more.`

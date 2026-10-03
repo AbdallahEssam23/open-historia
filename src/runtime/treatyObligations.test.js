@@ -39,6 +39,27 @@ test("the adapter never joins the player's own polity", () => {
   assert.equal(out.summary.joined, 0);
 });
 
+test("a withheld player join propagates nothing to a third party", () => {
+  // P is allied to belligerent A and to neutral D. The player's own join is
+  // withheld, and because P is never a chain node, D is not dragged in either.
+  const stored = normalizeWorldState({
+    polityOverrides: {
+      P: { code: "P" },
+      A: { code: "A" },
+      B: { code: "B" },
+      D: { code: "D" },
+    },
+    wars: [{ id: "war-a-b", status: "active", aggressor: "a", sideA: ["A"], sideB: ["B"], startedDate: "1914-08-03" }],
+    agreements: [
+      { id: "ag-p-a", type: "alliance", status: "active", parties: ["P", "A"] },
+      { id: "ag-p-d", type: "alliance", status: "active", parties: ["P", "D"] },
+    ],
+  });
+  const out = readTreatyObligations(stored, { playerPolity: "P" });
+  assert.deepEqual(out.joins, []);
+  assert.equal(out.summary.joined, 0);
+});
+
 test("applyTreatyJoins grows the named side and stamps the date and round", () => {
   const stored = world({
     wars: [{ id: "w1", status: "active", aggressor: "a", sideA: ["Germany"], sideB: ["France"], startedDate: "1914-08-03" }],

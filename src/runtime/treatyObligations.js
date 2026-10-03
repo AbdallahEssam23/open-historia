@@ -47,11 +47,9 @@ export const readTreatyObligations = (world, { playerPolity = "" } = {}) => {
     beneficiary: asString(agreement?.beneficiary) ? readPolity(agreement.beneficiary) : "",
   }));
 
-  const derived = deriveTreatyObligations({ wars, agreements });
-  const joins = playerKey
-    ? derived.joins.filter((join) => asString(join.polity).toLowerCase() !== playerKey)
-    : derived.joins;
-  return { ...derived, joins, summary: { ...derived.summary, joined: joins.length } };
+  // The player key is handed to the engine as inadmissible so the player is
+  // never a chain node: a withheld admission propagates nothing to its allies.
+  return deriveTreatyObligations({ wars, agreements, inadmissible: playerKey ? [playerKey] : [] });
 };
 
 export const applyTreatyJoins = (world, joins, { date = "", round = 0 } = {}) => {

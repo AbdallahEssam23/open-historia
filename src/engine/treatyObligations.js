@@ -38,7 +38,7 @@ const compareAgreements = (a, b) =>
   compareText(asString(a?.id), asString(b?.id))
   || compareText(partiesOf(a).join(","), partiesOf(b).join(","));
 
-export const deriveTreatyObligations = ({ wars = [], agreements = [] } = {}) => {
+export const deriveTreatyObligations = ({ wars = [], agreements = [], inadmissible = [] } = {}) => {
   const sortedWars = list(wars)
     .filter((war) => asString(war?.status) === "active")
     .slice()
@@ -54,6 +54,10 @@ export const deriveTreatyObligations = ({ wars = [], agreements = [] } = {}) => 
   const rejections = [];
   const standing = [];
   let truncated = false;
+  // A polity the caller bars is never admitted, so it can never become a chain
+  // node that drags its own partners in. Filtering the output afterwards would
+  // be too late: the fixed point would already have propagated through it.
+  const barred = new Set(list(inadmissible).map(keyOf).filter(Boolean));
 
   for (const war of sortedWars) {
     const warId = asString(war?.id);
@@ -146,6 +150,7 @@ export const deriveTreatyObligations = ({ wars = [], agreements = [] } = {}) => 
       const applied = [];
       for (const proposal of proposals) {
         const key = keyOf(proposal.polity);
+        if (barred.has(key)) continue;
         const other = proposal.side === "a" ? "b" : "a";
         if (sides[proposal.side].has(key)) continue;
         if (sides[other].has(key)) {

@@ -191,3 +191,29 @@ test("reaching the standing cap never abandons the derivation", () => {
   assert.equal(out.standing.length, 128, "standing is bounded");
   assert.deepEqual(out.joins, [{ warId: "w2", side: "a", polity: "C2", viaAgreementId: "drag" }]);
 });
+
+test("an inadmissible polity is never added and never drags its allies", () => {
+  // C is allied to belligerent A and to neutral D. If C were admitted it would
+  // become a chain node and pull D in. Barring C must leave D out entirely.
+  const out = deriveTreatyObligations({
+    wars: [war()],
+    agreements: [
+      agreement({ id: "a1", parties: ["A", "C"] }),
+      agreement({ id: "a2", parties: ["C", "D"] }),
+    ],
+    inadmissible: ["C"],
+  });
+  assert.deepEqual(out.joins, []);
+  assert.deepEqual(out.rejections, [], "a barred proposal is not recorded as a rejection");
+});
+
+test("an inadmissible polity already on a side still drags its alliance partners", () => {
+  // C is the player and already a belligerent on side A. A war the player is in
+  // is not skipped: another power's obligation to enter still fires.
+  const out = deriveTreatyObligations({
+    wars: [war({ sideA: ["A", "C"] })],
+    agreements: [agreement({ parties: ["C", "D"] })],
+    inadmissible: ["C"],
+  });
+  assert.deepEqual(out.joins, [{ warId: "w1", side: "a", polity: "D", viaAgreementId: "a1" }]);
+});
