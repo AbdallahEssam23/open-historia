@@ -7020,16 +7020,25 @@ const applySimulationResult = async ({
   // after the breach pre-pass, so a promise broken this turn justifies a war
   // begun this turn, and before the obligation step. Reading the start records,
   // not the war records, is what keeps a later joiner from being judged an
-  // aggressor. A failure here must never lose a completed turn.
+  // aggressor. Only the starts the ledger actually applied are judged, and each
+  // war once, so a re-issued or duplicated start cannot charge twice. A failure
+  // here must never lose a completed turn.
   try {
+    const appliedWarIds = new Set(normalizeArray(warMerge.appliedIds));
+    const judgedWarIds = new Set();
     const casusStarts = warUpdates
       .filter((update) => normalizeString(update?.op).toLowerCase() === "start")
+      .filter((update) => appliedWarIds.has(normalizeString(update?.id)))
       .map((update) => ({
         warId: normalizeString(update?.id),
         aggressors: normalizeArray(update?.actors),
         defenders: normalizeArray(update?.opponents),
       }))
-      .filter((start) => start.warId);
+      .filter((start) => {
+        if (!start.warId || judgedWarIds.has(start.warId)) return false;
+        judgedWarIds.add(start.warId);
+        return true;
+      });
     if (casusStarts.length) {
       const casusOutcome = readWarCasus(worldWithImpacts, {
         starts: casusStarts,

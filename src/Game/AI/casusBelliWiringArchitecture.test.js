@@ -21,6 +21,13 @@ test("the war directive prints the casus digest the jump prompt builds", () => {
   assert.ok(start > 0, "the war directive builder is missing");
   const end = gameplay.indexOf("\n};", start);
   const body = gameplay.slice(start, end);
-  assert.match(body, /warCasus/, "the directive does not read the casus digest");
+  assert.match(body, /warCasus \?/, "the directive does not print the casus digest");
   assert.ok(gameplay.indexOf("variables.warCasus =") > 0, "the jump prompt never sets variables.warCasus");
+});
+
+test("the turn judges only the starts the war ledger applied", () => {
+  const appliedAt = gameplay.indexOf("warMerge.appliedIds");
+  const casusReadAt = gameplay.indexOf("readWarCasus(worldWithImpacts");
+  assert.ok(appliedAt > 0, "the pre-pass must read the ids the ledger applied");
+  assert.ok(appliedAt < casusReadAt, "the applied-id gate must precede the casus read");
 });
