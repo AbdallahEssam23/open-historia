@@ -3,11 +3,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  applyTreatyBreaches,
   applyTreatyJoins,
+  buildTreatyBreachDigest,
   buildTreatyObligationDigest,
+  readRecordedBreaches,
+  readTreatyBreaches,
   readTreatyObligations,
 } from "./treatyObligations.js";
-import { OBLIGATION_AGREEMENT_TYPES } from "../engine/treatyObligations.js";
+import { BREACH_RELATION_PENALTY, BREACH_REPUTATION_PENALTY, OBLIGATION_AGREEMENT_TYPES } from "../engine/treatyObligations.js";
 import { normalizeWorldState } from "./gameState.js";
 
 const world = (over = {}) => normalizeWorldState({
@@ -104,4 +108,74 @@ test("the adapter imports no Game/AI module", () => {
   const source = readFileSync(new URL("./treatyObligations.js", import.meta.url), "utf8");
   const specifiers = [...source.matchAll(/from\s+"([^"]+)"/g)].map((match) => match[1]);
   assert.equal(specifiers.some((specifier) => specifier.includes("Game/AI")), false);
+});
+
+test("the adapter reads a declared breach and names the wronged party", () => {
+  const stored = world({
+    wars: [{ id: "w1", status: "active", aggressor: "a", sideA: ["Germany"], sideB: ["France"], startedDate: "1914-08-03" }],
+    agreements: [{ id: "central", type: "alliance", status: "active", parties: ["Germany", "Italy"] }],
+  });
+  const out = readTreatyBreaches(stored, { breaches: [{ agreementId: "central", polity: "Italy" }] });
+  assert.deepEqual(out.breaches, [
+    { agreementId: "central", agreementType: "alliance", polity: "Italy", warIds: ["w1"], wrongedPolities: ["Germany"] },
+  ]);
+});
+
+test("applyTreatyBreaches charges reputation and the relation and clamps", () => {
+  const stored = world({
+    wars: [{ id: "w1", status: "active", aggressor: "a", sideA: ["Germany"], sideB: ["France"], startedDate: "1914-08-03" }],
+    internationalReputation: { Italy: 30 },
+    relations: [{ id: "r1", a: "Germany", b: "Italy", score: 10, status: "neutral" }],
+  });
+  const next = applyTreatyBreaches(stored, [
+    { agreementId: "central", agreementType: "alliance", polity: "Italy", warIds: ["w1"], wrongedPolities: ["Germany"] },
+  ], { date: "1914-09-01", round: 4 });
+  assert.equal(next.internationalReputation.Italy, 30 - BREACH_REPUTATION_PENALTY);
+  const relation = next.relations.find((entry) => (entry.a === "Germany" && entry.b === "Italy") || (entry.a === "Italy" && entry.b === "Germany"));
+  assert.equal(relation.score, 10 - BREACH_RELATION_PENALTY);
+  assert.equal(applyTreatyBreaches(stored, [], { date: "1914-09-01", round: 4 }), stored, "a quiet turn copies nothing");
+});
+
+test("applyTreatyBreaches creates a relation where none was recorded and floors it", () => {
+  const stored = world({
+    wars: [{ id: "w1", status: "active", aggressor: "a", sideA: ["Germany"], sideB: ["France"], startedDate: "1914-08-03" }],
+    internationalReputation: { Italy: 5 },
+    relations: [{ id: "r1", a: "Germany", b: "Italy", score: -95, status: "rival" }],
+  });
+  const next = applyTreatyBreaches(stored, [
+    { agreementId: "central", agreementType: "alliance", polity: "Italy", warIds: ["w1"], wrongedPolities: ["Germany", "Russia"] },
+  ], { date: "1914-09-01", round: 4 });
+  assert.equal(next.internationalReputation.Italy, 0, "reputation floors at 0");
+  const pair = next.relations.find((entry) => (entry.a === "Germany" && entry.b === "Italy") || (entry.a === "Italy" && entry.b === "Germany"));
+  assert.equal(pair.score, -100, "relation floors at -100");
+  const created = next.relations.find((entry) => (entry.a === "Italy" && entry.b === "Russia") || (entry.a === "Russia" && entry.b === "Italy"));
+  assert.ok(created, "a breach leaves a pair where none was recorded");
+  assert.equal(created.score, -BREACH_RELATION_PENALTY);
+});
+
+test("readRecordedBreaches returns the agreements the world already broke", () => {
+  const stored = world({
+    agreements: [
+      { id: "broken", type: "alliance", status: "breached", parties: ["Germany", "Italy"], breachedBy: "Italy" },
+      { id: "whole", type: "alliance", status: "active", parties: ["Germany", "Russia"] },
+    ],
+  });
+  const rows = readRecordedBreaches(stored);
+  assert.deepEqual(rows, [
+    { agreementId: "broken", agreementType: "alliance", breachedBy: "Italy", polities: ["Germany", "Italy"] },
+  ]);
+});
+
+test("the breach digest orders rows, caps them and reports the overflow", () => {
+  const breaches = Array.from({ length: 8 }, (_, i) => ({
+    agreementId: `a${i}`,
+    agreementType: "alliance",
+    polity: "Italy",
+    wrongedPolities: ["Germany"],
+  }));
+  const block = buildTreatyBreachDigest({ breaches, cap: 6, charCap: 1000 });
+  assert.match(block, /^\[Treaty Breaches, as simulated\]/);
+  assert.equal(block.split("\n").length, 8, "a header, six rows and one overflow line");
+  assert.match(block, /\+2 more\./);
+  assert.equal(buildTreatyBreachDigest({ breaches: [] }), "");
 });

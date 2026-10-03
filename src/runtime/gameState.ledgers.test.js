@@ -131,3 +131,14 @@ test("a war carries an aggressor that defaults to side A and survives a round tr
   const again = normalizeWorldState(world);
   assert.deepEqual(again.wars, world.wars);
 });
+
+test("a breached status and its breachedBy survive a normalize round trip", () => {
+  const world = normalizeWorldState({
+    agreements: [
+      { id: "a1", type: "alliance", status: "breached", parties: ["France", "Russia"], breachedBy: "Russia", endedDate: "1914-09-01" },
+    ],
+  });
+  assert.equal(world.agreements[0].status, "breached");
+  assert.equal(world.agreements[0].breachedBy, "Russia");
+  assert.equal(world.agreements[0].endedDate, "1914-09-01");
+});

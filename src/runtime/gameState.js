@@ -342,7 +342,7 @@ const normalizeArray = (value) => (Array.isArray(value) ? value : []);
 const WORLD_WAR_STATUS_SET = new Set(["active", "ceasefire", "ended"]);
 const WORLD_RELATION_STATUS_SET = new Set(["friendly", "cordial", "neutral", "cautious", "strained", "hostile", "rival"]);
 const WORLD_AGREEMENT_TYPE_SET = new Set(["alliance", "mutual_defense", "guarantee", "non_aggression", "friendship_consultation", "trade_economic", "military_cooperation", "military_access", "neutrality", "peace_settlement", "other"]);
-const WORLD_AGREEMENT_STATUS_SET = new Set(["active", "suspended", "ended", "expired"]);
+const WORLD_AGREEMENT_STATUS_SET = new Set(["active", "suspended", "ended", "expired", "breached"]);
 const MAX_WORLD_WARS = 64;
 const WORLD_STORYLINE_STATUS_SET = new Set(["active", "dormant", "resolved"]);
 const MAX_WORLD_STORYLINES = 96;
@@ -3472,6 +3472,9 @@ const normalizeWorldAgreement = (entry, identityWorld, index = 0, identityIndex 
   const beneficiary = type === "guarantee"
     ? resolveWorldDiplomaticPolity(entry.beneficiary || parties[1], identityWorld, identityIndex)
     : "";
+  const breachedBy = status === "breached"
+    ? resolveWorldDiplomaticPolity(entry.breachedBy, identityWorld, identityIndex)
+    : "";
   return {
     id,
     title: normalizeOptionalString(entry.title) || id,
@@ -3479,12 +3482,13 @@ const normalizeWorldAgreement = (entry, identityWorld, index = 0, identityIndex 
     status,
     parties,
     startedDate: canonicalizeDateString(entry.startedDate),
-    endedDate: ["ended", "expired"].includes(status)
+    endedDate: ["ended", "expired", "breached"].includes(status)
       ? canonicalizeDateString(entry.endedDate || entry.lastUpdatedDate)
       : "",
     lastUpdatedDate: canonicalizeDateString(entry.lastUpdatedDate || entry.startedDate),
     terms: normalizeTextLike(entry.terms),
     ...(guarantor && beneficiary ? { guarantor, beneficiary } : {}),
+    ...(breachedBy ? { breachedBy } : {}),
     sourceEventIds: [...new Set(normalizeActionParticipants(entry.sourceEventIds))].slice(-24),
     createdRound: Number.isFinite(Number(entry.createdRound)) ? Math.max(0, Math.trunc(Number(entry.createdRound))) : 0,
     updatedRound: Number.isFinite(Number(entry.updatedRound)) ? Math.max(0, Math.trunc(Number(entry.updatedRound))) : 0,
