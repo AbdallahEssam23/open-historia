@@ -12,7 +12,7 @@ import { toCountryName } from "../../runtime/ownerNames.js";
 import { compareGameDates, parseGameDate } from "../../runtime/gameDates.js";
 import { normalizeWarGoals, normalizeWeariness } from "../../engine/warSettlement.js";
 
-export const WAR_LEDGER_VERSION = "0.1.4-adversarial-war-start";
+export const WAR_LEDGER_VERSION = "0.1.5-treaty-obligations";
 
 const WAR_UPDATE_SEPARATOR = "~";
 const MAX_WAR_UPDATES_PER_PASS = 16;
@@ -72,6 +72,7 @@ const normalizeWar = (entry, index = 0) => {
     id,
     title: normalizeString(entry.title),
     status,
+    aggressor: entry.aggressor === "b" ? "b" : "a",
     sideA,
     sideB,
     startedDate: sortDate(entry.startedDate),
@@ -308,6 +309,7 @@ const applyUpdateToWarMap = ({
     return save({
       id,
       status: "active",
+      aggressor: "a",
       sideA,
       sideB,
       startedDate: eventDate,

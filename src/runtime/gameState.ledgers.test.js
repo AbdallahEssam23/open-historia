@@ -117,3 +117,17 @@ test("diplomatic parties fold aliases through one index per call, never a stale 
   // Back to the first world: the result must not depend on what came between.
   assert.deepEqual(normalizeWorldState(withAlias()).relations, first.relations);
 });
+
+test("a war carries an aggressor that defaults to side A and survives a round trip", () => {
+  const world = normalizeWorldState({
+    wars: [
+      { id: "w1", status: "active", sideA: ["Germany"], sideB: ["France"], startedDate: "1914-08-03" },
+      { id: "w2", status: "active", aggressor: "b", sideA: ["Italy"], sideB: ["Austria"], startedDate: "1915-05-23" },
+    ],
+  });
+  assert.equal(world.wars.find((war) => war.id === "w1").aggressor, "a", "a war with no field defaults to the declarer");
+  assert.equal(world.wars.find((war) => war.id === "w2").aggressor, "b", "an explicit aggressor is kept");
+
+  const again = normalizeWorldState(world);
+  assert.deepEqual(again.wars, world.wars);
+});

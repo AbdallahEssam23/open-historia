@@ -96,6 +96,35 @@ test("reconciliation binds unlabelled combat to the one matching active war", ()
   assert.equal(validateWarLedgerPayload(candidate, { world: warWorld }), "");
 });
 
+test("a started war records side A as the aggressor and keeps an explicit one", () => {
+  const events = [{
+    id: "e1",
+    date: "1914-08-03",
+    title: "Germany declares war on France",
+    warId: "war-france-germany-1914",
+  }];
+  const started = applyWarUpdates({
+    world: { polityOverrides: {}, wars: [] },
+    updates: decodeWarUpdates("war-france-germany-1914~start~Germany~France~1~Declaration of war"),
+    events,
+    stopDate: "1914-08-31",
+    round: 2,
+  });
+  assert.equal(started.wars[0].aggressor, "a");
+
+  const kept = applyWarUpdates({
+    world: {
+      polityOverrides: {},
+      wars: [{ id: "w", status: "active", aggressor: "b", sideA: ["A"], sideB: ["B"], startedDate: "1900-01-01" }],
+    },
+    updates: [],
+    events: [],
+    stopDate: "1901-01-01",
+    round: 2,
+  });
+  assert.equal(kept.wars[0].aggressor, "b");
+});
+
 test("a readiness event naming two allies is not combat and creates no war", () => {
   const candidate = {
     events: [{

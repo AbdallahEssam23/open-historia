@@ -3354,6 +3354,7 @@ const normalizeWorldWar = (entry, index = 0) => {
     id,
     title,
     status,
+    aggressor: entry.aggressor === "b" ? "b" : "a",
     sideA,
     sideB,
     startedDate: canonicalizeDateString(entry.startedDate),
