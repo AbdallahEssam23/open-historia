@@ -194,6 +194,44 @@ model narrates what the engine enforced.
 
 ---
 
+## Treaty breaches
+
+`src/engine/treatyObligations.js` also exports `deriveTreatyBreaches`, the same
+"who is bound" computation read in the other direction: the model declares,
+through the `breach` operation in `agreementUpdates` (one record, one party, the
+breaker), that a bound party refuses to honor its obligation, and the engine
+accepts it only when the breaking party would actually have been drawn in. A
+declaration whose agreement is missing, not active, of a non-obligating type,
+whose party is not a party to it, or which binds the party to no side is
+rejected with a reason and changes nothing; the shared `obligationTargets`
+helper is the one definition of "bound", so the join rule and the breach rule
+can never disagree. The wronged parties are those already on the side the
+breaker abandoned.
+
+The runtime adapter (`src/runtime/treatyObligations.js`) adds
+`readTreatyBreaches` (read the world, canonicalize, call the engine),
+`readRecordedBreaches` (the agreements the world already holds as `breached`),
+`applyTreatyBreaches` (charge the cost) and `buildTreatyBreachDigest` (a capped
+6/360 block). A breach is terminal: `nativeDiplomaticDirector.js` marks the
+agreement `breached`, records who broke it in `breachedBy`, and keeps the
+recorded parties. The cost is deterministic arithmetic on existing stores:
+`BREACH_REPUTATION_PENALTY` 15 off the breaker's `internationalReputation`
+(treated as 50 when unset), and `BREACH_RELATION_PENALTY` 25 off its relation
+with each wronged party (created at 0 when absent), both clamped, with the
+relation status re-derived from the new score. `MAX_TREATY_BREACHES_PER_TURN`
+16 bounds a turn.
+
+The turn (`gameplay.js`, `applySimulationResult`) resolves breaches in a pre-pass
+between the war merge and the obligation step, so a broken pact is already
+`breached` and no longer `active` when the engine decides the joins: the breach
+blocks the join it would have caused. The jump prompt (`simulateTimelineJump`)
+builds `variables.treatyBreach` from `readRecordedBreaches(bundle.world)`, and
+`buildWarLedgerDirective` prints it under `[Wars]` after the standing-obligations
+block. The interactive path is deferred, as it was for the standing obligations;
+the breach still lands in the ledger and the events.
+
+---
+
 ## Library store — `src/runtime/library.js`
 
 The single source of truth for the player's **games**, **scenarios**, and which of each is active. It holds one module-scope object (`libraryState`), exposes it through a `useSyncExternalStore` subscription, and wraps every catalog mutation as an `/api/*` call that refreshes the store afterwards.
