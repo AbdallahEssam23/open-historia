@@ -394,3 +394,23 @@ test("validation rejects a breach that names more than one party", () => {
   }, { world: active, events: [{ id: "e1", date: "1914-09-01", title: "x" }] });
   assert.match(error, /exactly one party|breach/);
 });
+
+test("a breach keeps the agreement type and terms even when the record carries others", () => {
+  const world = normalizeWorldState({
+    agreements: [{ id: "g1", title: "The Guarantee", type: "guarantee", status: "active", parties: ["France", "Russia"], terms: "Defend the border." }],
+  });
+  const event = { id: "e1", date: "1914-09-01", title: "Russia stays home", description: "Russia refuses to honor the guarantee." };
+  const out = applyAgreementUpdates({
+    world,
+    updates: [{ id: "g1", op: "breach", type: "alliance", parties: ["Russia"], eventIds: ["e1"], title: "Renamed", terms: "New terms." }],
+    events: [event],
+    stopDate: "1914-09-01",
+    round: 4,
+  });
+  const broken = out.agreements.find((entry) => entry.id === "g1");
+  assert.equal(broken.status, "breached");
+  assert.equal(broken.type, "guarantee", "a breach must not rewrite the instrument type");
+  assert.equal(broken.title, "The Guarantee", "a breach must not rename the instrument");
+  assert.equal(broken.terms, "Defend the border.", "a breach must not rewrite the terms");
+  assert.equal(broken.breachedBy, "Russia");
+});

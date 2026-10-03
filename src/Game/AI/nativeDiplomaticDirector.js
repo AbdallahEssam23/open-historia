@@ -1324,7 +1324,7 @@ export const applyAgreementUpdates = ({ world, updates, events = [], stopDate = 
     const parties = update.op === "breach"
       ? array(prior.parties)
       : (update.parties.length ? canonicalizeParties(update.parties, nextWorld) : array(prior.parties));
-    const type = update.type && update.type !== "other" ? normalizeAgreementType(update.type) : prior.type;
+    const type = update.op === "breach" ? prior.type : (update.type && update.type !== "other" ? normalizeAgreementType(update.type) : prior.type);
     let status = prior.status;
     if (update.op === "suspend") status = "suspended";
     else if (update.op === "resume") status = "active";
@@ -1348,7 +1348,7 @@ export const applyAgreementUpdates = ({ world, updates, events = [], stopDate = 
       status,
       endedDate: ["ended", "expired", "breached"].includes(status) ? (date || prior.endedDate) : "",
       lastUpdatedDate: observedDate || prior.lastUpdatedDate,
-      terms: update.terms || prior.terms,
+      terms: update.op === "breach" ? prior.terms : (update.terms || prior.terms),
       sourceEventIds: eventIds,
       updatedRound: Math.max(0, Math.trunc(Number(round) || 0)),
       ...(status === "breached" && breachedBy ? { breachedBy } : {}),
