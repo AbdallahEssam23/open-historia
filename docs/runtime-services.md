@@ -270,6 +270,41 @@ breach digest.
 
 ---
 
+## The reaction to an unjust war at the peace
+
+`src/engine/warSettlement.js` exports `settleWar`, and the fourteenth increment
+makes it read the record the casus layer wrote: a side is **unjust** when any of
+its declared members is one of the war's `unjustAggressors`. Two constants set
+the price - `UNJUST_LEGITIMACY_FACTOR` (`0.75`) and `UNJUST_REPARATION_SHARE`
+(`0.5`) - and `settleWar` takes two optional flags, `unjustA` and `unjustB`.
+
+Legitimacy only decides *who wins* a close peace. Each side's raw `warGoalScore`
+is scaled by the factor when that side is unjust, and the victor is chosen from
+the scaled scores, tie broken by the lower weariness and then by side A as
+before. The `achieved` gate still reads the *raw* score, so a war a side has
+already won on the map still closes; the factor decides the peace rather than
+stalling the war. A dominance large enough to survive the factor is still a
+victory.
+
+`punitive` is true exactly when the unjust side lost, and it makes the victor's
+ordinary terms harsher: a `reparations` victor takes `UNJUST_REPARATION_SHARE`
+of the loser's pools instead of `REPARATION_SHARE` (the manpower cap is
+unchanged), and an `annex` victor takes every declared target, held or not,
+exactly as a capitulation would. An unjust side that wins takes its declared
+kind's ordinary terms.
+
+The runtime adapter (`src/runtime/warSettlement.js`) derives the two flags from
+the stored `unjustAggressors`, folded through the same `toCountryName` canonical
+key space as every other name, and passes them to the core.
+`buildSettlementEvent` appends a punitive clause to the peace description when
+`settlement.punitive` is true, and the turn's receipt line (`gameplay.js`,
+`applySimulationResult`) names the punitive settlement beside the white-peace
+wording. The reputation and relation cost the casus layer already charged at the
+declaration is untouched, and a war the player is a party to is still withheld
+from settlement.
+
+---
+
 ## Library store — `src/runtime/library.js`
 
 The single source of truth for the player's **games**, **scenarios**, and which of each is active. It holds one module-scope object (`libraryState`), exposes it through a `useSyncExternalStore` subscription, and wraps every catalog mutation as an `/api/*` call that refreshes the store afterwards.
