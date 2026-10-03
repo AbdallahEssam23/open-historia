@@ -56,6 +56,7 @@ export const AGREEMENT_STATUS_VALUES = Object.freeze([
   "suspended",
   "ended",
   "expired",
+  "breached",
 ]);
 
 const RELATION_STATUS_SET = new Set(RELATION_STATUS_VALUES);
@@ -1055,13 +1056,15 @@ export const salvageDiplomaticLedgerPayload = (candidate, { world } = {}) => {
     const op = clean(update?.op);
     let why = "";
     if (!id) why = "it names no agreement";
-    else if (!["start", "update", "suspend", "resume", "end", "expire"].includes(op)) why = `"${op}" is not an agreement operation`;
+    else if (!["start", "update", "suspend", "resume", "end", "expire", "breach"].includes(op)) why = `"${op}" is not an agreement operation`;
     else if (op === "start") {
       const prior = existing.get(id);
       if (prior && !["ended", "expired"].includes(prior.status)) why = "it already exists - update, suspend, resume or end it instead";
       else if (canonicalizeParties(update.parties, world).length < 2) why = "fewer than two of its parties are polities on this map";
       else if (!clean(update.title)) why = "it has no title";
-    } else if (!existing.has(id)) why = `no agreement "${id}" exists to ${op}`;
+    } else if (op === "breach" && canonicalizeParties(update.parties, world).length !== 1) why = "a breach names exactly one party (the breaker)";
+    else if (!existing.has(id)) why = `no agreement "${id}" exists to ${op}`;
+    else if (op === "breach" && ["ended", "expired", "breached"].includes(existing.get(id)?.status)) why = `the agreement "${id}" is already terminal`;
     if (why) { notes.push(`Agreement ${id || "(no id)"} ${op || ""} was dropped: ${why}.`.replace(/\s+/g, " ")); continue; }
     keptAgreements.push(update);
   }
@@ -1131,8 +1134,11 @@ export const validateDiplomaticLedgerPayload = (
 
   const existing = agreementMapFromWorld(world);
   for (const update of agreements) {
-    if (!["start", "update", "suspend", "resume", "end", "expire"].includes(update.op)) {
+    if (!["start", "update", "suspend", "resume", "end", "expire", "breach"].includes(update.op)) {
       return `Agreement ${update.id} has unsupported operation "${update.op}".`;
+    }
+    if (update.op === "breach" && update.parties.length !== 1) {
+      return `Agreement ${update.id} breach requires exactly one party (the breaker).`;
     }
     if (update.op === "start") {
       if (existing.has(update.id) && existing.get(update.id)?.status !== "ended" && existing.get(update.id)?.status !== "expired") {
@@ -1143,6 +1149,8 @@ export const validateDiplomaticLedgerPayload = (
       if (!update.title) return `Agreement ${update.id} start requires a nonblank title.`;
     } else if (!existing.has(update.id)) {
       return `Agreement ${update.id} does not exist; ${update.op} cannot occur before start.`;
+    } else if (update.op === "breach" && ["ended", "expired", "breached"].includes(existing.get(update.id)?.status)) {
+      return `Agreement ${update.id} is already terminal; it cannot be breached.`;
     }
   }
 
@@ -1313,13 +1321,19 @@ export const applyAgreementUpdates = ({ world, updates, events = [], stopDate = 
       continue;
     }
 
-    const parties = update.parties.length ? canonicalizeParties(update.parties, nextWorld) : array(prior.parties);
+    const parties = update.op === "breach"
+      ? array(prior.parties)
+      : (update.parties.length ? canonicalizeParties(update.parties, nextWorld) : array(prior.parties));
     const type = update.type && update.type !== "other" ? normalizeAgreementType(update.type) : prior.type;
     let status = prior.status;
     if (update.op === "suspend") status = "suspended";
     else if (update.op === "resume") status = "active";
     else if (update.op === "end") status = "ended";
     else if (update.op === "expire") status = "expired";
+    else if (update.op === "breach") status = "breached";
+    const breachedBy = update.op === "breach"
+      ? (canonicalizeParties(update.parties, nextWorld)[0] || clean(update.parties[0]) || "")
+      : "";
 
     const agreement = {
       ...prior,
@@ -1332,11 +1346,12 @@ export const applyAgreementUpdates = ({ world, updates, events = [], stopDate = 
       type,
       parties,
       status,
-      endedDate: ["ended", "expired"].includes(status) ? (date || prior.endedDate) : "",
+      endedDate: ["ended", "expired", "breached"].includes(status) ? (date || prior.endedDate) : "",
       lastUpdatedDate: observedDate || prior.lastUpdatedDate,
       terms: update.terms || prior.terms,
       sourceEventIds: eventIds,
       updatedRound: Math.max(0, Math.trunc(Number(round) || 0)),
+      ...(status === "breached" && breachedBy ? { breachedBy } : {}),
     };
     if (type === "guarantee" && parties.length >= 2) {
       agreement.guarantor = parties[0];
@@ -1345,11 +1360,12 @@ export const applyAgreementUpdates = ({ world, updates, events = [], stopDate = 
       delete agreement.guarantor;
       delete agreement.beneficiary;
     }
+    if (status !== "breached") delete agreement.breachedBy;
     map.set(update.id, agreement);
     applied.push(update.id);
   }
 
-  const statusRank = { active: 0, suspended: 1, ended: 2, expired: 3 };
+  const statusRank = { active: 0, suspended: 1, ended: 2, expired: 3, breached: 4 };
   const agreements = [...map.values()]
     .sort((a, b) =>
       (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9) ||

@@ -4,6 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyAgreementUpdates,
   applyDiplomaticUpdates,
   buildBoundedDiplomaticContext,
   decodeAgreementUpdates,
@@ -12,6 +13,7 @@ import {
   salvageDiplomaticLedgerPayload,
   validateDiplomaticLedgerPayload,
 } from "./nativeDiplomaticDirector.js";
+import { normalizeWorldState } from "../../runtime/gameState.js";
 
 // The agreement records a validated candidate is left holding (the validator
 // hands them back event-bound, as objects rather than transport text).
@@ -343,4 +345,52 @@ test("the salvage pass leaves a clean answer exactly as it was", () => {
   const before = JSON.stringify(candidate);
   assert.deepEqual(salvageDiplomaticLedgerPayload(candidate, { world }), []);
   assert.equal(JSON.stringify(candidate), before, "objects stay objects, untouched");
+});
+
+test("a breach marks the agreement breached and keeps its parties", () => {
+  const world = normalizeWorldState({
+    agreements: [{ id: "a1", title: "The Pact", type: "alliance", status: "active", parties: ["France", "Russia"] }],
+  });
+  const event = { id: "e1", date: "1914-09-01", title: "Russia stays home", description: "Russia refuses to honor the pact." };
+  const out = applyAgreementUpdates({
+    world,
+    updates: [{ id: "a1", op: "breach", type: "", parties: ["Russia"], eventIds: ["e1"], title: "", terms: "" }],
+    events: [event],
+    stopDate: "1914-09-01",
+    round: 4,
+  });
+  const broken = out.agreements.find((entry) => entry.id === "a1");
+  assert.equal(broken.status, "breached");
+  assert.equal(broken.breachedBy, "Russia");
+  assert.deepEqual(broken.parties, ["France", "Russia"], "a breach names the breaker, it does not rewrite the parties");
+});
+
+test("validation rejects a breach whose agreement does not exist", () => {
+  const error = validateDiplomaticLedgerPayload({
+    relationUpdates: [],
+    agreementUpdates: [{ id: "missing", op: "breach", parties: ["Russia"], eventIds: ["e1"] }],
+  }, { world: normalizeWorldState({}), events: [{ id: "e1", date: "1914-09-01", title: "x" }] });
+  assert.match(error, /breach|does not exist/);
+});
+
+test("validation rejects a breach of a terminal agreement", () => {
+  const terminal = normalizeWorldState({
+    agreements: [{ id: "gone", title: "Old Pact", type: "alliance", status: "ended", parties: ["France", "Russia"] }],
+  });
+  const error = validateDiplomaticLedgerPayload({
+    relationUpdates: [],
+    agreementUpdates: [{ id: "gone", op: "breach", parties: ["Russia"], eventIds: ["e1"] }],
+  }, { world: terminal, events: [{ id: "e1", date: "1914-09-01", title: "x" }] });
+  assert.match(error, /terminal|breach/);
+});
+
+test("validation rejects a breach that names more than one party", () => {
+  const active = normalizeWorldState({
+    agreements: [{ id: "a1", title: "The Pact", type: "alliance", status: "active", parties: ["France", "Russia"] }],
+  });
+  const error = validateDiplomaticLedgerPayload({
+    relationUpdates: [],
+    agreementUpdates: [{ id: "a1", op: "breach", parties: ["France", "Russia"], eventIds: ["e1"] }],
+  }, { world: active, events: [{ id: "e1", date: "1914-09-01", title: "x" }] });
+  assert.match(error, /exactly one party|breach/);
 });
