@@ -3,7 +3,7 @@
 //
 // Reads the world and the catalog into the pure core's plain inputs and maps the
 // result to the unit ops and the reserve draw the turn already applies.
-// Read-only: it writes nothing and imports no Game/AI module.
+// Read-only: it writes nothing and imports nothing from the game layer.
 
 import { deriveReinforcement } from "../engine/reinforcement.js";
 import { monthsBetweenDates } from "../engine/economyMath.js";
