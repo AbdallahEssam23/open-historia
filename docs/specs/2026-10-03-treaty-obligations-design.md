@@ -119,14 +119,18 @@ the war record gains `aggressor`, an enum of `"a"` and `"b"`.
 - `normalizeWar` (`src/Game/AI/nativeWarLedger.js`) preserves it the same way,
   so a field the world carries is not dropped on the next write.
 - The `start` op in `applyWarUpdates` sets `aggressor: "a"`. The prompt already
-  defines the `start` actors as side A and the opponents as side B, so side A is
-  the declarer, and the default and the declaration agree.
+  defines the `start` actors as the side that starts the war, named side A, and
+  the opponents as side B, so side A is the declarer, and the default and the
+  declaration agree.
 - Every other op (`join-a`, `join-b`, `leave`, `ceasefire`, `resume`, `end`,
   `goals`) preserves the field by spreading the prior record.
 
-Because the model never writes `aggressor`, the prompt and the schema do not
-change. The interpretation is fixed and documented here: the aggressor is the
-side whose `start` opened the war, which is side A.
+Because the model never writes `aggressor`, the schema does not change. The
+prompt states the convention explicitly - the `start` actors are the side that
+begins the war, recorded as side A - so a model that lists the attacked side
+first cannot invert the defensive logic. The interpretation is fixed and
+documented here: the aggressor is the side whose `start` opened the war, which
+is side A.
 
 ### 3. The obligation rule
 

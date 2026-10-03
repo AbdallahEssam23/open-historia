@@ -1160,3 +1160,23 @@ npm run build
 ```
 
 Expected: `npm test` reports zero failures (the known `server/appUpdate.test.js` network flake is not a regression); ESLint is clean on the new and changed files; `Wiki is current.`; the build succeeds; `package.json` and `src/engine` show no change except the new module; every commit carries the co-author trailer.
+
+---
+
+## Post-review fix
+
+The whole-branch review of `08e00a9..412d2d9` found two issues, fixed here.
+
+- **A withheld player join still propagated.** The engine filtered the player's
+  own join out only after the fixed point, so the player had already been used
+  as a chain node and dragged a third party into a war the model declined. The
+  engine now takes an `inadmissible` list and skips a barred polity before it is
+  ever added, so it is never a chain node; the adapter passes the canonical
+  player key there instead of filtering the output. A barred polity already
+  recorded on a side still participates, so a war the player is in is not
+  skipped.
+- **The aggressor convention was implicit.** The engine reads the `start` actors
+  as the side that begins the war, but the prompt never said so, so a model
+  listing the attacked side first would invert the defensive logic. Both the
+  war-ledger directive and the Round-Zero contract now state that the `start`
+  actors are the side that starts the war (side A).
