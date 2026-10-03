@@ -35,3 +35,17 @@ test("the turn applies the reinforcement ops as a board-only synthetic event", (
 test("the declared policy is handed to the economy advance", () => {
   assert.match(gameplay, /declaredReinforcement: normalizeArray\(result\.reinforcement\)/);
 });
+
+test("the reinforcement draw is charged through the combat reserve cost", () => {
+  assert.match(gameplay, /applyCombatReserveCost\(impactedWorld, reinforcement\.reserveCost\)/);
+});
+
+test("the reinforcement step is isolated so a failure preserves the completed turn", () => {
+  const commentAt = gameplay.indexOf("// Reinforcement and consolidation:");
+  const stepAt = gameplay.indexOf("readReinforcement(impactedWorld");
+  const warnAt = gameplay.indexOf(
+    'console.warn("[engine] the reinforcement step failed; the completed turn is preserved.", error)',
+  );
+  assert.ok(commentAt > 0 && stepAt > 0 && warnAt > 0, "the reinforcement step or its catch handler is missing");
+  assert.ok(commentAt < stepAt && stepAt < warnAt, "the reinforcement step must sit inside its try/catch");
+});

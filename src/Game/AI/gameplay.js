@@ -6826,8 +6826,8 @@ const applySimulationResult = async ({
   // Reinforcement and consolidation: a formation in supply buys its strength
   // back from its polity's reserves, a worn formation rotates out for a fresh
   // one, and two weak formations of a type fold into one. It runs on the world
-  // the battles and attrition have just reshaped and BEFORE the war settlements
-  // and the economy, so the draw competes with the reparations and the
+  // the battles and attrition have just reshaped and BEFORE the war reparations
+  // are applied and before the economy, so the draw competes with the reparations and the
   // production queue for the same reserves. The ops travel the one unit path as
   // a board-only synthetic event, exactly as the attrition and the production
   // completions do. A failure here must never lose a completed turn; a skipped
