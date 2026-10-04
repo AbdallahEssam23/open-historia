@@ -2,6 +2,7 @@
 import crypto from "crypto";
 import express from "express";
 import fs from "fs";
+import { atomicExclusiveWriteSync, atomicWriteSync } from "./atomicWrite.js";
 import http from "http";
 import https from "https";
 import os from "os";
@@ -119,7 +120,7 @@ const readNetworkSettings = () => {
 
 const writeNetworkSettings = (settings) => {
   fs.mkdirSync(path.dirname(NETWORK_SETTINGS_FILE), { recursive: true });
-  fs.writeFileSync(NETWORK_SETTINGS_FILE, `${JSON.stringify(settings, null, 2)}\n`);
+  atomicWriteSync(NETWORK_SETTINGS_FILE, `${JSON.stringify(settings, null, 2)}\n`);
 };
 
 // Set = the environment decides and the toggle is read-only.
@@ -374,7 +375,7 @@ app.put("/api/lang/:code", largeJsonParser, (req, res) => {
     }
     if (added > 0) {
       fs.mkdirSync(savedLangDir, { recursive: true });
-      fs.writeFileSync(path.join(savedLangDir, `${code}.json`), JSON.stringify(saved));
+      atomicWriteSync(path.join(savedLangDir, `${code}.json`), JSON.stringify(saved));
     }
     res.json({ saved: added, total: Object.keys(saved).length });
   } catch (error) {
@@ -389,7 +390,7 @@ app.put("/api/ui-settings", jsonParser, (req, res) => {
       next.language = req.body.language.trim();
     }
     fs.mkdirSync(path.dirname(uiSettingsFile), { recursive: true });
-    fs.writeFileSync(uiSettingsFile, JSON.stringify(next, null, 2));
+    atomicWriteSync(uiSettingsFile, JSON.stringify(next, null, 2));
     res.json(next);
   } catch (error) {
     sendError(res, 500, error);
@@ -1243,9 +1244,8 @@ app.get("/api/hub/file", async (req, res) => {
     // import. Temp file + rename so a concurrent serve never sees a half-written body.
     try {
       fs.mkdirSync(HUB_CACHE_DIR, { recursive: true });
-      fs.writeFileSync(`${cache.body}.tmp`, buffer);
-      fs.renameSync(`${cache.body}.tmp`, cache.body);
-      fs.writeFileSync(cache.type, contentType);
+      atomicWriteSync(cache.body, buffer);
+      atomicWriteSync(cache.type, contentType);
     } catch (cacheError) {
       console.warn("[hub] cache write failed:", cacheError.message);
     }
@@ -1289,7 +1289,7 @@ app.post("/api/hub/import-log", jsonParser, (req, res) => {
       const marker = path.join(IMPORT_PING_DIR, crypto.createHash("sha256").update(markerKey).digest("hex"));
       fs.mkdirSync(IMPORT_PING_DIR, { recursive: true });
       try {
-        fs.writeFileSync(marker, markerKey, { flag: "wx" });
+        atomicExclusiveWriteSync(marker, markerKey);
       } catch {
         return; // marker already exists — this scenario was counted on this install
       }
