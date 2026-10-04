@@ -364,8 +364,22 @@ test("the mark is symmetric and can fall on side B", () => {
 
 test("a punitive settlement is named in the peace event", () => {
   const event = buildSettlementEvent(
-    { warId: "war-1", punitive: true, transfers: [], belligerents: ["Germany", "France"] },
+    {
+      warId: "war-1",
+      punitive: true,
+      white: false,
+      transfers: [{ regionId: "r1", fromCode: "France", toCode: "Germany" }],
+      belligerents: ["Germany", "France"],
+    },
     { date: "1870-03-01" },
   );
   assert.match(event.description, /punitive/i);
+});
+
+test("a punitive but white settlement is not named punitive", () => {
+  const event = buildSettlementEvent(
+    { warId: "war-1", punitive: true, white: true, transfers: [], belligerents: ["Germany", "France"] },
+    { date: "1870-03-01" },
+  );
+  assert.doesNotMatch(event.description, /punitive/i);
 });

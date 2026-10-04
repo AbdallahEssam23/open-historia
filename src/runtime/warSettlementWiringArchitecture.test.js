@@ -50,10 +50,15 @@ test("the turn withholds a war it closes itself from settlement", () => {
 
 test("the adapter reads a war's recorded unjust aggressors", () => {
   assert.match(adapter, /war\.unjustAggressors/);
-  assert.match(adapter, /unjustA/);
-  assert.match(adapter, /unjustB/);
+});
+
+test("the adapter passes the unjust flags to the core", () => {
+  const callAt = adapter.indexOf("const settlement = settleWar({");
+  const call = adapter.slice(callAt, adapter.indexOf("});", callAt));
+  assert.match(call, /unjustA/);
+  assert.match(call, /unjustB/);
 });
 
 test("the turn's peace receipt names a punitive settlement", () => {
-  assert.match(gameplay, /settlement\.punitive/);
+  assert.match(gameplay, /settlement\.punitive && !settlement\.white/);
 });

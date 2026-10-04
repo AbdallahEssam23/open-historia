@@ -291,6 +291,26 @@ test("a status quo win is a white peace", () => {
   assert.deepEqual(settlement.reparations, { fromCode: "", toCode: "", manpower: 0, materiel: 0 });
 });
 
+test("a just status quo side out-scores an unjust side at full raw aim", () => {
+  // status_quo scores 1 and a just side keeps it in full, so an unjust
+  // opponent holding every declared target (raw 1) is capped at 0.75 and
+  // loses. The victor wants nothing, so the punitive defeat is a white peace.
+  const input = baseWar({
+    wearinessA: WEARINESS_COMPEL,
+    goalsA: { kind: "status_quo", targetRegionIds: [], note: "" },
+    goalsB: { kind: "annex", targetRegionIds: ["r9"], note: "" },
+    heldRegionIdsB: ["r9"],
+  });
+  const unjust = settleWar({ ...input, unjustB: true });
+  assert.equal(unjust.victor, "a");
+  assert.equal(unjust.loser, "b");
+  assert.equal(unjust.punitive, true);
+  assert.equal(unjust.white, true);
+
+  // Without the mark the same full annex ties and wins on lower weariness.
+  assert.equal(settleWar(input).victor, "b");
+});
+
 test("settleWar is deterministic: the same input is byte-identical", () => {
   const input = baseWar({
     wearinessB: WEARINESS_CAPITULATION,

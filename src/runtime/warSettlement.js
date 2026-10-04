@@ -192,7 +192,9 @@ export const buildSettlementEvent = (settlement, { date = "", round = 0 } = {}) 
     combatants.push(polity);
     if (combatants.length >= 8) break;
   }
-  const description = settlement?.punitive
+  // Name the price only when it was actually imposed: a punitive defeat that
+  // takes no terms is a white peace, and the narration must not invent one.
+  const description = settlement?.punitive && !settlement?.white
     ? `The war ${warId} is settled on punitive terms; the unjust aggressor's defeat is paid for on ${eventDate}.`
     : `The war ${warId} is settled; the terms take effect on ${eventDate}.`;
   const event = {
