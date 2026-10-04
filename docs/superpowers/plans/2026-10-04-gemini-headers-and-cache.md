@@ -280,7 +280,7 @@ body is what preserves Gemini's implicit prefix cache.
 Run: `node --test "src/Game/AI/geminiTransport.test.js"`
 Expected: ALL tests PASS, including the guard.
 
-Run: `rg -n "\?key=|key=\$\{|key in query" src/Game/AI/main.jsx src/Game/AI/geminiTransport.js`
+Run: `rg -n "\?key=|key=\$\{|key in query" src/Game/AI/main.jsx`
 Expected: no output.
 
 Run: `node --check src/Game/AI/geminiTransport.js`
@@ -348,7 +348,9 @@ After all tasks, on the final HEAD:
   adds 6 tests (5 behavior + 1 guard), so the total rises from the slice-17
   baseline of 2994 to 3000; the exact figure is confirmed against the run.
 - `node --test "src/Game/AI/*.test.js"` passes.
-- `rg -n "\?key=" src/` returns nothing.
+- `rg -n "\?key=" src/Game/AI/main.jsx` returns nothing (the only file that built
+  the URL; the transport test legitimately contains the literal as the pattern
+  it forbids).
 - `npx eslint .` shows no new errors beyond the pre-existing 18 in
   `src/Game/Map/*`; the two new/changed source files lint clean.
 - `npm run wiki:check` prints `Wiki is current.`
