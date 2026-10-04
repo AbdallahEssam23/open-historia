@@ -236,9 +236,9 @@ The core's tests run under a bare `node --test` and assert:
 - Legitimacy does not overturn a clear dominance: an unjust side whose raw score
   is far higher still wins.
 - A just side that declares `status_quo` is not out-scored by an unjust side: a
-  `status_quo` score of `1` is never scaled, so an unjust side cannot beat a
-  just side that asks for nothing, and that defeat is a punitive but white
-  peace.
+  just side's `status_quo` score of `1` is not discounted, so an unjust side
+  cannot beat a just side that asks for nothing, and that defeat is a punitive
+  but white peace.
 - The `achieved` gate is read on the raw score (Option A): an unjust side that
   plainly attained its declared aim, with no weariness compulsion, still makes a
   peace due, so legitimacy decides that peace rather than stalling a war the side

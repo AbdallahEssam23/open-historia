@@ -276,8 +276,10 @@ breach digest.
 makes the runtime adapter read the record the casus layer wrote: a side is
 **unjust** when any of its declared members is one of the war's
 `unjustAggressors`. The adapter passes that verdict to the core as two optional
-flags, `unjustA` and `unjustB`, and two constants set the price -
-`UNJUST_LEGITIMACY_FACTOR` (`0.75`) and `UNJUST_REPARATION_SHARE` (`0.5`).
+flags, `unjustA` and `unjustB`. `UNJUST_LEGITIMACY_FACTOR` (`0.75`) sets how
+much of a side's score is discounted when it is unjust, and
+`UNJUST_REPARATION_SHARE` (`0.5`) sets how much harsher a punitive reparations
+peace is than the ordinary `REPARATION_SHARE`.
 
 Legitimacy only decides *who wins* a close peace. Each side's raw `warGoalScore`
 is scaled by the factor when that side is unjust, and the victor is chosen from

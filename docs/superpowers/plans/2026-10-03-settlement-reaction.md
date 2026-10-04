@@ -467,7 +467,7 @@ and add the two flags to the `settleWar` call, directly after `poolsB: pools[lea
 In `buildSettlementEvent`, replace the `event` object's fixed `description` with a computed one. Add above the `const event = {` line:
 
 ```js
-  const description = settlement?.punitive && !settlement?.white
+  const description = settlement?.punitive && settlement?.white === false
     ? `The war ${warId} is settled on punitive terms; the unjust aggressor's defeat is paid for on ${eventDate}.`
     : `The war ${warId} is settled; the terms take effect on ${eventDate}.`;
 ```
@@ -551,7 +551,7 @@ with:
 ```js
       noteReceipt(receipt, "adjusted",
         `The war ${settlement.warId} closed: ${settlement.white ? "white peace" : "settlement"}`
-        + `${settlement.punitive && !settlement.white ? " on punitive terms" : ""}`
+        + `${settlement.punitive && settlement.white === false ? " on punitive terms" : ""}`
         + ` (${settlement.transfers.length} region(s) moved).`);
 ```
 
