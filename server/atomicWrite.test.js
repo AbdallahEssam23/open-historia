@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { atomicExclusiveWriteSync, atomicWriteSync } from "./atomicWrite.js";
 
@@ -69,5 +68,4 @@ test("the converted server files never use a raw fs.writeFileSync", () => {
     const source = fs.readFileSync(new URL(`./${name}`, import.meta.url), "utf-8");
     assert.equal(rawWriteCount(source), 0, `${name} must use server/atomicWrite.js, not a raw write`);
   }
-  void fileURLToPath;
 });
