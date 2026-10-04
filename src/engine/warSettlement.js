@@ -236,10 +236,10 @@ export const settleWar = (input = {}) => {
       const regionId = asString(target);
       if (!regionId || seen.has(regionId)) continue;
       seen.add(regionId);
-      // A capitulation compels the cession of every declared target; a
-      // compelled peace takes only the declared targets already held. The
-      // transfer is legal, so it runs loser to victor regardless of who
-      // currently sits in the region.
+      // A capitulation or a punitive defeat compels the cession of every
+      // declared target; a compelled peace takes only the declared targets
+      // already held. The transfer is legal, so it runs loser to victor
+      // regardless of who currently sits in the region.
       if (capitulation || punitive || heldVictor.has(regionId)) {
         transfers.push({ regionId, fromCode: codeLoser, toCode: codeVictor });
       }

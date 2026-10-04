@@ -35,7 +35,8 @@ const belligerentsOf = (war) => {
   return out;
 };
 
-// A side's belligerents as lowercased canonical names, for membership tests.
+// A list of names as lowercased canonical keys, for membership tests against a
+// side's belligerents or the war's recorded unjust aggressors.
 const canonicalKeys = (values) => {
   const keys = new Set();
   for (const raw of list(values)) {

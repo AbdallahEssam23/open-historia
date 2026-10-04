@@ -273,10 +273,11 @@ breach digest.
 ## The reaction to an unjust war at the peace
 
 `src/engine/warSettlement.js` exports `settleWar`, and the fourteenth increment
-makes it read the record the casus layer wrote: a side is **unjust** when any of
-its declared members is one of the war's `unjustAggressors`. Two constants set
-the price - `UNJUST_LEGITIMACY_FACTOR` (`0.75`) and `UNJUST_REPARATION_SHARE`
-(`0.5`) - and `settleWar` takes two optional flags, `unjustA` and `unjustB`.
+makes the runtime adapter read the record the casus layer wrote: a side is
+**unjust** when any of its declared members is one of the war's
+`unjustAggressors`. The adapter passes that verdict to the core as two optional
+flags, `unjustA` and `unjustB`, and two constants set the price -
+`UNJUST_LEGITIMACY_FACTOR` (`0.75`) and `UNJUST_REPARATION_SHARE` (`0.5`).
 
 Legitimacy only decides *who wins* a close peace. Each side's raw `warGoalScore`
 is scaled by the factor when that side is unjust, and the victor is chosen from
@@ -296,12 +297,14 @@ kind's ordinary terms.
 The runtime adapter (`src/runtime/warSettlement.js`) derives the two flags from
 the stored `unjustAggressors`, folded through the same `toCountryName` canonical
 key space as every other name, and passes them to the core.
-`buildSettlementEvent` appends a punitive clause to the peace description when
-`settlement.punitive` is true, and the turn's receipt line (`gameplay.js`,
+`buildSettlementEvent` appends a punitive clause to the peace description only
+when the punitive terms apply, which is when `settlement.punitive` is true and
+the settlement is not white, so a punitive but white peace is never narrated
+with a price it did not take. The turn's receipt line (`gameplay.js`,
 `applySimulationResult`) names the punitive settlement beside the white-peace
-wording. The reputation and relation cost the casus layer already charged at the
-declaration is untouched, and a war the player is a party to is still withheld
-from settlement.
+wording under the same condition. The reputation and relation cost the casus
+layer already charged at the declaration is untouched, and a war the player is a
+party to is still withheld from settlement.
 
 ---
 
