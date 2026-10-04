@@ -26,6 +26,7 @@ Related pages: [World state](world-state.md) · [Game state](world-state.md) · 
 | Economy | `src/runtime/economyEngine.js` (+ the pure core in `src/engine/`) | the deterministic economy: it extracts a compact economic state from `world.countryStats`, advances it, and writes the engine-owned fields back through `mergeCountryStatPatch` | `src/Game/AI/gameplay.js` (the turn), `runtime/economyDigest.js` (the period digest the prompt is given) |
 | Engagements | `src/runtime/combatEngagements.js` (+ the pure core `src/engine/combat.js`) | resolves a declared battle deterministically: it reads `world.wars`, `world.units` and `economyEngine.mobilization`, returns the unit and control ops, and charges the losing reserves through `applyCombatReserveCost` | `src/Game/AI/gameplay.js` (the turn), `src/Game/AI/combatRegionResolution.js` (canonicalizing the declared `combatRegion`) |
 | Settlement | `src/runtime/warSettlement.js` (+ the pure core `src/engine/warSettlement.js`) | derives each active war's peace - goal progress, weariness and terms - and executes it through the narrated peace event and the reparations transfer | `src/Game/AI/gameplay.js` (the turn) |
+| Peace offer | `src/runtime/peaceOffer.js` | chooses and normalizes the peace the engine offers the player on their own due war (the interactive-peace increment) | `src/Game/AI/gameplay.js` (the turn), `src/Game/GameUI/peaceOffer.jsx` |
 
 ---
 
@@ -306,7 +307,36 @@ with a price it did not take. The turn's receipt line (`gameplay.js`,
 `applySimulationResult`) names the punitive settlement beside the white-peace
 wording under the same condition. The reputation and relation cost the casus
 layer already charged at the declaration is untouched, and a war the player is a
-party to is still withheld from settlement.
+party to is no longer withheld: it is stepped like any other and, once a
+settlement is due, offered to the player instead (see the section below).
+
+---
+
+## The player's own peace, offered
+
+`src/runtime/warSettlement.js` settles every war the model runs, but a war the
+player is a party to is held back. Since the fifteenth increment the adapter no
+longer skips those wars: it steps their weariness like any other and, when
+`settleWar` says the settlement is due, classifies the result as an `offer`
+instead of a settlement. The return shape is
+`{ settlements, offers, weariness, unresolved }`. This also fixed a quiet gap:
+the old party check ran before the weariness step, so a player's wars never
+accumulated exhaustion and no settlement could ever fall due for them.
+
+`src/runtime/peaceOffer.js` chooses the single most pressing offer (highest
+`pressure`, ties by the lowest `warId`) and normalizes the stored object. It
+imports nothing, so it runs under `node --test`. The chosen offer lives on
+`world.peaceOffer`, re-derived every turn; declining clears it and the next turn
+offers again.
+
+Accepting is deterministic and costs no AI request. `src/Game/AI/peaceOffer.js`
+replays the stored terms exactly where an AI settlement's are applied: the peace
+event through `applyEventImpactsToWorld` for the region transfers, the
+reparations through `applyWarReparations`, and the ledger end through
+`applyWarUpdates`. Declining only clears the offer. The player is never forced
+to capitulate: a declined offer leaves the war open even at the capitulation
+threshold, a deliberate asymmetry in favour of player agency. The panel is
+`src/Game/GameUI/peaceOffer.jsx`.
 
 ---
 
