@@ -31,6 +31,12 @@ test("accepting routes through the helper", () => {
   assert.ok(acceptAt > 0 && callAt > acceptAt, "acceptPeaceOffer calls applyPeaceOffer");
 });
 
+test("accepting links the accepted event into the timeline", () => {
+  const acceptAt = gameplay.indexOf("export const acceptPeaceOffer");
+  const linkAt = gameplay.indexOf("withLatestTurnEventIds", acceptAt);
+  assert.ok(linkAt > acceptAt, "acceptPeaceOffer links the accepted event into the latest turn");
+});
+
 test("accept and decline are lazy-wrapped", () => {
   assert.match(lazy, /export const acceptPeaceOffer/);
   assert.match(lazy, /export const declinePeaceOffer/);

@@ -51,3 +51,22 @@ test("accepting applies the transfers, ends the war and clears the offer", () =>
 test("no offer is nothing to apply", () => {
   assert.equal(applyPeaceOffer({ world: baseWorld(), offer: null, date: "1870-04-01", round: 5 }), null);
 });
+
+test("accepting moves non-zero reparations from the loser to the victor", () => {
+  const world = baseWorld();
+  world.economyEngine = {
+    version: 1,
+    seed: "peace-1",
+    pools: { Prussia: { manpower: 0, materiel: 0 }, France: { manpower: 1000, materiel: 500 } },
+  };
+  const out = applyPeaceOffer({
+    world,
+    offer: offer({ reparations: { fromCode: "France", toCode: "Prussia", manpower: 1000, materiel: 500 } }),
+    date: "1870-04-01",
+    round: 5,
+  });
+  assert.ok(out);
+  const pools = out.world.economyEngine.pools;
+  assert.equal(pools.France.manpower, 0);
+  assert.equal(pools.Prussia.manpower, 1000);
+});

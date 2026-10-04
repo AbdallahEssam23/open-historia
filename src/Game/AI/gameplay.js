@@ -11943,8 +11943,11 @@ export const acceptPeaceOffer = async () => {
     round: Number(bundle.game?.round) || 0,
   });
   if (!result) throw new Error("The peace offer is no longer valid.");
+  const settledWorld = withLatestTurnEventIds(result.world, (ids) =>
+    ids.includes(result.event.id) ? ids : [...ids, result.event.id],
+  );
   await Promise.all([
-    writeWorldState(result.world),
+    writeWorldState(settledWorld),
     writeEventsState(normalizeEvents([...normalizeArray(bundle.events), result.event]), { preserveApprovedEvents: true }),
   ]);
   logDebugEvent("turn", `Peace accepted: ${offer.warId} settled at the player's word.`);
