@@ -300,7 +300,7 @@ import { deliveryEventId, documentExchange, documentNote, documentNotices, isDoc
 import { unseenEvents, withoutUnseenMessages } from "../../runtime/unseenEvents.js";
 import { canRewindInteractiveTo, isSceneInProgress, openInteractive, recordInteractiveBeat, rewindInteractive } from "./interactiveRewind.js";
 import { chooseInteractiveOffer, offeredEvent } from "../../runtime/interactiveOffer.js";
-import { choosePeaceOffer } from "../../runtime/peaceOffer.js";
+import { buildPeaceOfferDigest, choosePeaceOffer } from "../../runtime/peaceOffer.js";
 import { buildCrossChatKnowledge } from "./crossChatKnowledge.js";
 import {
   eventsFromLegacyChat,
@@ -594,8 +594,9 @@ const buildWarLedgerDirective = (variables) => {
   const treatyObligations = normalizeString(variables?.treatyObligations);
   const treatyBreach = normalizeString(variables?.treatyBreach);
   const warCasus = normalizeString(variables?.warCasus);
+  const peaceOffer = normalizeString(variables?.peaceOffer);
   return `[Wars]
-${canonicalWarContext || "No wars are recorded."}${treatyObligations ? `\n${treatyObligations}` : ""}${treatyBreach ? `\n${treatyBreach}` : ""}${warCasus ? `\n${warCasus}` : ""}
+${canonicalWarContext || "No wars are recorded."}${treatyObligations ? `\n${treatyObligations}` : ""}${treatyBreach ? `\n${treatyBreach}` : ""}${warCasus ? `\n${warCasus}` : ""}${peaceOffer ? `\n${peaceOffer}` : ""}
 Only this ledger makes polities belligerents — tension, an alliance or a mobilisation does not — and a war real history holds begins here only when you open it, with a warUpdates record and the event that starts it. Every battle, offensive, invasion, bombardment, siege or front carries event.warId, event.combatants naming both sides, and event.combatRegion naming the region it is fought in. If you write fighting, open the war in the same answer: a declaration, an entry, an exit, a ceasefire, a resumption or a peace each needs a warUpdates record and an event carrying the same warId, or the engine strips the war from the fighting and records peace. Two sides genuinely trading blows are at war; if you cannot say who is fighting whom, it is unrest, a raid or a deployment, so write it as that. A polity at peace does not live under war conditions — rationing, war taxes, mobilisation — because others are fighting, unless the war reaches it through something concrete (lost imports, refugees, sanctions). Nobody may join a war on ${playerName}'s behalf; another power declaring war on ${playerName} is that power's decision, and yours to write.
 A treaty is not narrative: a party bound by an active alliance, mutual defense or guarantee is drawn into the war by the engine, so when an ally appears in a war it was not fighting, narrate its entry rather than re-declaring the join or writing it out.
 A power that begins a war with no recorded claim against the target and no recorded breach by it is marked as an unjust aggressor, so a war you mean to fight should rest on a reason the world can see.
@@ -13195,6 +13196,20 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
     // the countryStats name, so one canonicalisation here makes the input (a
     // blank owner is the player) AND every lookup below agree with the world.
     const playerPolity = toCountryName(normalizeString(bundle.game.country));
+    // The legal facts the world already realizes do not depend on the economic
+    // projection, so they are built from the world as it stands on every jump,
+    // including one shorter than a month. Only the projected-economy digests
+    // need a month, so only they stay behind the projection gate below.
+    variables.treatyObligations = buildTreatyObligationDigest({
+      standing: readTreatyObligations(bundle.world, { playerPolity }).standing,
+    });
+    variables.treatyBreach = buildTreatyBreachDigest({
+      breaches: readRecordedBreaches(bundle.world),
+    });
+    variables.warCasus = buildWarCasusDigest({
+      wars: readRecordedUnjustWars(bundle.world),
+    });
+    variables.peaceOffer = buildPeaceOfferDigest({ offer: bundle.world?.peaceOffer });
     const projected = advanceWorldEconomy(bundle.world, {
       fromDate: originDate,
       toDate: targetDate,
@@ -13256,18 +13271,6 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
         formations,
         policyInForce: inForce?.[playerKey] ?? "",
         pendingPolicy: pending?.[playerKey] ?? "",
-      });
-      // The treaty links the world already realizes, so the model narrates an
-      // ally's entry instead of inventing or contradicting it. Capped and
-      // built from the same world the turn reads.
-      variables.treatyObligations = buildTreatyObligationDigest({
-        standing: readTreatyObligations(bundle.world, { playerPolity }).standing,
-      });
-      variables.treatyBreach = buildTreatyBreachDigest({
-        breaches: readRecordedBreaches(bundle.world),
-      });
-      variables.warCasus = buildWarCasusDigest({
-        wars: readRecordedUnjustWars(bundle.world),
       });
       const researchState = projected.research?.[playerPolity];
       const researchProgrammes = researchQueueFor(researchState?.programmes);

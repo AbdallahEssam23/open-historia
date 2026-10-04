@@ -47,3 +47,26 @@ test("the runtime peace modules import no Game/AI module", () => {
   assert.doesNotMatch(helper, /from "\.\.\/Game\/AI\//);
   assert.doesNotMatch(helper, /^import /m);
 });
+
+test("the war directive prints the pending peace digest the jump prompt builds", () => {
+  const start = gameplay.indexOf("const buildWarLedgerDirective = (variables) => {");
+  assert.ok(start > 0, "the war directive builder is missing");
+  const end = gameplay.indexOf("\n};", start);
+  const body = gameplay.slice(start, end);
+  assert.match(body, /peaceOffer/, "the directive does not read the pending peace digest");
+  assert.ok(gameplay.indexOf("variables.peaceOffer =") > 0, "the jump prompt never sets variables.peaceOffer");
+});
+
+test("the legal digests are built before the projection gate", () => {
+  const gateAt = gameplay.indexOf("if (projected.months > 0)");
+  assert.ok(gateAt > 0, "the projection gate is missing");
+  for (const name of [
+    "variables.treatyObligations =",
+    "variables.treatyBreach =",
+    "variables.warCasus =",
+    "variables.peaceOffer =",
+  ]) {
+    const at = gameplay.indexOf(name);
+    assert.ok(at > 0 && at < gateAt, `${name} must be built before the projection gate`);
+  }
+});
