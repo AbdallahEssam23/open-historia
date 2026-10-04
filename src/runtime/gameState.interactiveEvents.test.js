@@ -61,3 +61,16 @@ test("an event a scene wrote before the rename is an interactive one", () => {
   assert.equal(normalizeEventEntry({ title: "The summit", kind: "interactive" }).kind, "interactive");
   assert.equal(normalizeEventEntry({ title: "A border clash" }).kind, "world");
 });
+
+test("a world carries no peace offer, and a stored one is tidied", () => {
+  assert.equal(WORLD_DEFAULTS.peaceOffer, null);
+  assert.equal(normalizeWorldState({}).peaceOffer, null);
+  const world = normalizeWorldState({
+    peaceOffer: { warId: " war-1 ", side: "b", pressure: 2, transfers: [], stray: true },
+  });
+  assert.equal(world.peaceOffer.warId, "war-1");
+  assert.equal(world.peaceOffer.side, "b");
+  assert.equal(world.peaceOffer.pressure, 1);
+  assert.equal("stray" in world.peaceOffer, false);
+  assert.equal(normalizeWorldState({ peaceOffer: { warId: "" } }).peaceOffer, null);
+});

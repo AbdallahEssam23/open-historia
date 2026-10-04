@@ -14,6 +14,7 @@ import { applyReportOps, normalizeReportOp, normalizeReports } from "./reports.j
 import { normalizeGmChanges, normalizeReminders } from "./gmChanges.js";
 import { normalizePlayerGoals } from "./playerGoal.js";
 import { normalizeInteractiveOffer } from "./interactiveOffer.js";
+import { normalizePeaceOffer } from "./peaceOffer.js";
 import { normalizeSpyOp } from "./spycraft.js";
 import { normalizeChatEvents, projectChatThread, withUnloggedMessages } from "./chatThreads.js";
 import { latestTurnEventIds, unseenEvents, withoutUnseenChats, withoutUnseenEvents, withoutUnseenReports } from "./unseenEvents.js";
@@ -60,6 +61,9 @@ export const WORLD_DEFAULTS = {
   // (interactiveOffer.js).
   interactiveOffer: null,
   lastInteractiveOfferRound: 0,
+  // The peace the engine has offered for one of the player's own wars, held for
+  // the player's accept or decline; null when none is due (peaceOffer.js).
+  peaceOffer: null,
   consolidatedHistory: [],
   // The living history document the AI is shown in place of the folded events
   // (AI/historyConsolidation.js); null until the first consolidation pass.
@@ -3746,6 +3750,7 @@ export const normalizeWorldState = (world) => {
     lastInteractiveOfferRound: Number.isFinite(Number(nextWorld.lastInteractiveOfferRound))
       ? Math.max(0, Math.trunc(Number(nextWorld.lastInteractiveOfferRound)))
       : 0,
+    peaceOffer: normalizePeaceOffer(nextWorld.peaceOffer),
     consolidatedHistory: normalizeConsolidatedHistory(nextWorld.consolidatedHistory),
     historyDocument: normalizeHistoryDocument(nextWorld.historyDocument),
     internationalReputation,
