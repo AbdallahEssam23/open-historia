@@ -339,7 +339,7 @@ threshold, a deliberate asymmetry in favour of player agency. The panel is
 `src/Game/GameUI/peaceOffer.jsx`.
 
 The war ledger the model reads now carries this offer too:
-`buildPeaceOfferDigest` (same module) renders the pending offer as one line, and
+`buildPeaceOfferDigest` (`src/runtime/peaceOffer.js`) renders the pending offer as one line, and
 `buildWarLedgerDirective` (`gameplay.js`) appends it beside the standing
 obligations, the recorded breaches and the casus verdict it already printed.
 Those three digests, and this line, read the world as it stands, so they are
