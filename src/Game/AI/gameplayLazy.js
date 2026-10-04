@@ -54,6 +54,12 @@ export const rewindActiveInteractive = async (...args) => (await gameplay()).rew
 export const endActiveInteractive = async (...args) => (await gameplay()).endActiveInteractive(...args);
 export const setAsideActiveInteractive = async (...args) => (await gameplay()).setAsideActiveInteractive(...args);
 
+// --- Peace offers -----------------------------------------------------------
+// A due settlement of the player's own war (AI/peaceOffer.js, runtime/peaceOffer.js):
+// offered on the turn, then accepted or declined here. Neither call costs a request.
+export const acceptPeaceOffer = async (...args) => (await gameplay()).acceptPeaceOffer(...args);
+export const declinePeaceOffer = async (...args) => (await gameplay()).declinePeaceOffer(...args);
+
 // --- Chat and diplomacy -----------------------------------------------------
 export const chooseNextDiplomaticSpeaker = async (...args) => (await gameplay()).chooseNextDiplomaticSpeaker(...args);
 // One request acts for every AI participant in a thread (AI/chatActions.js).

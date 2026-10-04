@@ -30,6 +30,7 @@ import {
   buildSettlementEvent,
   resolveWarSettlements,
 } from "../../runtime/warSettlement.js";
+import { applyPeaceOffer } from "./peaceOffer.js";
 import { readSupplyAttrition } from "../../runtime/supplyAttrition.js";
 import { readReinforcement, readReinforcementPolicies } from "../../runtime/reinforcement.js";
 import {
@@ -299,6 +300,7 @@ import { deliveryEventId, documentExchange, documentNote, documentNotices, isDoc
 import { unseenEvents, withoutUnseenMessages } from "../../runtime/unseenEvents.js";
 import { canRewindInteractiveTo, isSceneInProgress, openInteractive, recordInteractiveBeat, rewindInteractive } from "./interactiveRewind.js";
 import { chooseInteractiveOffer, offeredEvent } from "../../runtime/interactiveOffer.js";
+import { choosePeaceOffer } from "../../runtime/peaceOffer.js";
 import { buildCrossChatKnowledge } from "./crossChatKnowledge.js";
 import {
   eventsFromLegacyChat,
@@ -6748,6 +6750,8 @@ const applySimulationResult = async ({
   );
   const dueSettlements = settlementOutcome.settlements
     .filter((settlement) => !modelClosedWarIds.has(normalizeString(settlement.warId)));
+  const duePeaceOffers = settlementOutcome.offers
+    .filter((offer) => !modelClosedWarIds.has(normalizeString(offer.warId)));
   for (const settlement of dueSettlements) {
     const event = buildSettlementEvent(settlement, { date: nextGame.gameDate, round: nextGame.round });
     if (!event) continue;
@@ -7482,6 +7486,12 @@ const applySimulationResult = async ({
       logDebugEvent("turn", `Interactive event offered: "${normalizeString(offered?.title) || offer.eventId}" can be played out as a scene.`);
     }
   }
+
+  // The player's own due peace (runtime/peaceOffer.js): the war is real and its
+  // settlement is due, but the decision is the player's, so it is offered
+  // rather than applied. Re-derived every turn; declining only clears it.
+  const peaceOffer = choosePeaceOffer({ offers: duePeaceOffers, round: nextGame.round });
+  worldWithImpacts = { ...worldWithImpacts, peaceOffer };
 
   let nextWorld = worldWithImpacts;
 
@@ -11915,6 +11925,41 @@ export const declineInteractiveOffer = async () => {
   await writeWorldState({ ...world, interactiveOffer: null });
   logDebugEvent("turn", "Interactive event let pass.");
   return { interactiveOffer: null };
+};
+
+// Accept the peace the engine offered for one of the player's own wars: the
+// stored terms are applied through the same doors an AI settlement uses, and
+// the war is ended in the ledger. No request.
+export const acceptPeaceOffer = async () => {
+  if (isSimulationBusy()) throw new Error("A turn is being generated; wait for it to finish before accepting a peace.");
+  const bundle = await readGameStateBundle({ force: true });
+  const world = normalizeWorldState(bundle.world);
+  const offer = world.peaceOffer;
+  if (!offer) throw new Error("There is no peace offer to accept.");
+  const result = applyPeaceOffer({
+    world,
+    offer,
+    date: normalizeString(bundle.game?.gameDate),
+    round: Number(bundle.game?.round) || 0,
+  });
+  if (!result) throw new Error("The peace offer is no longer valid.");
+  await Promise.all([
+    writeWorldState(result.world),
+    writeEventsState(normalizeEvents([...normalizeArray(bundle.events), result.event]), { preserveApprovedEvents: true }),
+  ]);
+  logDebugEvent("turn", `Peace accepted: ${offer.warId} settled at the player's word.`);
+  return { peaceOffer: null };
+};
+
+// Decline the offered peace: the offer is gone, the war stays open, and the
+// next turn re-derives it from the new facts. No request, no penalty.
+export const declinePeaceOffer = async () => {
+  if (isSimulationBusy()) throw new Error("A turn is being generated; wait for it to finish.");
+  const world = normalizeWorldState(await readWorldState({ force: true }));
+  if (!world.peaceOffer) return { peaceOffer: null };
+  await writeWorldState({ ...world, peaceOffer: null });
+  logDebugEvent("turn", "Peace offer declined.");
+  return { peaceOffer: null };
 };
 
 // A scene the player is in the middle of. A scene a time skip proposed before
