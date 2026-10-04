@@ -121,6 +121,14 @@ When a war settles, legitimacy does two things:
   otherwise even race and must out-fight a just opponent by a clear margin. A
   dominance large enough to survive the factor is still a victory: the war was
   won on the map, and the engine does not pretend otherwise.
+- **A `status_quo` side is a baseline, not a discount.** A side that declares
+  `status_quo` scores its satisfaction of `1`; when that side is just the score
+  is not discounted, so it is a bar an unjust opponent cannot clear, since the
+  opponent's discount caps it at `0.75`. A just side that asks for nothing
+  therefore cannot be out-scored by an unjust side, however completely that side
+  took its declared aim; the unjust side loses that peace, and because a
+  `status_quo` victor takes no terms the peace is white even though the unjust
+  side's defeat is punitive.
 - **It punishes an unjust defeat.** When the loser is the unjust side, the
   victor's ordinary terms are made punitive: the reparations share is
   `UNJUST_REPARATION_SHARE` instead of `REPARATION_SHARE`, and an annex takes
@@ -203,12 +211,15 @@ settled here.
 ### 5. Telling the model
 
 The peace event the turn already builds is the channel. `buildSettlementEvent`
-appends a punitive clause to the event description when `settlement.punitive` is
-true, so the model reads that the defeated side paid more for having begun the
-war unjustly. The turn's receipt line for a closed war gains the same qualifier
-beside the white-peace/settlement wording. No digest, no new variable and no
-prompt change beyond that clause: the settlement already travels into the next
-turn's events, and the model narrates the price the engine already decided.
+appends a punitive clause to the event description when the punitive terms
+actually apply, which is when `settlement.punitive` is true and the settlement
+is not white, so the model reads that the defeated side paid more for having
+begun the war unjustly without ever reading a price that was not imposed. The
+turn's receipt line for a closed war gains the same qualifier beside the
+white-peace/settlement wording, under the same condition. No digest, no new
+variable and no prompt change beyond that clause: the settlement already travels
+into the next turn's events, and the model narrates the price the engine already
+decided.
 
 ## Testing
 
@@ -224,6 +235,10 @@ The core's tests run under a bare `node --test` and assert:
   where side A won before, and `unjustB: true` mirrors it.
 - Legitimacy does not overturn a clear dominance: an unjust side whose raw score
   is far higher still wins.
+- A just side that declares `status_quo` is not out-scored by an unjust side: a
+  `status_quo` score of `1` is never scaled, so an unjust side cannot beat a
+  just side that asks for nothing, and that defeat is a punitive but white
+  peace.
 - The `achieved` gate is read on the raw score (Option A): an unjust side that
   plainly attained its declared aim, with no weariness compulsion, still makes a
   peace due, so legitimacy decides that peace rather than stalling a war the side
@@ -242,8 +257,8 @@ The adapter's tests assert:
   names a side-A member, and on side B when it names a side-B member, through
   the canonical key space.
 - A war without `unjustAggressors` settles with `punitive: false`.
-- A punitive settlement reaches the narrated peace event, whose description
-  names it.
+- A punitive settlement whose terms apply reaches the narrated peace event and
+  its description names it; a punitive but white settlement is not named.
 
 The existing settlement tests, unchanged, remain the witness that a war with no
 recorded unjust aggressor settles exactly as before.

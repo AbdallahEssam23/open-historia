@@ -352,7 +352,7 @@ git commit -m "feat(engine): weigh an unjust side at the peace"
 - Consumes: `settleWar` with `unjustA`/`unjustB` and the `punitive` field (Task 1); the stored `unjustAggressors` field.
 - Produces:
   - `resolveWarSettlements` derives `unjustA`/`unjustB` per war from `war.unjustAggressors` folded through `canonical` (`toCountryName`) and the same lowercased key space, and passes them to `settleWar`. The returned settlements carry the core's `punitive`.
-  - `buildSettlementEvent` appends a punitive clause to the peace description when `settlement.punitive` is true.
+  - `buildSettlementEvent` appends a punitive clause to the peace description when the punitive terms apply (`settlement.punitive` is true and the settlement is not white).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -404,10 +404,24 @@ test("the mark is symmetric and can fall on side B", () => {
 
 test("a punitive settlement is named in the peace event", () => {
   const event = buildSettlementEvent(
-    { warId: "war-1", punitive: true, transfers: [], belligerents: ["Germany", "France"] },
+    {
+      warId: "war-1",
+      punitive: true,
+      white: false,
+      transfers: [{ regionId: "r1", fromCode: "France", toCode: "Germany" }],
+      belligerents: ["Germany", "France"],
+    },
     { date: "1870-03-01" },
   );
   assert.match(event.description, /punitive/i);
+});
+
+test("a punitive but white settlement is not named punitive", () => {
+  const event = buildSettlementEvent(
+    { warId: "war-1", punitive: true, white: true, transfers: [], belligerents: ["Germany", "France"] },
+    { date: "1870-03-01" },
+  );
+  assert.doesNotMatch(event.description, /punitive/i);
 });
 ```
 
@@ -453,7 +467,7 @@ and add the two flags to the `settleWar` call, directly after `poolsB: pools[lea
 In `buildSettlementEvent`, replace the `event` object's fixed `description` with a computed one. Add above the `const event = {` line:
 
 ```js
-  const description = settlement?.punitive
+  const description = settlement?.punitive && !settlement?.white
     ? `The war ${warId} is settled on punitive terms; the unjust aggressor's defeat is paid for on ${eventDate}.`
     : `The war ${warId} is settled; the terms take effect on ${eventDate}.`;
 ```
@@ -503,12 +517,17 @@ Append these tests to `src/runtime/warSettlementWiringArchitecture.test.js` (the
 ```js
 test("the adapter reads a war's recorded unjust aggressors", () => {
   assert.match(adapter, /war\.unjustAggressors/);
-  assert.match(adapter, /unjustA/);
-  assert.match(adapter, /unjustB/);
+});
+
+test("the adapter passes the unjust flags to the core", () => {
+  const callAt = adapter.indexOf("const settlement = settleWar({");
+  const call = adapter.slice(callAt, adapter.indexOf("});", callAt));
+  assert.match(call, /unjustA/);
+  assert.match(call, /unjustB/);
 });
 
 test("the turn's peace receipt names a punitive settlement", () => {
-  assert.match(gameplay, /settlement\.punitive/);
+  assert.match(gameplay, /settlement\.punitive && !settlement\.white/);
 });
 ```
 
@@ -532,7 +551,7 @@ with:
 ```js
       noteReceipt(receipt, "adjusted",
         `The war ${settlement.warId} closed: ${settlement.white ? "white peace" : "settlement"}`
-        + `${settlement.punitive ? " on punitive terms" : ""}`
+        + `${settlement.punitive && !settlement.white ? " on punitive terms" : ""}`
         + ` (${settlement.transfers.length} region(s) moved).`);
 ```
 
@@ -602,11 +621,12 @@ The runtime adapter (`src/runtime/warSettlement.js`) derives the two flags from
 the stored `unjustAggressors`, folded through the same `toCountryName` canonical
 key space as every other name, and passes them to the core.
 `buildSettlementEvent` appends a punitive clause to the peace description when
-`settlement.punitive` is true, and the turn's receipt line (`gameplay.js`,
+the punitive terms apply, which is when `settlement.punitive` is true and the
+settlement is not white, and the turn's receipt line (`gameplay.js`,
 `applySimulationResult`) names the punitive settlement beside the white-peace
-wording. The reputation and relation cost the casus layer already charged at the
-declaration is untouched, and a war the player is a party to is still withheld
-from settlement.
+wording under the same condition. The reputation and relation cost the casus
+layer already charged at the declaration is untouched, and a war the player is a
+party to is still withheld from settlement.
 ```
 
 - [ ] **Step 2: Verify the wiki is still current and the added text is ASCII**
@@ -614,8 +634,8 @@ from settlement.
 Run: `npm run wiki:check`
 Expected: `Wiki is current.`
 
-Run: `node -e "const s=require('fs').readFileSync('docs/runtime-services.md','utf8'); process.exit(/[^\x00-\x7F]/.test(s)?1:0)"`
-Expected: exit 0, no output (the whole file is ASCII).
+Run: `git diff --unified=0 8c96f67..HEAD -- docs/runtime-services.md | rg '^\+' | rg '[^\x00-\x7F]'`
+Expected: no output (the added lines are ASCII; the file already held non-ASCII before this increment).
 
 - [ ] **Step 3: Commit**
 
