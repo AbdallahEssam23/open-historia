@@ -16,6 +16,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import JSZip from "jszip";
+import { atomicWriteSync } from "./atomicWrite.js";
 
 export const SCENARIO_BUNDLE_NAME = "open-historia";
 
@@ -68,8 +69,7 @@ export const renameScenarioBundleBytes = async (input) => {
 
 // Writes beside and renames over, so a concurrent read never sees half a file.
 export const writeFileAtomic = (file, bytes) => {
-  fs.writeFileSync(`${file}.tmp`, bytes);
-  fs.renameSync(`${file}.tmp`, file);
+  atomicWriteSync(file, bytes);
 };
 
 // Every cached download under the current name, once: a marker in the cache
@@ -92,6 +92,6 @@ export const renameHubCacheBundles = async (cacheDir) => {
       // Left as it was: the importer still reads the earlier name.
     }
   }
-  fs.writeFileSync(marker, `${new Date().toISOString()}\n`);
+  atomicWriteSync(marker, `${new Date().toISOString()}\n`);
   return rewritten;
 };

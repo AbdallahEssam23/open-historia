@@ -12,6 +12,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { DATA_DIR } from "./dataDir.js";
+import { atomicWriteSync } from "./atomicWrite.js";
 
 const FLAGS_PATH = path.join(DATA_DIR, "flags-library.json");
 
@@ -26,7 +27,7 @@ const readAll = () => {
 
 const writeAll = (flags) => {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(FLAGS_PATH, JSON.stringify({ version: 1, flags }));
+  atomicWriteSync(FLAGS_PATH, JSON.stringify({ version: 1, flags }));
 };
 
 // Hash server-side and ignore any client-supplied value — the same reasoning as

@@ -16,6 +16,7 @@ import fs from "fs";
 import path from "path";
 import url from "url";
 import { resolveChildPath } from "./security.js";
+import { atomicWriteSync } from "./atomicWrite.js";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 import { DATA_DIR } from "./dataDir.js";
@@ -36,7 +37,7 @@ const readJson = (target, fallback) => {
 
 const writeJson = (target, value) => {
   ensureDir(path.dirname(target));
-  fs.writeFileSync(target, JSON.stringify(value));
+  atomicWriteSync(target, JSON.stringify(value));
 };
 
 const normalizeId = (raw, fallback = "basemap") => {
