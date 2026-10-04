@@ -57,6 +57,17 @@ const sideIsUnjust = (members, unjustKeys) => {
   return false;
 };
 
+// Whether a side counts the player among its declared members, folded through
+// the same lowercased canonical key space the party test always used.
+const sideHasPlayer = (members, playerKey) => {
+  if (!playerKey) return false;
+  for (const raw of list(members)) {
+    const polity = canonical(raw);
+    if (polity && polity.toLowerCase() === playerKey) return true;
+  }
+  return false;
+};
+
 // The declared target regions any belligerent of the side currently
 // administers: a coalition's target counts as held whoever in the coalition
 // sits on it. Both sides of the comparison fold through toCountryName so a code
@@ -80,6 +91,7 @@ const heldRegions = (goal, memberKeys, overrides) => {
 // ledger (the caller passes the returned weariness back for that).
 export const resolveWarSettlements = ({ world, events, engagements, date, playerPolity = "" } = {}) => {
   const settlements = [];
+  const offers = [];
   const weariness = {};
   const unresolved = [];
   const eventList = list(events);
@@ -101,10 +113,11 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
     if (startedDate && compareGameDates(startedDate, turnDate) >= 0) continue;
 
     const sides = belligerentsOf(war);
-    if (playerKey && sides.some((polity) => polity.toLowerCase() === playerKey)) {
-      unresolved.push({ warId, reason: `the player is a party to ${warId}` });
-      continue;
-    }
+    // The player's wars are stepped and settled like any other; only the
+    // DECISION is held back, so a due peace becomes an offer, not a fact.
+    const sideAHasPlayer = sideHasPlayer(war.sideA, playerKey);
+    const sideBHasPlayer = sideHasPlayer(war.sideB, playerKey);
+    const party = sideAHasPlayer || sideBHasPlayer;
 
     // Aggregate this war's battles into one call to the core, so a second
     // battle on the same war can never settle it twice.
@@ -171,10 +184,25 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
       unjustA,
       unjustB,
     });
-    if (settlement) settlements.push({ ...settlement, belligerents: sides });
+    if (!settlement) {
+      // Not due. A player's open war is still reported, as it was when the
+      // party check skipped it; a non-party war stays silent as before.
+      if (party) unresolved.push({ warId, reason: `the player is a party to ${warId}` });
+      continue;
+    }
+    if (party) {
+      offers.push({
+        ...settlement,
+        belligerents: sides,
+        side: sideAHasPlayer ? "a" : "b",
+        pressure: Math.max(nextA, nextB),
+      });
+      continue;
+    }
+    settlements.push({ ...settlement, belligerents: sides });
   }
 
-  return { settlements, weariness, unresolved };
+  return { settlements, offers, weariness, unresolved };
 };
 
 // The narrated peace: a military event with no combat region, so the battle

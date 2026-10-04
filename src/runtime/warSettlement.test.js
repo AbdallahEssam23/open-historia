@@ -41,7 +41,26 @@ const battle = (eventIndex, sideA, sideB) => ({
   sideB,
 });
 
-test("a war the player is a party to is withheld with a player reason", () => {
+test("a not-due war the player is a party to stays open with a player reason", () => {
+  const out = resolveWarSettlements({
+    // One whole 30-day month to the turn date: the pair steps (0.1 -> 0.14) but
+    // stays below the due bar, so the party war is reported and not offered.
+    world: world([war({ weariness: { a: 0.1, b: 0.1, throughDate: "1870-01-01" } })]),
+    events: [],
+    engagements: [],
+    date: "1870-03-01",
+    playerPolity: "France",
+  });
+  assert.deepEqual(out.settlements, []);
+  assert.deepEqual(out.offers, []);
+  // The weariness is now stepped for a party war, where it used to be skipped.
+  assert.equal(out.weariness["war-1"].throughDate, "1870-03-01");
+  assert.ok(out.weariness["war-1"].a > 0.1);
+  assert.equal(out.unresolved.length, 1);
+  assert.match(out.unresolved[0].reason, /player/i);
+});
+
+test("a due war the player is a party to is offered, not settled", () => {
   const out = resolveWarSettlements({
     world: world([war()]),
     events: [],
@@ -50,10 +69,23 @@ test("a war the player is a party to is withheld with a player reason", () => {
     playerPolity: "France",
   });
   assert.deepEqual(out.settlements, []);
-  assert.deepEqual(out.weariness, {});
-  assert.equal(out.unresolved.length, 1);
-  assert.equal(out.unresolved[0].warId, "war-1");
-  assert.match(out.unresolved[0].reason, /player/i);
+  assert.equal(out.offers.length, 1);
+  assert.equal(out.offers[0].warId, "war-1");
+  assert.equal(out.offers[0].side, "b", "France is side B");
+  assert.ok(out.offers[0].pressure >= 0.6);
+  assert.deepEqual(out.unresolved, []);
+});
+
+test("a non-party war leaves the offers empty", () => {
+  const out = resolveWarSettlements({
+    world: world([war({ weariness: { a: 0.6, b: 0.6, throughDate: "1870-02-01" } })]),
+    events: [],
+    engagements: [],
+    date: "1870-03-01",
+    playerPolity: "",
+  });
+  assert.equal(out.settlements.length, 1);
+  assert.deepEqual(out.offers, []);
 });
 
 test("a ceasefire, an ended war and a war started this date are skipped silently", () => {
