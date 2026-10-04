@@ -57,7 +57,7 @@ Defined in `PROVIDER_OPTIONS` at `src/Game/AI/providerConfig.js`. Which provider
 
 | `value` | Label | Group | Caller (`main.jsx`) | Endpoint | Transport | Model discovery |
 |---------|-------|-------|---------------------|----------|-----------|-----------------|
-| `gemini` | Gemini | Native APIs | `callGemini` (`main.jsx`) | `generativelanguage.googleapis.com/v1beta` (hard‑coded, key in query) | **direct only** (`fetch`) | no |
+| `gemini` | Gemini | Native APIs | `callGemini` (`main.jsx`) | `generativelanguage.googleapis.com/v1beta` (hard‑coded, key in `x-goog-api-key` header) | **direct only** (`fetch`) | no |
 | `openai` | OpenAI | Native APIs | `callOpenAI` → `callOpenAIStyleChatCompletions` (`main.jsx`) | `https://api.openai.com/v1` | `providerFetch` (direct, relay if local) | yes |
 | `anthropic` | Anthropic | Native APIs | `callAnthropic` (`main.jsx`) | `https://api.anthropic.com/v1` | **direct only** (`fetch`, browser‑access opt‑in header) | no |
 | `openai-compatible` | OpenAI Compatible | Gateways & self‑hosted | `callOpenAICompatible` (`main.jsx`) | user `endpoint` (default `http://localhost:11434/v1`) | `providerFetch` | yes |
