@@ -338,6 +338,15 @@ to capitulate: a declined offer leaves the war open even at the capitulation
 threshold, a deliberate asymmetry in favour of player agency. The panel is
 `src/Game/GameUI/peaceOffer.jsx`.
 
+The war ledger the model reads now carries this offer too:
+`buildPeaceOfferDigest` (same module) renders the pending offer as one line, and
+`buildWarLedgerDirective` (`gameplay.js`) appends it beside the standing
+obligations, the recorded breaches and the casus verdict it already printed.
+Those three digests, and this line, read the world as it stands, so they are
+built before the economy projection on every jump, including one shorter than a
+month. Only the digests that state a projected month (the force pools, the
+operations and the production) stay behind the projection gate.
+
 ---
 
 ## Library store — `src/runtime/library.js`
