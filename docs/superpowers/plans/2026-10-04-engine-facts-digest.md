@@ -249,6 +249,45 @@ In `simulateTimelineJump`, the digest block currently reads (abridged): the
 `variables.economyDigest` at `:13207`, and inside `if (projected.months > 0)`
 (`:13218`) the calls at `:13263-13271`:
 
+```js
+      variables.treatyObligations = buildTreatyObligationDigest({
+        standing: readTreatyObligations(bundle.world, { playerPolity }).standing,
+      });
+      variables.treatyBreach = buildTreatyBreachDigest({
+        breaches: readRecordedBreaches(bundle.world),
+      });
+      variables.warCasus = buildWarCasusDigest({
+        wars: readRecordedUnjustWars(bundle.world),
+      });
+```
+
+Remove that comment block and those three calls from inside the gate, and insert
+the following directly after `const playerPolity = toCountryName(...);`
+(`:13197`), before `const projected = advanceWorldEconomy(...)`:
+
+```js
+    // The legal facts the world already realizes do not depend on the economic
+    // projection, so they are built from the world as it stands on every jump,
+    // including one shorter than a month. Only the projected-economy digests
+    // need a month, so only they stay behind the projection gate below.
+    variables.treatyObligations = buildTreatyObligationDigest({
+      standing: readTreatyObligations(bundle.world, { playerPolity }).standing,
+    });
+    variables.treatyBreach = buildTreatyBreachDigest({
+      breaches: readRecordedBreaches(bundle.world),
+    });
+    variables.warCasus = buildWarCasusDigest({
+      wars: readRecordedUnjustWars(bundle.world),
+    });
+    variables.peaceOffer = buildPeaceOfferDigest({ offer: bundle.world?.peaceOffer });
+```
+
+The comment block that sat directly above the removed calls ("The treaty links
+the world already realizes...") is removed with them; the new block carries the
+explanation.
+
+- [ ] **Step 5: Run the guard and the syntax check**
+
 Run: `node --test "src/Game/AI/peaceOfferWiringArchitecture.test.js"`
 Expected: PASS.
 
