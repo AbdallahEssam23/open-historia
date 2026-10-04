@@ -319,8 +319,9 @@ Endpoint cell, keeping the existing `hard‑coded` spelling:
 
 - [ ] **Step 2: Verify no stale claim remains**
 
-Run: `rg -n "key in query" docs/`
-Expected: no output.
+Run: `rg -n "key in query" docs/ai-overview.md`
+Expected: no output. (The spec and this plan quote the old claim as history,
+so the grep is scoped to the doc that made it.)
 
 - [ ] **Step 3: Run the wiki check and the docs-adjacent guard**
 
