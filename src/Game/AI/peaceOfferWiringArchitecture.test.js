@@ -53,7 +53,7 @@ test("the war directive prints the pending peace digest the jump prompt builds",
   assert.ok(start > 0, "the war directive builder is missing");
   const end = gameplay.indexOf("\n};", start);
   const body = gameplay.slice(start, end);
-  assert.match(body, /peaceOffer/, "the directive does not read the pending peace digest");
+  assert.match(body, /\$\{peaceOffer \?/, "the directive does not print the pending peace digest");
   assert.ok(gameplay.indexOf("variables.peaceOffer =") > 0, "the jump prompt never sets variables.peaceOffer");
 });
 
@@ -68,5 +68,6 @@ test("the legal digests are built before the projection gate", () => {
   ]) {
     const at = gameplay.indexOf(name);
     assert.ok(at > 0 && at < gateAt, `${name} must be built before the projection gate`);
+    assert.ok(gameplay.split(name).length - 1 === 1, `${name} must occur exactly once in gameplay.js`);
   }
 });
