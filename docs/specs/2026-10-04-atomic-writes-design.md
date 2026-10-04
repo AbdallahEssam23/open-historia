@@ -89,7 +89,7 @@ dependencies, so one more small, widely-used dependency is in keeping.
 | Helper | `server/atomicWrite.js` (new) | The only module allowed to call a raw `fs.writeFileSync` for whole-file replacement. Wraps `write-file-atomic` and adds a directory fsync. |
 | Stores | `server/libraryStore.js`, `flagStore.js`, `basemapStore.js`, `mapEditorStore.js`, `scenarioBundleNames.js` | Replace whole-file writes with the helper. |
 | Server | `server/server.js` | Same for settings and the hub cache; the `wx` marker uses the exclusive helper. |
-| Dependency | `package.json` | Add `write-file-atomic` (^8.0.0). |
+| Dependency | `package.json` | Add `write-file-atomic` (^7.0.1). |
 | Test | `server/atomicWrite.test.js` (new) | Behavior of both helpers and the raw-write guard. |
 
 ### 2. The helper
