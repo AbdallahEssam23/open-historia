@@ -1,5 +1,6 @@
 /*! Open Historia — portions (regions.geojson scenario asset + custom-map seeding) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import fs from "fs";
+import { atomicWriteSync } from "./atomicWrite.js";
 import { normalizeFeatureOverrides, normalizeFeatureSettings } from "./gameFeatures.js";
 import path from "path";
 import url from "url";
@@ -570,7 +571,7 @@ const readJsonFile = (targetPath, fallback = null) => {
 
 const writeJsonFile = (targetPath, value) => {
   ensureDirectory(path.dirname(targetPath));
-  fs.writeFileSync(targetPath, JSON.stringify(value, null, 2), "utf-8");
+  atomicWriteSync(targetPath, JSON.stringify(value, null, 2), "utf-8");
   // Any write can change what the catalogs describe, so drop them. This is the
   // one choke point every meta and manifest write goes through — including
   // create and delete, which rewrite the manifest — so hooking it here is what
@@ -1272,7 +1273,7 @@ const copySeedFile = (relative, targetDir) => {
   const target = path.join(targetDir, relative);
   ensureDirectory(path.dirname(target));
   // read + write rather than copyFile: the seed may sit inside the app archive.
-  fs.writeFileSync(target, fs.readFileSync(source));
+  atomicWriteSync(target, fs.readFileSync(source));
   return true;
 };
 
@@ -2541,7 +2542,7 @@ const uploadScenarioAsset = (scenarioId, assetKey, dataBuffer, contentType = "")
 
   const targetPath = getScenarioUploadPath(scenarioId, assetKey);
   ensureDirectory(path.dirname(targetPath));
-  fs.writeFileSync(targetPath, dataBuffer);
+  atomicWriteSync(targetPath, dataBuffer);
   writeScenarioMeta(
     scenarioId,
     assetKey === COVER_IMAGE_ASSET_KEY
@@ -2583,7 +2584,7 @@ const uploadGameAsset = (gameId, assetKey, dataBuffer, contentType = "") => {
 
   const targetPath = getGameUploadPath(gameId, assetKey);
   ensureDirectory(path.dirname(targetPath));
-  fs.writeFileSync(targetPath, dataBuffer);
+  atomicWriteSync(targetPath, dataBuffer);
   writeGameMeta(
     gameId,
     assetKey === COVER_IMAGE_ASSET_KEY
@@ -2631,8 +2632,8 @@ const resolveScenarioCoarseRegionsAsset = (scenarioId) => {
     && fs.readFileSync(stampPath, "utf-8") === stamp;
   if (!fresh) {
     const data = JSON.parse(fs.readFileSync(source.sourcePath, "utf-8"));
-    fs.writeFileSync(coarsePath, JSON.stringify(coarsenFeatureCollection(data)), "utf-8");
-    fs.writeFileSync(stampPath, stamp, "utf-8");
+    atomicWriteSync(coarsePath, JSON.stringify(coarsenFeatureCollection(data)), "utf-8");
+    atomicWriteSync(stampPath, stamp, "utf-8");
   }
   return { sourcePath: coarsePath, contentType: source.contentType };
 };
@@ -3130,7 +3131,7 @@ const writeRuntimeJsonAsset = (assetKey, value, { readBack = true } = {}) => {
     }
     const targetPath = getScenarioUploadPath(scenario.id, assetKey);
     ensureDirectory(path.dirname(targetPath));
-    fs.writeFileSync(targetPath, JSON.stringify(value), "utf-8");
+    atomicWriteSync(targetPath, JSON.stringify(value), "utf-8");
     writeScenarioMeta(scenario.id, {});
     return {
       contentType: "application/json; charset=utf-8",
@@ -3477,7 +3478,7 @@ const applyScenarioBundleAsset = (scenarioId, assetKey, assetValue) => {
   if (assetKey === COVER_IMAGE_ASSET_KEY) {
     if (assetValue?.mode === "embedded") {
       const decoded = Buffer.from(String(assetValue.data ?? ""), "base64");
-      fs.writeFileSync(getScenarioUploadPath(scenarioId, assetKey), decoded);
+      atomicWriteSync(getScenarioUploadPath(scenarioId, assetKey), decoded);
       writeScenarioMeta(scenarioId, {
         coverImageContentType: normalizeImageContentType(assetValue.contentType),
       });
@@ -3494,10 +3495,10 @@ const applyScenarioBundleAsset = (scenarioId, assetKey, assetValue) => {
     } else if (assetValue.encoding === "base64" || typeof assetValue.data === "string") {
       // Binary, or a bundle written before JSON assets stopped being base64'd.
       const decoded = Buffer.from(String(assetValue.data ?? ""), "base64");
-      fs.writeFileSync(getScenarioUploadPath(scenarioId, assetKey), decoded);
+      atomicWriteSync(getScenarioUploadPath(scenarioId, assetKey), decoded);
     } else {
       // A JSON asset that travelled as JSON (geometry, a vector basemap).
-      fs.writeFileSync(getScenarioUploadPath(scenarioId, assetKey), JSON.stringify(assetValue.data ?? {}), "utf-8");
+      atomicWriteSync(getScenarioUploadPath(scenarioId, assetKey), JSON.stringify(assetValue.data ?? {}), "utf-8");
     }
     return;
   }
