@@ -6756,7 +6756,7 @@ const applySimulationResult = async ({
     if (receipt) {
       noteReceipt(receipt, "adjusted",
         `The war ${settlement.warId} closed: ${settlement.white ? "white peace" : "settlement"}`
-        + `${settlement.punitive && !settlement.white ? " on punitive terms" : ""}`
+        + `${settlement.punitive && settlement.white === false ? " on punitive terms" : ""}`
         + ` (${settlement.transfers.length} region(s) moved).`);
     }
   }

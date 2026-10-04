@@ -60,5 +60,7 @@ test("the adapter passes the unjust flags to the core", () => {
 });
 
 test("the turn's peace receipt names a punitive settlement", () => {
-  assert.match(gameplay, /settlement\.punitive && !settlement\.white/);
+  const at = gameplay.indexOf("The war ${settlement.warId} closed:");
+  const receipt = gameplay.slice(at, gameplay.indexOf("region(s) moved", at));
+  assert.match(receipt, /settlement\.punitive && settlement\.white === false/);
 });
