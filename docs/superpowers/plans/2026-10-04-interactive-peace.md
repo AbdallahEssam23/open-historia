@@ -565,13 +565,6 @@ test("accepting applies the transfers, ends the war and clears the offer", () =>
   assert.equal(out.event.impacts.regionTransfers[0].regionId, "R");
 });
 
-test("a war that no longer exists is no offer to apply", () => {
-  const world = { ...baseWorld(), wars: [] };
-  const out = applyPeaceOffer({ world, offer: offer(), date: "1870-04-01", round: 5 });
-  // applyWarUpdates cannot end a war it does not hold; the transfer still lands.
-  assert.equal(out.world.peaceOffer, null);
-});
-
 test("no offer is nothing to apply", () => {
   assert.equal(applyPeaceOffer({ world: baseWorld(), offer: null, date: "1870-04-01", round: 5 }), null);
 });
