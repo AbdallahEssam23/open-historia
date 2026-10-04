@@ -15,6 +15,7 @@ import { Other } from "./other";
 import { ADVISOR_SLIDE } from "./advisorSlide.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
+import { useRuntimeState } from "../../runtime/useRuntimeState.js";
 import { MAP_CARD_OPENED, SAFE_BOTTOM, SAFE_RIGHT } from "../../runtime/mobileUi.js";
 import { dismissRegionPopup } from "../Selection/Regions.jsx";
 import { dismissUnitPopup } from "../Selection/Units.jsx";
@@ -98,6 +99,10 @@ const LazyDebugConsole = lazy(() =>
 // Interactive events (interactive.jsx): nothing of them loads until the player takes one up.
 const LazyInteractivePanel = lazy(() =>
   import("./interactive.jsx").then((module) => ({ default: module.InteractivePanel })),
+);
+// The peace the engine offers on the player's own war (peaceOffer.jsx).
+const LazyPeaceOfferPanel = lazy(() =>
+  import("./peaceOffer.jsx").then((module) => ({ default: module.PeaceOfferPanel })),
 );
 
 // The HUD's own chrome, split the same way and for the same reason. Statically
@@ -245,6 +250,8 @@ const Main = ({
   const [isDebugConsoleOpen, setIsDebugConsoleOpen] = useState(false);
   const [shouldLoadDebugConsole, setShouldLoadDebugConsole] = useState(false);
   const [isInteractiveOpen, setIsInteractiveOpen] = useState(false);
+  const hasPeaceOffer = useRuntimeState("world", (world) => Boolean(world?.peaceOffer));
+  const [shouldLoadPeaceOffer, setShouldLoadPeaceOffer] = useState(false);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [advisorWidth, setAdvisorWidth] = useState(readAdvisorWidth);
   // A starter message queued for the advisor's input box — set when something
@@ -352,6 +359,10 @@ const Main = ({
   useEffect(() => {
     if (isAdvisorOpen) setShouldLoadAdvisor(true);
   }, [isAdvisorOpen]);
+
+  useEffect(() => {
+    if (hasPeaceOffer) setShouldLoadPeaceOffer(true);
+  }, [hasPeaceOffer]);
 
   useEffect(() => {
     localStorage.setItem("Fullscreen", JSON.stringify(isFullscreenEnabled));
@@ -589,6 +600,13 @@ const Main = ({
           />
         </Presence>
       </Suspense>
+      {shouldLoadPeaceOffer ? (
+        <Suspense fallback={null}>
+          <Presence open={hasPeaceOffer}>
+            <LazyPeaceOfferPanel />
+          </Presence>
+        </Suspense>
+      ) : null}
       <GenerationRatingToast />
       <Presence open={showGameLoading} leaveMs={450}>
         <GameLoadingScreen
