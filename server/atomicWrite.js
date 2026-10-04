@@ -33,7 +33,11 @@ const fsyncDirectory = (target) => {
   } catch {
     // EINVAL/ENOTSUP/EPERM on directories: nothing more this platform offers.
   } finally {
-    fs.closeSync(fd);
+    try {
+      fs.closeSync(fd);
+    } catch {
+      // A close error must not fail a write that already completed its rename.
+    }
   }
 };
 
@@ -41,8 +45,12 @@ const fsyncDirectory = (target) => {
 // fs.writeFileSync takes. The parent directory is created if missing, matching
 // what every caller already arranged for itself before the write.
 export const atomicWriteSync = (target, data, options = {}) => {
+  // fs.writeFileSync accepts an encoding string as the third argument. Callers
+  // that copied that call shape pass "utf-8", so accepting it here keeps the
+  // helper a drop-in and stops the value being spread into per-character keys.
+  const normalized = typeof options === "string" ? { encoding: options } : options;
   fs.mkdirSync(path.dirname(target), { recursive: true });
-  writeFileAtomic.sync(target, data, { fsync: true, ...options });
+  writeFileAtomic.sync(target, data, { fsync: true, ...normalized });
   fsyncDirectory(target);
 };
 

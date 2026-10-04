@@ -35,6 +35,13 @@ test("the target's directory is created when missing", () => {
   assert.equal(fs.readFileSync(nested, "utf-8"), "deep");
 });
 
+test("a string encoding option is honored, as fs.writeFileSync does", () => {
+  const dir = tempDir();
+  const target = path.join(dir, "latin1.txt");
+  atomicWriteSync(target, "\u00e9", "latin1");
+  assert.deepEqual(fs.readFileSync(target), Buffer.from([0xe9]));
+});
+
 test("atomicExclusiveWriteSync creates once and refuses the second create", () => {
   const dir = tempDir();
   const marker = path.join(dir, "marker");
