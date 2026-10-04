@@ -109,7 +109,7 @@ increments established.
 |---|---|---|
 | Pure core | `src/engine/warSettlement.js` | Unchanged. `settleWar` owns the terms; the offer is its result. |
 | Runtime adapter | `src/runtime/warSettlement.js`, `src/runtime/peaceOffer.js` (new) | Steps weariness for all wars and splits due player wars into offers; chooses and normalizes the stored offer. No browser import; imports no `src/Game/AI/` module. |
-| Model-facing | `src/Game/AI/gameplay.js` | Chooses the offer where the turn's events are final; exposes deterministic accept and decline. |
+| Model-facing | `src/Game/AI/gameplay.js`, `src/Game/AI/peaceOffer.js` (new) | Chooses the offer where the turn's events are final; exposes deterministic accept and decline. The accept arithmetic lives in `peaceOffer.js` because it calls the war ledger, which `src/runtime/` may not import. |
 | UI | `src/Game/GameUI/peaceOffer.jsx` (new) | The terms and the two actions; no AI request. |
 | Docs | `docs/runtime-services.md` | A module-map row and one section. |
 
@@ -223,7 +223,11 @@ player.
 
 ### 7. Accepting an offer
 
-`acceptPeaceOffer()` is a deterministic, no-request action:
+`acceptPeaceOffer()` is a deterministic, no-request action. The arithmetic that
+touches the world and the ledger is `applyPeaceOffer` in
+`src/Game/AI/peaceOffer.js`, so it can be tested under `node --test` without
+importing `gameplay.js` (which pulls in `main.jsx`); `gameplay.js` only reads the
+inputs, calls it, and writes the results:
 
 1. Refuse while a turn is being generated (`isSimulationBusy`), the same guard
    every other player action uses.
@@ -235,8 +239,9 @@ player.
    `applyIdlePulseUnitOps` uses, so owner-name resolution and the transfer rules
    behave exactly as on a real turn.
 5. Apply reparations with `applyWarReparations(world, [offer])`.
-6. End the war with `applyWarUpdates({ op: "end", id: offer.warId, eventIds })`
-   and persist the settlement's weariness for that war.
+6. End the war with `applyWarUpdates({ op: "end", id: offer.warId, eventIds })`.
+   The war already carries the weariness the turn stepped and persisted, so no
+   weariness is passed here.
 7. Clear `peaceOffer`, append the event to the record, and write the world.
 
 The accepted terms are the stored ones. The engine does not recompute the peace
