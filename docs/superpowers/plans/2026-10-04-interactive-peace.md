@@ -992,15 +992,18 @@ git commit -m "feat(ui): show the player peace offer"
 
 **Interfaces:**
 - Consumes: the finished increment.
-- Produces: a module-map row and one prose section.
+- Produces: a module-map row, one prose section, and a correction to the now
+  stale closing sentence of the settlement-reaction section.
 
 - [ ] **Step 1: Add the module-map row**
 
 In the module map at the top of `docs/runtime-services.md`, add a row for
-`src/runtime/peaceOffer.js`, in the same column style as its neighbours:
+`src/runtime/peaceOffer.js` directly after the Settlement row, as a full
+four-column row in the table's own style (the brief's short form is only the
+text; match the four columns of its neighbours):
 
 ```
-| `peaceOffer.js` | Chooses and normalizes the peace the engine offers the player on their own due war (the interactive-peace increment). |
+| Peace offer | `src/runtime/peaceOffer.js` | chooses and normalizes the peace the engine offers the player on their own due war (the interactive-peace increment) | `src/Game/AI/gameplay.js` (the turn), `src/Game/GameUI/peaceOffer.jsx` |
 ```
 
 - [ ] **Step 2: Add the section**
@@ -1036,6 +1039,18 @@ to capitulate: a declined offer leaves the war open even at the capitulation
 threshold, a deliberate asymmetry in favour of player agency. The panel is
 `src/Game/GameUI/peaceOffer.jsx`.
 ```
+
+Then correct the settlement-reaction section's last sentence, which this
+increment makes false. It currently reads:
+
+```
+the casus layer already charged at the declaration is untouched, and a war the player is a
+party to is still withheld from settlement.
+```
+
+Rewrite that closing clause to state the new behaviour: a war the player is a
+party to is no longer withheld; it is stepped and, once due, offered (see the
+new section). Keep the casus-cost sentence that precedes it.
 
 - [ ] **Step 3: Check the added lines are ASCII**
 
