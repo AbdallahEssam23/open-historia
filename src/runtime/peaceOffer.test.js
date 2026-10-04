@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { choosePeaceOffer, normalizePeaceOffer } from "./peaceOffer.js";
+import { buildPeaceOfferDigest, choosePeaceOffer, normalizePeaceOffer } from "./peaceOffer.js";
 
 const offer = (over = {}) => ({
   warId: "war-1",
@@ -67,4 +67,15 @@ test("normalize keeps a full offer and rejects an unusable one", () => {
     normalizePeaceOffer({ warId: "war-1" }).reparations,
     { fromCode: "", toCode: "", manpower: 0, materiel: 0 },
   );
+});
+
+test("the peace digest names the pending war and holds it open", () => {
+  assert.equal(buildPeaceOfferDigest({}), "");
+  assert.equal(buildPeaceOfferDigest(), "");
+  assert.equal(buildPeaceOfferDigest({ offer: null }), "");
+  assert.equal(buildPeaceOfferDigest({ offer: { warId: "" } }), "");
+  const line = buildPeaceOfferDigest({ offer: offer({ warId: "war-7" }) });
+  assert.match(line, /\[Peace Offer Pending/);
+  assert.match(line, /war-7/);
+  assert.match(line, /do not close/);
 });

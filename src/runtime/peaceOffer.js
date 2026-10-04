@@ -82,3 +82,14 @@ export const choosePeaceOffer = ({ offers = [], round = 0 } = {}) => {
   });
   return { ...list[0], round: whole(round) };
 };
+
+// The pending offer as one line for the war ledger the model reads, or "" when
+// none is due. It exists so the model does not narrate a settlement the engine
+// is still holding: the war is real, the terms are derived, and only the
+// player's decision is outstanding.
+export const buildPeaceOfferDigest = ({ offer } = {}) => {
+  const pending = normalizePeaceOffer(offer);
+  if (!pending) return "";
+  return `[Peace Offer Pending, as simulated]
+- ${pending.warId} is settled on the engine's terms and awaits the player's decision; do not narrate it as concluded, and do not close, leave or cease fire the war until the player accepts or declines.`;
+};
