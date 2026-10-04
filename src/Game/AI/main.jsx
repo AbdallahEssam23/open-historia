@@ -24,6 +24,7 @@ import {
     requestChars,
 } from "./contextWindow.js";
 import { splitSystemPromptForCache } from "./promptLayout.js";
+import { geminiHeaders, getGeminiStreamUrl, getGeminiUrl } from "./geminiTransport.js";
 import { looksLikeModelFilePath, resolveServedModelId } from "./modelIds.js";
 import { attachLookupRound, attachCallMetrics, finishAiRecord, isTelemetryEnabled, startAiRecord  } from "./telemetry.js";
 import { JSON_URLS, readJson } from "../../runtime/assets.js";
@@ -320,16 +321,6 @@ function extractAnthropicToolInput(data, tool) {
     const block = (data?.content ?? [])
     .find((entry) => entry?.type === "tool_use" && entry?.name === tool?.name);
     return block?.input && typeof block.input === "object" ? block.input : null;
-}
-
-function getGeminiUrl(model, apiKey) {
-    return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`;
-}
-
-// The same call as an event stream. Used for the advisor (tokens to the UI) and
-// for tool calls (keep-alive) — see the streaming comment in callGemini.
-function getGeminiStreamUrl(model, apiKey) {
-    return getGeminiUrl(model, apiKey).replace(":generateContent?", ":streamGenerateContent?alt=sse&");
 }
 
 // Why a Gemini skip's events arrive together while every other provider's arrive
@@ -924,7 +915,7 @@ async function callGemini(systemPrompt, history, {
     // caps this reply at the requested budget — the buffered jump path below
     // deliberately sends NO cap so long simulations are never truncated.
     if (onChunk && !tool) {
-        const streamUrl = getGeminiStreamUrl(model, apiKey);
+        const streamUrl = getGeminiStreamUrl(model);
         // A busy or Rate limited status is retried as the Fallback list's rule
         // says (one retry when there is somewhere to fall back to). An
         // overloaded error INSIDE the stream arrives as an HTTP 200, never
@@ -933,7 +924,7 @@ async function callGemini(systemPrompt, history, {
         for (let pass = 1; ; pass += 1) {
             const response = await fetch(streamUrl, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: geminiHeaders(apiKey),
                 body: JSON.stringify({
                     system_instruction: { parts: [{ text: systemPrompt }] },
                     contents: geminiContentsFromHistory(history),
@@ -985,10 +976,10 @@ async function callGemini(systemPrompt, history, {
         // envelope the extractors below already read, so nothing downstream
         // changes. (The advisor's own streaming is handled above, where the
         // tokens go to the UI as they arrive.)
-        const requestUrl = tool ? getGeminiStreamUrl(model, apiKey) : getGeminiUrl(model, apiKey);
+        const requestUrl = tool ? getGeminiStreamUrl(model) : getGeminiUrl(model);
         const response = await fetch(requestUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: geminiHeaders(apiKey),
             body: JSON.stringify({
                 system_instruction: { parts: [{ text: systemPrompt }] },
                 contents: geminiContentsFromHistory(history),

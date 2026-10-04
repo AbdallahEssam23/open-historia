@@ -1,6 +1,7 @@
 // Run: node --test src/Game/AI/geminiTransport.test.js
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { getGeminiStreamUrl, getGeminiUrl, geminiHeaders } from "./geminiTransport.js";
 
@@ -37,4 +38,19 @@ test("the headers carry the key in x-goog-api-key and JSON content type", () => 
 
 test("a missing key becomes an empty header, never the text undefined", () => {
   assert.equal(geminiHeaders(undefined)["x-goog-api-key"], "");
+});
+
+// main.jsx reaches settings, fetch and the DOM, so it cannot be imported by
+// node --test; its wiring is pinned by reading the source (the house pattern,
+// see peaceOfferWiringArchitecture.test.js).
+test("main.jsx sends the key through the headers helper, never a URL", () => {
+  const source = readFileSync(new URL("./main.jsx", import.meta.url), "utf8");
+  assert.ok(!source.includes("?key="), "main.jsx must not build a ?key= URL");
+  assert.ok(!source.includes("key=${"), "main.jsx must not interpolate a key into a URL");
+  assert.ok(!source.includes("getGeminiUrl(model, apiKey)"), "the keyed URL builder is gone");
+  assert.equal(
+    (source.match(/geminiHeaders\(apiKey\)/g) ?? []).length,
+    2,
+    "both Gemini fetches send geminiHeaders(apiKey)",
+  );
 });
