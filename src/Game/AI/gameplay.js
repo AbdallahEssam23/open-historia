@@ -6972,6 +6972,17 @@ const applySimulationResult = async ({
     resolveRegion: regionResolver.resolve,
   });
   worldWithImpacts = warMerge.world;
+  // A record that would close the player's offered war is held at apply time
+  // too, for any path the validator did not reach. It is a deliberate hold, not
+  // a drop, so the turn's receipt names it and the action does not fail.
+  for (const warId of normalizeArray(warMerge.withheldIds)) {
+    if (receipt) {
+      noteReceipt(receipt, "withheld", `The war ${warId} is held open by the player's pending peace offer; the engine did not apply the record that would close it.`);
+    }
+  }
+  if (normalizeArray(warMerge.withheldIds).length) {
+    logDebugEvent("turn", `Held war operations awaiting the player's peace decision: ${normalizeArray(warMerge.withheldIds).join(", ")}.`);
+  }
   try {
     const breachOutcome = readTreatyBreaches(worldWithImpacts, {
       breaches: breachUpdates
@@ -14525,9 +14536,12 @@ export const applyGameMasterPreview = async (preview) => {
           stopDate: bundle.game.gameDate || bundle.game.startDate || "",
           round: bundle.game.round || 0,
         })
-      : { world: nextWorld, appliedIds: [] };
-    if (warMerge.appliedIds.length !== warUpdatesForApply.length) {
+      : { world: nextWorld, appliedIds: [], withheldIds: [] };
+    if (warMerge.appliedIds.length + warMerge.withheldIds.length !== warUpdatesForApply.length) {
       throw new Error("A canonical war operation failed during the in-memory apply. Nothing was persisted; regenerate the preview.");
+    }
+    if (warMerge.withheldIds.length) {
+      logDebugEvent("turn", `A held war operation was not applied: ${warMerge.withheldIds.join(", ")} awaits the player's peace decision.`);
     }
     nextWorld = warMerge.world;
 

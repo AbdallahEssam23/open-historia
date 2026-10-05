@@ -71,3 +71,15 @@ test("the legal digests are built before the projection gate", () => {
     assert.ok(gameplay.split(name).length - 1 === 1, `${name} must occur exactly once in gameplay.js`);
   }
 });
+
+test("the ledger refuses and withholds the offered war", () => {
+  const ledger = read("./nativeWarLedger.js");
+  assert.match(ledger, /peaceOfferHoldsWarUpdate/);
+  assert.match(ledger, /withheldIds/);
+  assert.match(ledger, /world\?\.peaceOffer|world\.peaceOffer/);
+});
+
+test("the turn receipts a held war and the GM apply counts it", () => {
+  assert.match(gameplay, /warMerge\.withheldIds/);
+  assert.match(gameplay, /appliedIds\.length \+ warMerge\.withheldIds\.length/);
+});
