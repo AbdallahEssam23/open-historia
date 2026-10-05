@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import {
   buildPeaceOfferDigest,
   choosePeaceOffer,
+  keepHeldPeaceOffer,
   normalizePeaceOffer,
   PEACE_OFFER_HELD_OPS,
   peaceOfferHoldsWarUpdate,
@@ -56,6 +57,30 @@ test("the stored offer carries its round and bounded numbers", () => {
   const picked = choosePeaceOffer({ offers: [offer({ pressure: 4, round: -1 })], round: 7 });
   assert.equal(picked.round, 7, "the turn's round is stamped");
   assert.equal(picked.pressure, 1, "pressure is bounded to 0..1");
+});
+
+test("a held war keeps its pending offer instead of clearing it", () => {
+  const carried = offer({ warId: "war-1", round: 3, pressure: 0.7 });
+  const chosen = choosePeaceOffer({ offers: [offer({ warId: "war-2", pressure: 0.9 })], round: 9 });
+  const kept = keepHeldPeaceOffer({ carried, withheldIds: ["war-1"], chosen });
+  assert.equal(kept.warId, "war-1", "the carried offer survives a withheld close");
+  assert.equal(kept.round, 3, "the carried offer is not re-stamped");
+  assert.equal(kept.pressure, 0.7);
+});
+
+test("an offer whose war was not held defers to the fresh choice", () => {
+  const carried = offer({ warId: "war-1" });
+  const chosen = choosePeaceOffer({ offers: [offer({ warId: "war-2", pressure: 0.9 })], round: 9 });
+  assert.equal(keepHeldPeaceOffer({ carried, withheldIds: ["war-2"], chosen }).warId, "war-2");
+  assert.equal(keepHeldPeaceOffer({ carried, withheldIds: [], chosen }).warId, "war-2");
+  assert.equal(keepHeldPeaceOffer({ carried, chosen }).warId, "war-2");
+});
+
+test("without a carried offer the fresh choice stands", () => {
+  const chosen = choosePeaceOffer({ offers: [offer({ warId: "war-2" })], round: 9 });
+  assert.equal(keepHeldPeaceOffer({ carried: null, withheldIds: ["war-2"], chosen }).warId, "war-2");
+  assert.deepEqual(keepHeldPeaceOffer({ withheldIds: ["war-2"], chosen }), chosen);
+  assert.equal(keepHeldPeaceOffer(), null);
 });
 
 test("normalize keeps a full offer and rejects an unusable one", () => {

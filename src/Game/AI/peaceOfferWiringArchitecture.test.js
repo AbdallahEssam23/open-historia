@@ -74,12 +74,18 @@ test("the legal digests are built before the projection gate", () => {
 
 test("the ledger refuses and withholds the offered war", () => {
   const ledger = read("./nativeWarLedger.js");
-  assert.match(ledger, /peaceOfferHoldsWarUpdate/);
-  assert.match(ledger, /withheldIds/);
-  assert.match(ledger, /world\?\.peaceOffer|world\.peaceOffer/);
+  assert.match(ledger, /peaceOfferHoldsWarUpdate\(\{ update, offer: world\?\.peaceOffer \}\)/);
+  assert.match(ledger, /withheldIds\.push\(update\.id\)/);
+  assert.match(ledger, /normalizePeaceOffer\(nextWorld\.peaceOffer\)/);
 });
 
 test("the turn receipts a held war and the GM apply counts it", () => {
   assert.match(gameplay, /warMerge\.withheldIds/);
   assert.match(gameplay, /appliedIds\.length \+ warMerge\.withheldIds\.length/);
+});
+
+test("the turn keeps a held war's pending offer", () => {
+  assert.match(gameplay, /keepHeldPeaceOffer\(\{/);
+  assert.match(gameplay, /withheldIds: warMerge\.withheldIds/);
+  assert.match(read("../../runtime/peaceOffer.js"), /export const keepHeldPeaceOffer/);
 });

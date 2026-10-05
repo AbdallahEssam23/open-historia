@@ -94,6 +94,22 @@ export const buildPeaceOfferDigest = ({ offer } = {}) => {
 - ${pending.warId} is settled on the engine's terms and awaits the player's decision; do not narrate it as concluded, and do not close, leave or cease fire the war until the player accepts or declines.`;
 };
 
+// The offer the turn keeps. The turn filters its due offers by the model's own
+// closing ids, so when applyWarUpdates withheld such a record the offered war is
+// no longer among the due offers. The pending offer is carried forward instead,
+// so a held operation never clears the player's decision; otherwise the freshly
+// chosen offer stands.
+export const keepHeldPeaceOffer = ({ carried, withheldIds, chosen } = {}) => {
+  const pending = normalizePeaceOffer(carried);
+  if (!pending) return normalizePeaceOffer(chosen);
+  const heldIds = new Set(
+    (Array.isArray(withheldIds) ? withheldIds : [])
+      .map((id) => String(id ?? "").trim())
+      .filter(Boolean),
+  );
+  return heldIds.has(pending.warId) ? pending : normalizePeaceOffer(chosen);
+};
+
 // The operations that end a war's life. A pending offer holds exactly these:
 // a goal declaration or a joiner does not close the war, so neither is held.
 export const PEACE_OFFER_HELD_OPS = Object.freeze(["end", "ceasefire", "leave"]);

@@ -300,7 +300,7 @@ import { deliveryEventId, documentExchange, documentNote, documentNotices, isDoc
 import { unseenEvents, withoutUnseenMessages } from "../../runtime/unseenEvents.js";
 import { canRewindInteractiveTo, isSceneInProgress, openInteractive, recordInteractiveBeat, rewindInteractive } from "./interactiveRewind.js";
 import { chooseInteractiveOffer, offeredEvent } from "../../runtime/interactiveOffer.js";
-import { buildPeaceOfferDigest, choosePeaceOffer } from "../../runtime/peaceOffer.js";
+import { buildPeaceOfferDigest, choosePeaceOffer, keepHeldPeaceOffer } from "../../runtime/peaceOffer.js";
 import { buildCrossChatKnowledge } from "./crossChatKnowledge.js";
 import {
   eventsFromLegacyChat,
@@ -7501,8 +7501,14 @@ const applySimulationResult = async ({
 
   // The player's own due peace (runtime/peaceOffer.js): the war is real and its
   // settlement is due, but the decision is the player's, so it is offered
-  // rather than applied. Re-derived every turn; declining only clears it.
-  const peaceOffer = choosePeaceOffer({ offers: duePeaceOffers, round: nextGame.round });
+  // rather than applied. Re-derived every turn; declining only clears it. A war
+  // whose closure applyWarUpdates withheld keeps the offer it already had, so a
+  // held record never clears the player's decision.
+  const peaceOffer = keepHeldPeaceOffer({
+    carried: baseWorldNormalized?.peaceOffer,
+    withheldIds: warMerge.withheldIds,
+    chosen: choosePeaceOffer({ offers: duePeaceOffers, round: nextGame.round }),
+  });
   worldWithImpacts = { ...worldWithImpacts, peaceOffer };
 
   let nextWorld = worldWithImpacts;

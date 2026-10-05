@@ -491,3 +491,28 @@ test("without an offer nothing is held", () => {
   assert.deepEqual(merge.withheldIds, []);
   assert.equal(merge.wars[0].status, "ended");
 });
+
+test("a ceasefire and a leave of the offered war are held like an end", () => {
+  const heldWorld = {
+    polityOverrides: {},
+    wars: [{ id: "war-1", status: "active", sideA: ["Prussia"], sideB: ["France"], startedDate: "1800-01-01" }],
+    peaceOffer: { warId: "war-1", round: 3, pressure: 0.7 },
+  };
+  const events = [{
+    id: "e1", date: "1800-02-01", title: "Truce of Basel",
+    description: "Prussia and France agree a truce.", kind: "military",
+    warId: "war-1", combatants: ["Prussia", "France"],
+  }];
+  for (const op of ["ceasefire", "leave"]) {
+    const merge = applyWarUpdates({
+      world: heldWorld,
+      updates: decodeWarUpdates(`war-1~${op}~Prussia~~1~Held`),
+      events,
+      stopDate: "1800-02-01",
+      round: 4,
+    });
+    assert.deepEqual(merge.appliedIds, [], op);
+    assert.deepEqual(merge.withheldIds, ["war-1"], op);
+    assert.equal(merge.wars.find((war) => war.id === "war-1").status, "active", `${op} leaves the war open`);
+  }
+});
