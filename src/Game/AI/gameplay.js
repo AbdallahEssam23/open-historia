@@ -588,6 +588,26 @@ const relationStatusForScore = (value) => {
   return "rival";
 };
 
+// The four war facts the model must not contradict, derived from the world in
+// one place so every path that shows them reads them the same way. A time skip
+// prints them in its [Wars] ledger; an interactive scene gets them as their own
+// block (runtime/warFacts.js).
+const buildWarFactsVariables = async ({ world, game } = {}) => {
+  const playerPolity = toCountryName(normalizeString(game?.country));
+  return {
+    treatyObligations: buildTreatyObligationDigest({
+      standing: readTreatyObligations(world, { playerPolity }).standing,
+    }),
+    treatyBreach: buildTreatyBreachDigest({
+      breaches: readRecordedBreaches(world),
+    }),
+    warCasus: buildWarCasusDigest({
+      wars: readRecordedUnjustWars(world),
+    }),
+    peaceOffer: buildPeaceOfferDigest({ offer: world?.peaceOffer }),
+  };
+};
+
 const buildWarLedgerDirective = (variables) => {
   const playerName = normalizeString(variables?.playerPolity) || "the player's polity";
   const canonicalWarContext = normalizeString(variables?.canonicalWarContext);
@@ -13217,16 +13237,7 @@ export const simulateTimelineJump = async ({ days, mode = "jump", onEvents, onPr
     // projection, so they are built from the world as it stands on every jump,
     // including one shorter than a month. Only the projected-economy digests
     // need a month, so only they stay behind the projection gate below.
-    variables.treatyObligations = buildTreatyObligationDigest({
-      standing: readTreatyObligations(bundle.world, { playerPolity }).standing,
-    });
-    variables.treatyBreach = buildTreatyBreachDigest({
-      breaches: readRecordedBreaches(bundle.world),
-    });
-    variables.warCasus = buildWarCasusDigest({
-      wars: readRecordedUnjustWars(bundle.world),
-    });
-    variables.peaceOffer = buildPeaceOfferDigest({ offer: bundle.world?.peaceOffer });
+    Object.assign(variables, await buildWarFactsVariables({ world: bundle.world, game: bundle.game }));
     const projected = advanceWorldEconomy(bundle.world, {
       fromDate: originDate,
       toDate: targetDate,

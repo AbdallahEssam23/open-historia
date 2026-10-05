@@ -22,7 +22,8 @@ test("the war directive prints the casus digest the jump prompt builds", () => {
   const end = gameplay.indexOf("\n};", start);
   const body = gameplay.slice(start, end);
   assert.match(body, /warCasus \?/, "the directive does not print the casus digest");
-  assert.ok(gameplay.indexOf("variables.warCasus =") > 0, "the jump prompt never sets variables.warCasus");
+  assert.match(gameplay, /warCasus: buildWarCasusDigest\(/, "the war facts builder does not set the casus digest");
+  assert.ok(gameplay.indexOf("await buildWarFactsVariables({") > 0, "the jump never builds the war facts");
 });
 
 test("the turn judges only the starts the war ledger applied", () => {

@@ -22,7 +22,8 @@ test("the war directive prints the obligations digest the jump prompt builds", (
   const body = gameplay.slice(start, end);
   assert.match(body, /treatyObligations/, "the directive does not read the obligations");
   assert.match(body, /A treaty is not narrative/, "the directive does not state the engine obeys the treaty");
-  assert.ok(gameplay.indexOf("variables.treatyObligations =") > 0, "the jump prompt never sets variables.treatyObligations");
+  assert.match(gameplay, /treatyObligations: buildTreatyObligationDigest\(/, "the war facts builder does not set the obligations");
+  assert.ok(gameplay.indexOf("await buildWarFactsVariables({") > 0, "the jump never builds the war facts");
 });
 
 test("the turn resolves declared breaches before the treaty obligations", () => {
@@ -41,7 +42,8 @@ test("the war directive prints the breach digest the jump prompt builds", () => 
   const end = gameplay.indexOf("\n};", start);
   const body = gameplay.slice(start, end);
   assert.match(body, /treatyBreach/, "the directive does not read the breach digest");
-  assert.ok(gameplay.indexOf("variables.treatyBreach =") > 0, "the jump prompt never sets variables.treatyBreach");
+  assert.match(gameplay, /treatyBreach: buildTreatyBreachDigest\(/, "the war facts builder does not set the breach digest");
+  assert.ok(gameplay.indexOf("await buildWarFactsVariables({") > 0, "the jump never builds the war facts");
 });
 
 test("the diplomatic directive tells the model it may breach a treaty", () => {

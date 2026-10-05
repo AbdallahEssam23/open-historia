@@ -54,21 +54,22 @@ test("the war directive prints the pending peace digest the jump prompt builds",
   const end = gameplay.indexOf("\n};", start);
   const body = gameplay.slice(start, end);
   assert.match(body, /\$\{peaceOffer \?/, "the directive does not print the pending peace digest");
-  assert.ok(gameplay.indexOf("variables.peaceOffer =") > 0, "the jump prompt never sets variables.peaceOffer");
+  assert.match(gameplay, /peaceOffer: buildPeaceOfferDigest\(/, "the war facts builder does not set the peace offer");
 });
 
 test("the legal digests are built before the projection gate", () => {
+  const jumpAt = gameplay.indexOf("export const simulateTimelineJump");
   const gateAt = gameplay.indexOf("if (projected.months > 0)");
-  assert.ok(gateAt > 0, "the projection gate is missing");
+  assert.ok(jumpAt > 0 && gateAt > jumpAt, "the projection gate is missing");
+  const helperAt = gameplay.indexOf("await buildWarFactsVariables({", jumpAt);
+  assert.ok(helperAt > jumpAt && helperAt < gateAt, "the war facts must be built before the projection gate");
   for (const name of [
-    "variables.treatyObligations =",
-    "variables.treatyBreach =",
-    "variables.warCasus =",
-    "variables.peaceOffer =",
+    "treatyObligations: buildTreatyObligationDigest(",
+    "treatyBreach: buildTreatyBreachDigest(",
+    "warCasus: buildWarCasusDigest(",
+    "peaceOffer: buildPeaceOfferDigest(",
   ]) {
-    const at = gameplay.indexOf(name);
-    assert.ok(at > 0 && at < gateAt, `${name} must be built before the projection gate`);
-    assert.ok(gameplay.split(name).length - 1 === 1, `${name} must occur exactly once in gameplay.js`);
+    assert.equal(gameplay.split(name).length - 1, 1, `${name} must occur exactly once in gameplay.js`);
   }
 });
 
