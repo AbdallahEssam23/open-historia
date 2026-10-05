@@ -67,7 +67,9 @@ network or a war-goal system; none of those is built here.
   pre-turn world; a second engagement in the same region reads the same roster.
   Resolving a sequence of them is out of scope.
 - **Special rules for naval and air formations beyond their weight.** They
-  fight like any other unit.
+  fight like any other unit here; superseded by
+  `docs/specs/2026-10-05-naval-air-domain-tactics-design.md`, which gives air
+  and naval formations a tactical effect.
 - **Direct player control of a battle.** The player keeps the levers the board
   already exposes; the model declares, the engine resolves.
 - **Retro-fitting.** No stored battle state is introduced, so there is nothing

@@ -6,6 +6,11 @@
 // the force-pool table it is calibrated against lives in forcePools.js, but the
 // casualty-to-reserve mapping is the adapter's job, so this core stays
 // importable by a bare node --test.
+//
+// Air and naval formations are more than their weight: one domain edge per kind
+// gives them a tactical effect a land force does not have. The rules are inert
+// unless a side actually fields an air or naval unit, so a land-only battle
+// resolves exactly as it did before the domains existed.
 
 // How much a formation of this type is worth per point of strength. Ordered so
 // heavier formations weigh more; first-draft calibration, and the tests assert
@@ -36,10 +41,30 @@ export const COMBAT_JITTER_SPAN = 0.3;
 export const UNIT_DESTRUCTION_THRESHOLD = 15;
 export const CONTROL_THRESHOLD = 0.4;
 
+// The three domains a formation can belong to. An unknown type is land, the
+// same fallback the weight table uses.
+export const UNIT_DOMAIN = Object.freeze({
+  garrison: "land",
+  infantry: "land",
+  artillery: "land",
+  armor: "land",
+  air: "air",
+  naval: "naval",
+});
+
+// A side that holds the whole air domain moves the other side's loss fraction by
+// at most this share; a side that holds the whole naval domain moves its own raw
+// power by at most this share. Both are first-draft calibration, and the tests
+// assert the ordering and the bounds, never a magnitude.
+export const AIR_EDGE_MAX = 0.35;
+export const NAVAL_SUPPORT_MAX = 0.25;
+
 const name = (value) => String(value ?? "").trim();
 const foldKey = (value) => name(value).toLocaleLowerCase();
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+
+export const unitDomain = (unit) => UNIT_DOMAIN[name(unit?.type)] ?? "land";
 
 // FNV-1a over a string, mapped to [0, 1). The same algorithm runtime/spycraft.js
 // uses, so a replay is consistent across the two systems; the engine may not
@@ -78,6 +103,11 @@ export const engagementWinner = (adjustedA, adjustedB, defenderSide = "") => {
 const sideHasPolity = (side, polity) =>
   Boolean(polity) && side.some((entry) => foldKey(entry?.polity) === foldKey(polity));
 
+// The winning side must have boots on the ground to take a province; a pure
+// fleet or air wing can win the battle and never change hands the map.
+const sideHasLand = (side) =>
+  side.some((entry) => (entry?.units ?? []).some((unit) => unitDomain(unit) === "land"));
+
 // The first polity of a side that actually has units on the field, in the side's
 // declared order, so the new controller is deterministic.
 const leadingPolity = (side) => {
@@ -96,7 +126,46 @@ const scoreSide = (side) => {
   return power;
 };
 
-const applyLosses = ({ side, lossFraction, destroyed }) => {
+// The power one side holds in a single domain, mobilized exactly the way
+// scoreSide mobilizes total power, so the two are the same quantity.
+const domainPower = (side, domain) => {
+  let power = 0;
+  for (const entry of side) {
+    const multiplier = mobilizationCombatMultiplier(entry?.posture);
+    for (const unit of entry?.units ?? []) {
+      if (unitDomain(unit) === domain) power += unitCombatPower(unit) * multiplier;
+    }
+  }
+  return power;
+};
+
+// A signed share in [-1, 1]: +1 when A holds the whole domain, 0 when the sides
+// are equal or neither fields the domain, -1 when B holds the whole of it.
+const domainEdge = (powerA, powerB) => {
+  const total = powerA + powerB;
+  return total > 0 ? (powerA - powerB) / total : 0;
+};
+
+// The air edge moves a loss fraction inside the band it already had, so it can
+// neither create nor remove a destroyable loss on its own. sideEdge is +airEdge
+// for side A and -airEdge for side B.
+const adjustLoss = (loss, sideEdge) =>
+  clamp(loss * (1 - AIR_EDGE_MAX * sideEdge), COMBAT_LOSS_MIN, COMBAT_LOSS_MAX);
+
+// The naval edge scales a side's raw power before the jitter. Absent any naval
+// power on either side it is exactly 1, so the arithmetic is unchanged.
+const navalFactor = (sideEdge) => 1 + NAVAL_SUPPORT_MAX * sideEdge;
+
+// A winning force can only finish off a formation it can reach. Land is reached
+// by any force; air needs air power; a fleet needs air or naval power.
+const canReach = (unit, airPower, navalPower) => {
+  const domain = unitDomain(unit);
+  if (domain === "air") return airPower > 0;
+  if (domain === "naval") return airPower > 0 || navalPower > 0;
+  return true;
+};
+
+const applyLosses = ({ side, lossFraction, destroyed, canFinish = () => true }) => {
   const units = [];
   const casualties = [];
   for (const entry of side) {
@@ -104,7 +173,7 @@ const applyLosses = ({ side, lossFraction, destroyed }) => {
       const strength = clamp(Number(unit?.strength) || 0, 0, 100);
       let nextStrength = clamp(Math.round(strength * (1 - lossFraction)), 1, 100);
       let isDestroyed = false;
-      if (destroyed && nextStrength < UNIT_DESTRUCTION_THRESHOLD) {
+      if (destroyed && nextStrength < UNIT_DESTRUCTION_THRESHOLD && canFinish(unit)) {
         isDestroyed = true;
         nextStrength = 0;
       }
@@ -135,8 +204,14 @@ export const resolveEngagement = ({
   controllerPolity = "",
 } = {}) => {
   const key = `${name(warId)}|${name(regionId)}|${name(date)}|${Number(round) || 0}`;
-  const powerA = scoreSide(sideA);
-  const powerB = scoreSide(sideB);
+  const airA = domainPower(sideA, "air");
+  const airB = domainPower(sideB, "air");
+  const navalA = domainPower(sideA, "naval");
+  const navalB = domainPower(sideB, "naval");
+  const airEdge = domainEdge(airA, airB);
+  const navalEdge = domainEdge(navalA, navalB);
+  const powerA = scoreSide(sideA) * navalFactor(navalEdge);
+  const powerB = scoreSide(sideB) * navalFactor(-navalEdge);
   const adjustedA = powerA * (COMBAT_JITTER_MIN + COMBAT_JITTER_SPAN * engagementRoll(`${key}|a`));
   const adjustedB = powerB * (COMBAT_JITTER_MIN + COMBAT_JITTER_SPAN * engagementRoll(`${key}|b`));
   const total = adjustedA + adjustedB;
@@ -150,14 +225,19 @@ export const resolveEngagement = ({
 
   const shareA = total > 0 ? adjustedA / total : 0.5;
   const shareB = total > 0 ? adjustedB / total : 0.5;
-  const lossA = combatLossFraction(shareB);
-  const lossB = combatLossFraction(shareA);
+  const lossA = adjustLoss(combatLossFraction(shareB), airEdge);
+  const lossB = adjustLoss(combatLossFraction(shareA), -airEdge);
 
-  const a = applyLosses({ side: sideA, lossFraction: lossA, destroyed: winner !== "a" });
-  const b = applyLosses({ side: sideB, lossFraction: lossB, destroyed: winner !== "b" });
+  // The winner's own domain power decides what it can finish off: the losing
+  // side's reachable formations are destroyed, the unreachable ones withdraw.
+  const winnerAir = winner === "a" ? airA : airB;
+  const winnerNaval = winner === "a" ? navalA : navalB;
+  const finish = (unit) => canReach(unit, winnerAir, winnerNaval);
+  const a = applyLosses({ side: sideA, lossFraction: lossA, destroyed: winner !== "a", canFinish: finish });
+  const b = applyLosses({ side: sideB, lossFraction: lossB, destroyed: winner !== "b", canFinish: finish });
 
   let controlChange = null;
-  if (defenderSide && attackerSide && winner === attackerSide) {
+  if (defenderSide && attackerSide && winner === attackerSide && sideHasLand(winner === "a" ? sideA : sideB)) {
     const defenderShare = defenderSide === "a" ? shareA : shareB;
     if (defenderShare < CONTROL_THRESHOLD) {
       const toCode = leadingPolity(winner === "a" ? sideA : sideB);
@@ -170,8 +250,10 @@ export const resolveEngagement = ({
     winner,
     defenderSide,
     controlChange,
-    sideA: { power: powerA, adjustedPower: adjustedA, lossFraction: lossA, units: a.units },
-    sideB: { power: powerB, adjustedPower: adjustedB, lossFraction: lossB, units: b.units },
+    airEdge,
+    navalEdge,
+    sideA: { power: powerA, adjustedPower: adjustedA, lossFraction: lossA, airPower: airA, navalPower: navalA, units: a.units },
+    sideB: { power: powerB, adjustedPower: adjustedB, lossFraction: lossB, airPower: airB, navalPower: navalB, units: b.units },
     casualties: [...a.casualties, ...b.casualties],
   };
 };

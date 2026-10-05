@@ -9,6 +9,17 @@ import {
   mergeEngagementResults,
   resolveEventEngagements,
 } from "./combatEngagements.js";
+import { UNIT_DOMAIN } from "../engine/combat.js";
+import { UNIT_TYPES } from "./gameState.js";
+
+test("every runtime unit type has a declared combat domain", () => {
+  for (const type of UNIT_TYPES) {
+    assert.equal(typeof UNIT_DOMAIN[type], "string", `${type} has no combat domain`);
+  }
+  // The engine may know a type the runtime does not; the reverse is the failure
+  // this pins, because an unknown type silently becomes land.
+  assert.equal(Object.keys(UNIT_DOMAIN).length, UNIT_TYPES.length);
+});
 
 const world = () => ({
   wars: [{
