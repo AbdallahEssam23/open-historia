@@ -100,6 +100,23 @@ appears once there and in the declared order, so moving a phase across another
 fails the build. The order used to be an implicit property of the function's
 statement sequence, pinned only by pairwise guards; this names it once.
 
+The declared order now has a runtime executor. `src/runtime/simulationTick.js`
+exports `runSimulationTick({ handlers })`: it derives its plan from
+`TICK_PHASES` and the registered handler keys, so the order is always the
+declared one and never the object's key order, and it awaits each handler in
+turn so a phase sees the world the one before it wrote. It imports only the
+schedule: the phase bodies read and write the stored world through `src/runtime`
+adapters and some live in `src/Game/AI`, and a runtime module may not import
+`Game/AI`, so `applySimulationResult` hands the bodies in as handlers. The
+first four phases to run behind it are the contiguous treaty run -
+`treatyBreaches`, `casusBelli`, `treatyObligations`, `reparations` - moved
+unchanged into a `tickHandlers` object in `gameplay.js`; the other twelve
+phases and the deterministic steps between them stay inline for later, smaller
+moves. A guard (`src/runtime/simulationTickWiringArchitecture.test.js`) bounds
+the `applySimulationResult` region, asserts the executor is imported and called
+once there, and asserts the four pilot anchors live inside the handler object
+before the call.
+
 ---
 
 ## Front lines - `src/runtime/frontLines.js`
