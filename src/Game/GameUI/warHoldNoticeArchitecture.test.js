@@ -21,3 +21,19 @@ test("the turn announces a held war once, before the peace offer is kept", () =>
   assert.ok(callAt > applyAt && callAt < keepAt, "the notice must fire on the turn that withheld the record");
   assert.match(gameplay, /buildWarHoldNotice\(\{ warIds: heldWarIds \}\)/);
 });
+
+test("the shell mounts the held-war notice", () => {
+  const shell = read("./main.jsx");
+  assert.match(shell, /import \{ WarHoldNotice \} from "\.\/warHoldNotice\.jsx"/);
+  assert.match(shell, /<WarHoldNotice \/>/);
+});
+
+test("the held-war notice listens for the event and dismisses itself", () => {
+  const view = read("./warHoldNotice.jsx");
+  assert.match(view, /import \{ WAR_HELD_EVENT \} from "\.\.\/\.\.\/runtime\/warHoldNotice\.js"/);
+  assert.match(view, /addEventListener\(WAR_HELD_EVENT/);
+  assert.match(view, /removeEventListener\(WAR_HELD_EVENT/);
+  assert.match(view, /event\.detail\?\.message/);
+  assert.match(view, /const SHOW_MS = \d+/);
+  assert.match(view, /setTimeout\(/);
+});

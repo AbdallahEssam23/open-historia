@@ -30,6 +30,7 @@ import {
   syncAiDebugContext,
 } from "../AI/providerConfig.js";
 import { FallbackSwitchNotice } from "./fallbackSwitchNotice.jsx";
+import { WarHoldNotice } from "./warHoldNotice.jsx";
 
 // Whether anything in the Fallback list has what its provider needs, and the
 // top entry's provider for the start-of-game prompt's wording. Re-read whenever
@@ -693,6 +694,7 @@ const Main = ({
         </Suspense>
       </Presence>
       <FallbackSwitchNotice />
+      <WarHoldNotice />
     </>
   );
 };
