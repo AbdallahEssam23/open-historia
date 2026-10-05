@@ -140,6 +140,9 @@ git commit -m "feat(runtime): render the engine's war facts as one scene block"
 
 **Files:**
 - Modify: `src/Game/AI/gameplay.js` (add `buildWarFactsVariables` before `buildWarLedgerDirective` at ~591; replace the inline block in `simulateTimelineJump` at ~13220)
+- Modify: `src/Game/AI/peaceOfferWiringArchitecture.test.js` (lines ~57, ~60-73)
+- Modify: `src/Game/AI/treatyObligationsWiringArchitecture.test.js` (lines ~25, ~44)
+- Modify: `src/Game/AI/casusBelliWiringArchitecture.test.js` (line ~25)
 - Add: `src/Game/AI/warFactsWiringArchitecture.test.js`
 
 **Interfaces:**
@@ -193,7 +196,7 @@ test("the jump says its war facts through the shared helper", () => {
 
 Run: `node --test "src/Game/AI/warFactsWiringArchitecture.test.js"`
 Expected: FAIL, `buildWarFactsVariables` is not found and the digest builders
-occur twice (the helper is absent, the inline block is present).
+still sit inline (the helper is absent).
 
 - [ ] **Step 3: Add the shared helper**
 
@@ -248,18 +251,102 @@ The four values are identical: the helper reads the same `bundle.world` and
 derives the same `playerPolity`. The `playerPolity` local just above is still
 used by the economy projection; leave it.
 
-- [ ] **Step 5: Verify the guard passes and the file parses**
+- [ ] **Step 5: Migrate the four existing source-text guards**
+
+Four existing guards pin the removed `variables.<name> =` strings, so they fail
+the moment Step 4 lands. Move each to the shared-helper shape; this preserves
+the behaviour each pinned (the digest is still derived before the projection
+gate, still from the jump prompt), it does not weaken them.
+
+In `src/Game/AI/treatyObligationsWiringArchitecture.test.js`, replace line 25:
+
+```js
+  assert.ok(gameplay.indexOf("variables.treatyObligations =") > 0, "the jump prompt never sets variables.treatyObligations");
+```
+
+with:
+
+```js
+  assert.match(gameplay, /treatyObligations: buildTreatyObligationDigest\(/, "the war facts builder does not set the obligations");
+  assert.ok(gameplay.indexOf("await buildWarFactsVariables({") > 0, "the jump never builds the war facts");
+```
+
+Replace line 44:
+
+```js
+  assert.ok(gameplay.indexOf("variables.treatyBreach =") > 0, "the jump prompt never sets variables.treatyBreach");
+```
+
+with:
+
+```js
+  assert.match(gameplay, /treatyBreach: buildTreatyBreachDigest\(/, "the war facts builder does not set the breach digest");
+  assert.ok(gameplay.indexOf("await buildWarFactsVariables({") > 0, "the jump never builds the war facts");
+```
+
+In `src/Game/AI/casusBelliWiringArchitecture.test.js`, replace line 25:
+
+```js
+  assert.ok(gameplay.indexOf("variables.warCasus =") > 0, "the jump prompt never sets variables.warCasus");
+```
+
+with:
+
+```js
+  assert.match(gameplay, /warCasus: buildWarCasusDigest\(/, "the war facts builder does not set the casus digest");
+  assert.ok(gameplay.indexOf("await buildWarFactsVariables({") > 0, "the jump never builds the war facts");
+```
+
+In `src/Game/AI/peaceOfferWiringArchitecture.test.js`, replace line 57:
+
+```js
+  assert.ok(gameplay.indexOf("variables.peaceOffer =") > 0, "the jump prompt never sets variables.peaceOffer");
+```
+
+with:
+
+```js
+  assert.match(gameplay, /peaceOffer: buildPeaceOfferDigest\(/, "the war facts builder does not set the peace offer");
+```
+
+and replace the whole `the legal digests are built before the projection gate`
+test (lines ~60-73) with:
+
+```js
+test("the legal digests are built before the projection gate", () => {
+  const jumpAt = gameplay.indexOf("export const simulateTimelineJump");
+  const gateAt = gameplay.indexOf("if (projected.months > 0)");
+  assert.ok(jumpAt > 0 && gateAt > jumpAt, "the projection gate is missing");
+  const helperAt = gameplay.indexOf("await buildWarFactsVariables({", jumpAt);
+  assert.ok(helperAt > jumpAt && helperAt < gateAt, "the war facts must be built before the projection gate");
+  for (const name of [
+    "treatyObligations: buildTreatyObligationDigest(",
+    "treatyBreach: buildTreatyBreachDigest(",
+    "warCasus: buildWarCasusDigest(",
+    "peaceOffer: buildPeaceOfferDigest(",
+  ]) {
+    assert.equal(gameplay.split(name).length - 1, 1, `${name} must occur exactly once in gameplay.js`);
+  }
+});
+```
+
+Do not touch the other assertions in these files.
+
+- [ ] **Step 6: Verify the guards pass and the file parses**
 
 Run: `node --test "src/Game/AI/warFactsWiringArchitecture.test.js"`
 Expected: PASS, 2 tests.
 
+Run: `node --test "src/Game/AI/peaceOfferWiringArchitecture.test.js" "src/Game/AI/treatyObligationsWiringArchitecture.test.js" "src/Game/AI/casusBelliWiringArchitecture.test.js"`
+Expected: PASS, all tests in the three files.
+
 Run: `node --check src/Game/AI/gameplay.js`
 Expected: no output (syntax OK).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/Game/AI/gameplay.js src/Game/AI/warFactsWiringArchitecture.test.js
+git add src/Game/AI/gameplay.js src/Game/AI/warFactsWiringArchitecture.test.js src/Game/AI/peaceOfferWiringArchitecture.test.js src/Game/AI/treatyObligationsWiringArchitecture.test.js src/Game/AI/casusBelliWiringArchitecture.test.js
 git commit -m "refactor(ai): derive the war facts in one shared builder"
 ```
 
