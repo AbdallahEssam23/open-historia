@@ -398,3 +398,49 @@ test("an unrelated war update preserves a war's unjust aggressors", () => {
   const war = merged.wars.find((entry) => entry.id === "war-ethiopia-1935");
   assert.deepEqual(war.unjustAggressors, ["Italy"]);
 });
+
+test("a record that would close the held war is refused, and the rest are not", () => {
+  const heldWorld = {
+    polityOverrides: {},
+    wars: [
+      { id: "war-1", status: "active", sideA: ["Prussia"], sideB: ["France"], startedDate: "1800-01-01" },
+      { id: "war-2", status: "active", sideA: ["Spain"], sideB: ["Portugal"], startedDate: "1800-01-01" },
+    ],
+    peaceOffer: { warId: "war-1", round: 3, pressure: 0.7 },
+  };
+  const endOne = [{
+    id: "e1", date: "1800-02-01", title: "Peace of Basel",
+    description: "Prussia and France sign a peace.", kind: "military",
+    warId: "war-1", combatants: ["Prussia", "France"],
+  }];
+  const endTwo = [{
+    id: "e2", date: "1800-02-02", title: "Peace of Madrid",
+    description: "Spain and Portugal sign a peace.", kind: "military",
+    warId: "war-2", combatants: ["Spain", "Portugal"],
+  }];
+
+  const refused = validateWarLedgerPayload(
+    { events: endOne, warUpdates: "war-1~end~Prussia~~1~Peace signed" },
+    { world: heldWorld },
+  );
+  assert.match(refused, /held open by a pending peace offer/);
+
+  // A goal declaration does not close the war.
+  assert.equal(
+    validateWarLedgerPayload({ events: [], warUpdates: "war-1~goals~Prussia:annex~~~" }, { world: heldWorld }),
+    "",
+  );
+  // A different war is untouched.
+  assert.equal(
+    validateWarLedgerPayload({ events: endTwo, warUpdates: "war-2~end~Spain~~1~Peace signed" }, { world: heldWorld }),
+    "",
+  );
+  // Without an offer the very same record is valid.
+  assert.equal(
+    validateWarLedgerPayload(
+      { events: endOne, warUpdates: "war-1~end~Prussia~~1~Peace signed" },
+      { world: { polityOverrides: {}, wars: heldWorld.wars } },
+    ),
+    "",
+  );
+});

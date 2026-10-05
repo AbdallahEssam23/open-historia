@@ -10,6 +10,7 @@
 import { normalizeEvents, normalizeWorldState } from "../../runtime/gameState.js";
 import { toCountryName } from "../../runtime/ownerNames.js";
 import { compareGameDates, parseGameDate } from "../../runtime/gameDates.js";
+import { peaceOfferHoldsWarUpdate } from "../../runtime/peaceOffer.js";
 import { normalizeWarGoals, normalizeWeariness } from "../../engine/warSettlement.js";
 
 export const WAR_LEDGER_VERSION = "0.1.5-treaty-obligations";
@@ -957,7 +958,20 @@ export const validateWarLedgerPayload = (candidate, { world = {} } = {}) => {
       }
     }
   }
-  return validateBoundWarBatch({ events, updates, world, requireUpdateLinks: true });
+  const bound = validateBoundWarBatch({ events, updates, world, requireUpdateLinks: true });
+  if (bound) return bound;
+  // A due settlement of the player's own war is held as world.peaceOffer until
+  // the player decides. A record that would close, leave or cease fire that war
+  // is refused here so the corrective retry rewrites the prose; on the final
+  // attempt repairWarLedgerPayload makes the batch valid again by dropping it,
+  // exactly as it does for a binding failure, and the war stays open.
+  for (const update of updates) {
+    if (peaceOfferHoldsWarUpdate({ update, offer: world?.peaceOffer })) {
+      return `War ${update.id} is held open by a pending peace offer; the engine will not apply a ${update.op} record. `
+        + "The war stays active until the player accepts or declines. Narrate the war as unresolved: keep it open and write no end, ceasefire or leave record for it.";
+    }
+  }
+  return "";
 };
 
 export const validateCanonicalWarEvents = ({ events, updates, world } = {}) =>
