@@ -26,7 +26,7 @@ Related pages: [World state](world-state.md) · [Game state](world-state.md) · 
 | Economy | `src/runtime/economyEngine.js` (+ the pure core in `src/engine/`) | the deterministic economy: it extracts a compact economic state from `world.countryStats`, advances it, and writes the engine-owned fields back through `mergeCountryStatPatch` | `src/Game/AI/gameplay.js` (the turn), `runtime/economyDigest.js` (the period digest the prompt is given) |
 | Engagements | `src/runtime/combatEngagements.js` (+ the pure core `src/engine/combat.js`) | resolves a declared battle deterministically: it reads `world.wars`, `world.units` and `economyEngine.mobilization`, returns the unit and control ops, and charges the losing reserves through `applyCombatReserveCost` | `src/Game/AI/gameplay.js` (the turn), `src/Game/AI/combatRegionResolution.js` (canonicalizing the declared `combatRegion`) |
 | Settlement | `src/runtime/warSettlement.js` (+ the pure core `src/engine/warSettlement.js`) | derives each active war's peace - goal progress, weariness and terms - and executes it through the narrated peace event and the reparations transfer | `src/Game/AI/gameplay.js` (the turn) |
-| Peace offer | `src/runtime/peaceOffer.js` | chooses and normalizes the peace the engine offers the player on their own due war (the interactive-peace increment) | `src/Game/AI/gameplay.js` (the turn), `src/Game/GameUI/peaceOffer.jsx` |
+| Peace offer | `src/runtime/peaceOffer.js` | chooses and normalizes the peace the engine offers the player on their own due war (the interactive-peace increment) | `src/Game/AI/gameplay.js` (the turn), `src/Game/GameUI/peaceOffer.jsx`, with a held-war notice from `src/runtime/warHoldNotice.js` |
 | War facts | `src/runtime/warFacts.js` | renders the four engine war digests (standing obligations, a recorded breach, the casus verdict, the player's pending peace) as one block for a narrated scene or a Game Master transaction | `src/Game/AI/gameplay.js` (the interactive event prompts and the GM preview) |
 
 ---
@@ -381,6 +381,15 @@ Those three digests, and this line, read the world as it stands, so they are
 built before the economy projection on every jump, including one shorter than a
 month. Only the digests that state a projected month (the force pools, the
 operations and the production) stay behind the projection gate.
+
+When the model writes a record that would close the player's offered war, the
+engine withholds it and the war stays open. `src/runtime/warHoldNotice.js` names
+the event (`oh:war-held`) and renders the fact as one short sentence;
+`applySimulationResult` dispatches it when `withheldIds` is non-empty, beside the
+receipt note and the debug log it already writes; and the toast
+`src/Game/GameUI/warHoldNotice.jsx`, mounted in the shell, shows it and
+auto-dismisses. Nothing new is stored: the durable fact is `world.peaceOffer`,
+which the panel already shows, and the notice explains it for the turn it lands.
 
 ---
 
