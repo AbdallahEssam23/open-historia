@@ -100,8 +100,8 @@ export const buildWarHoldNotice = ({ warIds = [] } = {}) => {
 };
 ```
 
-- Blank and duplicate ids are trimmed away by the emptiness filter; the same
-  war id repeated still produces a readable single sentence.
+- Blank and non-string ids are trimmed away by the emptiness filter, so an
+  empty or malformed list renders nothing.
 - The module imports nothing, so it runs under `node --test` and can never pull
   a `Game/AI` module into the runtime layer.
 - The event name is exported so the emitter and the listener cannot drift.
