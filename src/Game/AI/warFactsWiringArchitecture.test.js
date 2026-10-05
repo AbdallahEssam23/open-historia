@@ -80,7 +80,7 @@ test("the game master prompt carries the engine's war facts", () => {
   const promptBody = gameplay.slice(from, to);
   assert.match(
     promptBody,
-    /if \(taskKey === "gameMaster"\) \{[\s\S]*?buildWarFactsDirective\(variables, \{ audience: "gameMaster" \}\)/,
+    /if \(taskKey === "gameMaster"\) \{\n\s*const warFacts = buildWarFactsDirective\(variables, \{ audience: "gameMaster" \}\)/,
     "the GM block must be gated on the GM task key and live in buildTaskSystemPrompt",
   );
   assert.equal(
