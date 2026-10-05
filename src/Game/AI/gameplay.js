@@ -30,6 +30,7 @@ import {
   buildSettlementEvent,
   resolveWarSettlements,
 } from "../../runtime/warSettlement.js";
+import { runSimulationTick } from "../../runtime/simulationTick.js";
 import { applyPeaceOffer } from "./peaceOffer.js";
 import { readSupplyAttrition } from "../../runtime/supplyAttrition.js";
 import { readReinforcement, readReinforcementPolicies } from "../../runtime/reinforcement.js";
@@ -7028,127 +7029,141 @@ const applySimulationResult = async ({
       window.dispatchEvent(new CustomEvent(WAR_HELD_EVENT, { detail: { message, warIds: heldWarIds } }));
     }
   }
-  try {
-    const breachOutcome = readTreatyBreaches(worldWithImpacts, {
-      breaches: breachUpdates
-        .map((update) => ({ agreementId: update?.id, polity: normalizeString(update?.parties?.[0]) }))
-        .filter((entry) => entry.agreementId && entry.polity),
-    });
-    if (breachOutcome.breaches.length) {
-      // The breaker is matched through the same owner resolver the breach reader
-      // used, so a declaration written with an alias still maps to the party the
-      // engine accepted. Matching the agreement id alone would let a rejected
-      // non-party overwrite breachedBy on the record the engine did accept.
-      const resolveBreaker = createOwnerResolver(buildOwnerAliasMap(worldWithImpacts?.polityOverrides));
-      const readBreaker = (value) => resolveBreaker(value) || toCountryName(value) || normalizeString(value);
-      const acceptedUpdates = breachUpdates.filter((update) => {
-        const breaker = readBreaker(normalizeString(update?.parties?.[0])).toLowerCase();
-        return breachOutcome.breaches.some((breach) =>
-          breach.agreementId === update.id && breach.polity.toLowerCase() === breaker);
-      });
-      if (acceptedUpdates.length) {
-        const breachMerge = applyDiplomaticUpdates({
-          world: worldWithImpacts,
-          relationUpdates: [],
-          agreementUpdates: acceptedUpdates,
-          events: freshEvents,
-          stopDate: nextGame.gameDate,
-          round: nextGame.round,
+  // The four phases below are run by one executor that walks the declared
+  // schedule (runtime/simulationTick.js). Each handler holds the phase's code
+  // unchanged, so the executed order is TICK_PHASES, not this object's key order.
+  const tickHandlers = {
+    treatyBreaches: () => {
+      try {
+        const breachOutcome = readTreatyBreaches(worldWithImpacts, {
+          breaches: breachUpdates
+            .map((update) => ({ agreementId: update?.id, polity: normalizeString(update?.parties?.[0]) }))
+            .filter((entry) => entry.agreementId && entry.polity),
         });
-        // Charge only the breaches whose agreement record actually landed. One the
-        // merge dropped as unbound (no causal event) must not cost reputation while
-        // the pact stays active and still draws its allies into the war.
-        const landed = new Set(breachMerge.appliedAgreementIds);
-        const charged = breachOutcome.breaches.filter((breach) => landed.has(breach.agreementId));
-        worldWithImpacts = applyTreatyBreaches(breachMerge.world, charged, {
-          date: nextGame.gameDate,
-          round: nextGame.round,
-        });
+        if (breachOutcome.breaches.length) {
+          // The breaker is matched through the same owner resolver the breach reader
+          // used, so a declaration written with an alias still maps to the party the
+          // engine accepted. Matching the agreement id alone would let a rejected
+          // non-party overwrite breachedBy on the record the engine did accept.
+          const resolveBreaker = createOwnerResolver(buildOwnerAliasMap(worldWithImpacts?.polityOverrides));
+          const readBreaker = (value) => resolveBreaker(value) || toCountryName(value) || normalizeString(value);
+          const acceptedUpdates = breachUpdates.filter((update) => {
+            const breaker = readBreaker(normalizeString(update?.parties?.[0])).toLowerCase();
+            return breachOutcome.breaches.some((breach) =>
+              breach.agreementId === update.id && breach.polity.toLowerCase() === breaker);
+          });
+          if (acceptedUpdates.length) {
+            const breachMerge = applyDiplomaticUpdates({
+              world: worldWithImpacts,
+              relationUpdates: [],
+              agreementUpdates: acceptedUpdates,
+              events: freshEvents,
+              stopDate: nextGame.gameDate,
+              round: nextGame.round,
+            });
+            // Charge only the breaches whose agreement record actually landed. One the
+            // merge dropped as unbound (no causal event) must not cost reputation while
+            // the pact stays active and still draws its allies into the war.
+            const landed = new Set(breachMerge.appliedAgreementIds);
+            const charged = breachOutcome.breaches.filter((breach) => landed.has(breach.agreementId));
+            worldWithImpacts = applyTreatyBreaches(breachMerge.world, charged, {
+              date: nextGame.gameDate,
+              round: nextGame.round,
+            });
+          }
+        }
+        // Log even when every declaration was rejected, so a silently dropped
+        // breach leaves a trace in the debug trail rather than vanishing.
+        if (breachOutcome.summary.declared) {
+          logDebugEvent("turn", `Treaty breaches resolved: ${breachOutcome.summary.accepted} accepted, ${breachOutcome.summary.rejected} rejected.`, {
+            accepted: breachOutcome.summary.accepted,
+            rejected: breachOutcome.summary.rejected,
+          });
+        }
+      } catch (error) {
+        console.warn("[engine] the treaty breach step failed; the completed turn is preserved.", error);
       }
-    }
-    // Log even when every declaration was rejected, so a silently dropped
-    // breach leaves a trace in the debug trail rather than vanishing.
-    if (breachOutcome.summary.declared) {
-      logDebugEvent("turn", `Treaty breaches resolved: ${breachOutcome.summary.accepted} accepted, ${breachOutcome.summary.rejected} rejected.`, {
-        accepted: breachOutcome.summary.accepted,
-        rejected: breachOutcome.summary.rejected,
-      });
-    }
-  } catch (error) {
-    console.warn("[engine] the treaty breach step failed; the completed turn is preserved.", error);
-  }
-  // A war begun this turn is judged for a recorded warrant: a claim on land a
-  // defender holds, or a breach by a defender against the aggressor. It runs
-  // after the breach pre-pass, so a promise broken this turn justifies a war
-  // begun this turn, and before the obligation step. Reading the start records,
-  // not the war records, is what keeps a later joiner from being judged an
-  // aggressor. Only the starts the ledger actually applied are judged, and each
-  // war once, so a re-issued or duplicated start cannot charge twice. A failure
-  // here must never lose a completed turn.
-  try {
-    const appliedWarIds = new Set(normalizeArray(warMerge.appliedIds));
-    const judgedWarIds = new Set();
-    const casusStarts = warUpdates
-      .filter((update) => normalizeString(update?.op).toLowerCase() === "start")
-      .filter((update) => appliedWarIds.has(normalizeString(update?.id)))
-      .map((update) => ({
-        warId: normalizeString(update?.id),
-        aggressors: normalizeArray(update?.actors),
-        defenders: normalizeArray(update?.opponents),
-      }))
-      .filter((start) => {
-        if (!start.warId || judgedWarIds.has(start.warId)) return false;
-        judgedWarIds.add(start.warId);
-        return true;
-      });
-    if (casusStarts.length) {
-      const casusOutcome = readWarCasus(worldWithImpacts, {
-        starts: casusStarts,
-        catalog: getPrimedScenarioRegionCatalog() ?? [],
-      });
-      if (casusOutcome.wars.length) {
-        worldWithImpacts = applyWarCasus(worldWithImpacts, casusOutcome.wars, {
-          date: nextGame.gameDate,
-          round: nextGame.round,
-        });
+    },
+    casusBelli: () => {
+      // A war begun this turn is judged for a recorded warrant: a claim on land a
+      // defender holds, or a breach by a defender against the aggressor. It runs
+      // after the breach pre-pass, so a promise broken this turn justifies a war
+      // begun this turn, and before the obligation step. Reading the start records,
+      // not the war records, is what keeps a later joiner from being judged an
+      // aggressor. Only the starts the ledger actually applied are judged, and each
+      // war once, so a re-issued or duplicated start cannot charge twice. A failure
+      // here must never lose a completed turn.
+      try {
+        const appliedWarIds = new Set(normalizeArray(warMerge.appliedIds));
+        const judgedWarIds = new Set();
+        const casusStarts = warUpdates
+          .filter((update) => normalizeString(update?.op).toLowerCase() === "start")
+          .filter((update) => appliedWarIds.has(normalizeString(update?.id)))
+          .map((update) => ({
+            warId: normalizeString(update?.id),
+            aggressors: normalizeArray(update?.actors),
+            defenders: normalizeArray(update?.opponents),
+          }))
+          .filter((start) => {
+            if (!start.warId || judgedWarIds.has(start.warId)) return false;
+            judgedWarIds.add(start.warId);
+            return true;
+          });
+        if (casusStarts.length) {
+          const casusOutcome = readWarCasus(worldWithImpacts, {
+            starts: casusStarts,
+            catalog: getPrimedScenarioRegionCatalog() ?? [],
+          });
+          if (casusOutcome.wars.length) {
+            worldWithImpacts = applyWarCasus(worldWithImpacts, casusOutcome.wars, {
+              date: nextGame.gameDate,
+              round: nextGame.round,
+            });
+          }
+          // Log even when every aggressor held a warrant, so the judgement is on the
+          // trail whether or not a cost fell.
+          if (casusOutcome.summary.judged) {
+            logDebugEvent("turn", `Wars judged for just cause: ${casusOutcome.summary.unjust} unjust of ${casusOutcome.summary.judged}.`, {
+              unjust: casusOutcome.summary.unjust,
+              justified: casusOutcome.summary.justified,
+            });
+          }
+        }
+      } catch (error) {
+        console.warn("[engine] the casus belli step failed; the completed turn is preserved.", error);
       }
-      // Log even when every aggressor held a warrant, so the judgement is on the
-      // trail whether or not a cost fell.
-      if (casusOutcome.summary.judged) {
-        logDebugEvent("turn", `Wars judged for just cause: ${casusOutcome.summary.unjust} unjust of ${casusOutcome.summary.judged}.`, {
-          unjust: casusOutcome.summary.unjust,
-          justified: casusOutcome.summary.justified,
+    },
+    treatyObligations: () => {
+      // Treaty obligations: an active alliance, mutual defense or guarantee draws a
+      // non-player party into a war the engine already tracks. It runs on the world
+      // this turn's warUpdates just produced, so a war opened now drags its allies
+      // now, and before the reparations so the join is visible to everything later
+      // in the turn. A failure here must never lose a completed turn.
+      try {
+        const obligationOutcome = readTreatyObligations(worldWithImpacts, {
+          playerPolity: normalizeString(baseGame.country),
         });
+        if (obligationOutcome.joins.length) {
+          worldWithImpacts = applyTreatyJoins(worldWithImpacts, obligationOutcome.joins, {
+            date: nextGame.gameDate,
+            round: nextGame.round,
+          });
+          logDebugEvent("turn", `Treaty obligations drew ${obligationOutcome.summary.joined} polity(ies) into active war(s).`, {
+            joined: obligationOutcome.summary.joined,
+            rejected: obligationOutcome.summary.rejected,
+          });
+        }
+      } catch (error) {
+        console.warn("[engine] the treaty obligation step failed; the completed turn is preserved.", error);
       }
-    }
-  } catch (error) {
-    console.warn("[engine] the casus belli step failed; the completed turn is preserved.", error);
-  }
-  // Treaty obligations: an active alliance, mutual defense or guarantee draws a
-  // non-player party into a war the engine already tracks. It runs on the world
-  // this turn's warUpdates just produced, so a war opened now drags its allies
-  // now, and before the reparations so the join is visible to everything later
-  // in the turn. A failure here must never lose a completed turn.
-  try {
-    const obligationOutcome = readTreatyObligations(worldWithImpacts, {
-      playerPolity: normalizeString(baseGame.country),
-    });
-    if (obligationOutcome.joins.length) {
-      worldWithImpacts = applyTreatyJoins(worldWithImpacts, obligationOutcome.joins, {
-        date: nextGame.gameDate,
-        round: nextGame.round,
-      });
-      logDebugEvent("turn", `Treaty obligations drew ${obligationOutcome.summary.joined} polity(ies) into active war(s).`, {
-        joined: obligationOutcome.summary.joined,
-        rejected: obligationOutcome.summary.rejected,
-      });
-    }
-  } catch (error) {
-    console.warn("[engine] the treaty obligation step failed; the completed turn is preserved.", error);
-  }
-  // Reparations move real reserves, so they are paid once the war is closed and
-  // the peace event's transfers have already landed.
-  worldWithImpacts = applyWarReparations(worldWithImpacts, dueSettlements);
+    },
+    reparations: () => {
+      // Reparations move real reserves, so they are paid once the war is closed and
+      // the peace event's transfers have already landed.
+      worldWithImpacts = applyWarReparations(worldWithImpacts, dueSettlements);
+    },
+  };
+  await runSimulationTick({ handlers: tickHandlers });
 
   // Espionage resolves on the world the whole turn produced - after the standing
   // orders above have advanced, so an agent's round is decided against where the
