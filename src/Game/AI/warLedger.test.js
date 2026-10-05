@@ -444,3 +444,50 @@ test("a record that would close the held war is refused, and the rest are not", 
     "",
   );
 });
+
+test("applyWarUpdates holds the offered war and still applies the rest", () => {
+  const heldWorld = {
+    polityOverrides: {},
+    wars: [
+      { id: "war-1", status: "active", sideA: ["Prussia"], sideB: ["France"], startedDate: "1800-01-01" },
+      { id: "war-2", status: "active", sideA: ["Spain"], sideB: ["Portugal"], startedDate: "1800-01-01" },
+    ],
+    peaceOffer: { warId: "war-1", round: 3, pressure: 0.7 },
+  };
+  const events = [
+    { id: "e1", date: "1800-02-01", title: "Peace of Basel", description: "Prussia and France sign a peace.", kind: "military", warId: "war-1", combatants: ["Prussia", "France"] },
+    { id: "e2", date: "1800-02-02", title: "Peace of Madrid", description: "Spain and Portugal sign a peace.", kind: "military", warId: "war-2", combatants: ["Spain", "Portugal"] },
+  ];
+  const updates = decodeWarUpdates(
+    "war-1~end~Prussia~~1~Peace signed\nwar-2~end~Spain~~2~Peace signed",
+  );
+  const merge = applyWarUpdates({ world: heldWorld, updates, events, stopDate: "1800-02-02", round: 4 });
+
+  assert.deepEqual(merge.appliedIds, ["war-2"]);
+  assert.deepEqual(merge.withheldIds, ["war-1"]);
+  const status = Object.fromEntries(merge.wars.map((war) => [war.id, war.status]));
+  assert.equal(status["war-1"], "active", "the held war stays open");
+  assert.equal(status["war-2"], "ended");
+});
+
+test("without an offer nothing is held", () => {
+  const worldNoOffer = {
+    polityOverrides: {},
+    wars: [{ id: "war-1", status: "active", sideA: ["Prussia"], sideB: ["France"], startedDate: "1800-01-01" }],
+  };
+  const events = [{
+    id: "e1", date: "1800-02-01", title: "Peace of Basel",
+    description: "Prussia and France sign a peace.", kind: "military",
+    warId: "war-1", combatants: ["Prussia", "France"],
+  }];
+  const merge = applyWarUpdates({
+    world: worldNoOffer,
+    updates: decodeWarUpdates("war-1~end~Prussia~~1~Peace signed"),
+    events,
+    stopDate: "1800-02-01",
+    round: 2,
+  });
+  assert.deepEqual(merge.appliedIds, ["war-1"]);
+  assert.deepEqual(merge.withheldIds, []);
+  assert.equal(merge.wars[0].status, "ended");
+});

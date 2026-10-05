@@ -10,7 +10,7 @@
 import { normalizeEvents, normalizeWorldState } from "../../runtime/gameState.js";
 import { toCountryName } from "../../runtime/ownerNames.js";
 import { compareGameDates, parseGameDate } from "../../runtime/gameDates.js";
-import { peaceOfferHoldsWarUpdate } from "../../runtime/peaceOffer.js";
+import { normalizePeaceOffer, peaceOfferHoldsWarUpdate } from "../../runtime/peaceOffer.js";
 import { normalizeWarGoals, normalizeWeariness } from "../../engine/warSettlement.js";
 
 export const WAR_LEDGER_VERSION = "0.1.5-treaty-obligations";
@@ -1150,8 +1150,17 @@ export const applyWarUpdates = ({
   const map = warMapFromWorld(nextWorld);
   const decoded = bindWarUpdatesToEvents(updates, events);
   const appliedIds = [];
+  const withheldIds = [];
+  // The offer was read from this same world; normalizeWorldState round-trips it,
+  // so a held war survives every caller (the turn, advanceLedgerWorld, the GM
+  // apply). A record that would close it is held, not dropped as invalid.
+  const heldWarId = normalizePeaceOffer(nextWorld.peaceOffer)?.warId || "";
 
   for (const update of decoded) {
+    if (heldWarId && peaceOfferHoldsWarUpdate({ update, offer: nextWorld.peaceOffer })) {
+      withheldIds.push(update.id);
+      continue;
+    }
     const linkedEvents = linkedEventsForUpdate(update, events);
     const date = firstLinkedDate(update, events) || sortDate(stopDate);
     const result = applyUpdateToWarMap({ map, update, date, round, linkedEvents, resolveRegion });
@@ -1179,7 +1188,7 @@ export const applyWarUpdates = ({
     )
     .slice(0, MAX_WARS);
 
-  return { world: { ...nextWorld, wars }, wars, appliedIds };
+  return { world: { ...nextWorld, wars }, wars, appliedIds, withheldIds };
 };
 
 export const buildCanonicalWarContext = (world) => {
