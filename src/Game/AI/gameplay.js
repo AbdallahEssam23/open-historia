@@ -301,6 +301,7 @@ import { unseenEvents, withoutUnseenMessages } from "../../runtime/unseenEvents.
 import { canRewindInteractiveTo, isSceneInProgress, openInteractive, recordInteractiveBeat, rewindInteractive } from "./interactiveRewind.js";
 import { chooseInteractiveOffer, offeredEvent } from "../../runtime/interactiveOffer.js";
 import { buildPeaceOfferDigest, choosePeaceOffer, keepHeldPeaceOffer } from "../../runtime/peaceOffer.js";
+import { buildWarFactsDirective } from "../../runtime/warFacts.js";
 import { buildCrossChatKnowledge } from "./crossChatKnowledge.js";
 import {
   eventsFromLegacyChat,
@@ -2571,6 +2572,14 @@ So use the wider picture to choose the sender and the moment — never to give t
     if (intelligenceContext) {
       systemPrompt = `${systemPrompt}\n\n[Intelligence Services]\n${intelligenceContext}\nThis rating is how much of other polities' private diplomacy a service can read and how well it protects its own, and it moves the same way international reputation does. When this turn's events actually change what a service is capable of, record the new ABSOLUTE value (an integer 0-100) in an "intelligence" field on that polity's impacts.polityChanges entry. Concrete investment the player has ordered and that this turn actually delivers raises it a few points at a time — a training academy opening its doors, a new bureau or directorate standing up, a funding increase taking effect, a recruitment or codebreaking programme bearing fruit; a purge, a mass defection, a network rolled up by a rival, or deep cuts lower it. An intention is not a capability: do not move it for an order that has only just been given, do not restate it when nothing changed, and do not jump it by tens of points for a single measure.`;
     }
+  }
+
+  // The engine's war facts travel with a scene too, so its narration does not
+  // contradict a war the engine holds. A time skip has them in its live records;
+  // the scene has no ledger contract to use, so it gets the facts alone.
+  if (["interactiveCreation", "interactiveExecutor"].includes(taskKey)) {
+    const warFacts = buildWarFactsDirective(variables);
+    if (warFacts) systemPrompt = `${systemPrompt}\n\n${warFacts}`;
   }
 
   // A time skip carries the scenario's own sheet in its live records instead.
@@ -11920,6 +11929,7 @@ export const createInteractive = async ({ eventId = "", angle = "", force = true
     if (!event) throw new Error("That interactive event has passed.");
     const asked = normalizeString(angle).slice(0, 1200);
     const variables = await buildTemplateVariables(bundle, { lookups: true });
+    Object.assign(variables, await buildWarFactsVariables({ world: bundle.world, game: bundle.game }));
     const { generation, payload } = await runJsonTask("interactiveCreation", {
       lookups: buildTaskLookups(bundle),
       fallback: () => ({ choices: [], opening: "", premise: "", title: "" }),
@@ -12142,6 +12152,7 @@ export const advanceActiveInteractive = async (choiceText) => {
     interactiveOpening: interactive.opening || "",
     interactivePremise: interactive.premise || interactive.title || "",
   });
+  Object.assign(variables, await buildWarFactsVariables({ world: bundle.world, game: bundle.game }));
 
   const { generation, payload } = await runJsonTask("interactiveExecutor", {
     lookups: buildTaskLookups(bundle),

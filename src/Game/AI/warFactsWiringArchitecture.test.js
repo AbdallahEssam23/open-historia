@@ -30,3 +30,24 @@ test("the jump says its war facts through the shared helper", () => {
     "the jump still builds its war facts inline",
   );
 });
+
+test("the interactive prompts carry the engine's war facts", () => {
+  assert.match(gameplay, /from "\.\.\/\.\.\/runtime\/warFacts\.js"/);
+  assert.match(gameplay, /\["interactiveCreation", "interactiveExecutor"\]\.includes\(taskKey\)/);
+  assert.match(gameplay, /buildWarFactsDirective\(variables\)/);
+});
+
+test("both interactive turns build the war facts", () => {
+  const call = "await buildWarFactsVariables({ world: bundle.world, game: bundle.game })";
+  const createAt = gameplay.indexOf("export const createInteractive");
+  const advanceAt = gameplay.indexOf("export const advanceActiveInteractive");
+  assert.ok(createAt > 0 && advanceAt > 0, "the interactive entry points are missing");
+  assert.ok(gameplay.indexOf(call, createAt) > createAt, "createInteractive says the war facts");
+  assert.ok(gameplay.indexOf(call, advanceAt) > advanceAt, "advanceActiveInteractive says the war facts");
+});
+
+test("the war facts module imports nothing", () => {
+  const facts = read("../../runtime/warFacts.js");
+  assert.doesNotMatch(facts, /^import /m);
+  assert.match(facts, /export const buildWarFactsDirective/);
+});
