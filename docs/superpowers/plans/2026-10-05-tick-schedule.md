@@ -383,6 +383,9 @@ fails the build. The order used to be an implicit property of the function's
 statement sequence, pinned only by pairwise guards; this names it once.
 ```
 
+Leave a blank line between the new paragraph and the `---` at line 88, so the
+separator stays a horizontal rule instead of a setext heading underline.
+
 - [ ] **Step 2: Check the wiki freshness and commit**
 
 Run: `npm run wiki:check`

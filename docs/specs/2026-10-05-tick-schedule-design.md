@@ -145,9 +145,9 @@ export const tickPhasePlan = (facts = {}) =>
 - With every fact true, the plan is all sixteen ids in declared order.
 - It is a projection of the turn's condition, not a second source of truth for
   the order: the order always comes from `TICK_PHASES`.
-- It is consumed this increment by the guard (which iterates `TICK_PHASES`) and
-  by the documentation; the runtime executor that will consume it in the next
-  increment is a non-goal here.
+- It is exercised by this increment's unit test and documented here; the guard
+  pins the executed order through `TICK_PHASES`, and the runtime executor that
+  will consume `tickPhasePlan` is a non-goal this increment.
 
 ### 4. The guard
 
