@@ -12,6 +12,8 @@ const gameplay = read("../../Game/AI/gameplay.js");
 
 test("the turn announces a held war once, before the peace offer is kept", () => {
   assert.match(gameplay, /import \{ buildWarHoldNotice, WAR_HELD_EVENT \} from "\.\.\/\.\.\/runtime\/warHoldNotice\.js"/);
+  const importLine = 'import { buildWarHoldNotice, WAR_HELD_EVENT } from "../../runtime/warHoldNotice.js"';
+  assert.equal(gameplay.split(importLine).length - 1, 1, "warHoldNotice.js is imported exactly once");
   const call = "dispatchEvent(new CustomEvent(WAR_HELD_EVENT";
   assert.equal(gameplay.split(call).length - 1, 1, "the held-war notice is dispatched exactly once");
   const applyAt = gameplay.indexOf("const applySimulationResult =");
@@ -19,6 +21,8 @@ test("the turn announces a held war once, before the peace offer is kept", () =>
   const callAt = gameplay.indexOf(call);
   assert.ok(applyAt > 0 && keepAt > applyAt, "the apply span is missing");
   assert.ok(callAt > applyAt && callAt < keepAt, "the notice must fire on the turn that withheld the record");
+  assert.match(gameplay, /if \(message && typeof window !== "undefined"\) \{/);
+  assert.match(gameplay, /detail: \{ message, warIds: heldWarIds \}/);
   assert.match(gameplay, /buildWarHoldNotice\(\{ warIds: heldWarIds \}\)/);
 });
 
