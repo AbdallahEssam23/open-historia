@@ -14362,6 +14362,7 @@ export const previewGameMasterCommand = async (requestText, { mode = "world-inte
       ...(await buildTemplateVariables(bundle, { taskKey: "gameMaster", gameMasterRequest: request, lookups: true })),
       gameMasterMode: selectedMode,
     };
+    Object.assign(variables, await buildWarFactsVariables({ world: bundle.world, game: bundle.game }));
 
     const { generation, payload } = await runJsonTask("gameMaster", {
       lookups: buildTaskLookups(bundle),

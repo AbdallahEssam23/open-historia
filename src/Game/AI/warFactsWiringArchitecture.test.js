@@ -62,3 +62,13 @@ test("the war facts module imports nothing", () => {
   assert.doesNotMatch(facts, /^import /m);
   assert.match(facts, /export const buildWarFactsDirective/);
 });
+
+test("the game master preview says the war facts before it plans", () => {
+  const call = "await buildWarFactsVariables({ world: bundle.world, game: bundle.game })";
+  const previewAt = gameplay.indexOf("export const previewGameMasterCommand");
+  const applyAt = gameplay.indexOf("export const applyGameMasterPreview");
+  assert.ok(previewAt > 0 && applyAt > previewAt, "the game master entry points are missing or reordered");
+  const callAt = gameplay.indexOf(call, previewAt);
+  const planAt = gameplay.indexOf('runJsonTask("gameMaster"', previewAt);
+  assert.ok(callAt > previewAt && callAt < planAt, "previewGameMasterCommand says the war facts before it plans");
+});
