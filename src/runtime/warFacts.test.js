@@ -32,3 +32,23 @@ test("all four render in the fixed order with no blank lines", () => {
   assert.deepEqual(positions, [...positions].sort((a, b) => a - b), "the facts keep their fixed order");
   assert.equal(block.split("\n\n").length, 1, "the block has no blank separator");
 });
+
+test("the game master framing names the record the engine withholds", () => {
+  const block = buildWarFactsDirective({ peaceOffer: "OFFER" }, { audience: "gameMaster" });
+  assert.match(block, /^\[Standing War Facts\]\n/);
+  assert.match(block, /before this transaction/);
+  assert.match(block, /the engine will withhold such a record/);
+  assert.match(block, /do not conclude, close, leave or cease fire/);
+});
+
+test("the default framing is the scene's, unchanged", () => {
+  const withDefault = buildWarFactsDirective({ peaceOffer: "OFFER" });
+  assert.equal(withDefault, buildWarFactsDirective({ peaceOffer: "OFFER" }, { audience: "scene" }));
+  assert.match(withDefault, /at the start of this scene/);
+  assert.doesNotMatch(withDefault, /before this transaction/);
+});
+
+test("no facts is no block for either audience", () => {
+  assert.equal(buildWarFactsDirective({}, { audience: "gameMaster" }), "");
+  assert.equal(buildWarFactsDirective({ treatyBreach: "  ", warCasus: "" }, { audience: "gameMaster" }), "");
+});
