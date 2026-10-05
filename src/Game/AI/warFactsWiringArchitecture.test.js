@@ -49,6 +49,12 @@ test("both interactive turns build the war facts", () => {
   const advanceCallAt = gameplay.indexOf(call, advanceAt);
   assert.ok(createCallAt > createAt && createCallAt < advanceAt, "createInteractive says the war facts");
   assert.ok(advanceCallAt > advanceAt && advanceCallAt < jumpAt, "advanceActiveInteractive says the war facts");
+  // And before the caller builds its prompt, else the block is derived from
+  // unset keys and silently comes out empty.
+  const createTaskAt = gameplay.indexOf("runJsonTask(", createAt);
+  const advanceTaskAt = gameplay.indexOf("runJsonTask(", advanceAt);
+  assert.ok(createCallAt < createTaskAt && createTaskAt < advanceAt, "createInteractive sets the facts before its prompt");
+  assert.ok(advanceCallAt < advanceTaskAt && advanceTaskAt < jumpAt, "advanceActiveInteractive sets the facts before its prompt");
 });
 
 test("the war facts module imports nothing", () => {
