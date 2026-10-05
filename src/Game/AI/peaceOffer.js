@@ -20,7 +20,10 @@ export const applyPeaceOffer = ({ world, offer, date = "", round = 0 } = {}) => 
   });
   const paid = applyWarReparations(applied.world, [offer]);
   const merge = applyWarUpdates({
-    world: paid,
+    // Acceptance consumes the pending offer: clear it before the ledger applies
+    // the end, so the apply-time hold does not read this record as a rival of an
+    // offer that is already being settled.
+    world: { ...paid, peaceOffer: null },
     updates: [{ eventIds: [event.id], id: offer.warId, op: "end" }],
     events: [event],
     stopDate: date,
