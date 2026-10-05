@@ -41,9 +41,14 @@ test("both interactive turns build the war facts", () => {
   const call = "await buildWarFactsVariables({ world: bundle.world, game: bundle.game })";
   const createAt = gameplay.indexOf("export const createInteractive");
   const advanceAt = gameplay.indexOf("export const advanceActiveInteractive");
-  assert.ok(createAt > 0 && advanceAt > 0, "the interactive entry points are missing");
-  assert.ok(gameplay.indexOf(call, createAt) > createAt, "createInteractive says the war facts");
-  assert.ok(gameplay.indexOf(call, advanceAt) > advanceAt, "advanceActiveInteractive says the war facts");
+  const jumpAt = gameplay.indexOf("export const simulateTimelineJump");
+  assert.ok(createAt > 0 && advanceAt > createAt && jumpAt > advanceAt, "the entry points are missing or reordered");
+  // Bound each search to its own function, else the jump's identical call (which
+  // sits after both) would satisfy either assertion even when a caller is unwired.
+  const createCallAt = gameplay.indexOf(call, createAt);
+  const advanceCallAt = gameplay.indexOf(call, advanceAt);
+  assert.ok(createCallAt > createAt && createCallAt < advanceAt, "createInteractive says the war facts");
+  assert.ok(advanceCallAt > advanceAt && advanceCallAt < jumpAt, "advanceActiveInteractive says the war facts");
 });
 
 test("the war facts module imports nothing", () => {
