@@ -2582,6 +2582,13 @@ So use the wider picture to choose the sender and the moment — never to give t
     if (warFacts) systemPrompt = `${systemPrompt}\n\n${warFacts}`;
   }
 
+  // The Game Master writes the ledger the scene cannot. It has no retry and its
+  // preview accepts a held record, so it is told the facts before it plans.
+  if (taskKey === "gameMaster") {
+    const warFacts = buildWarFactsDirective(variables, { audience: "gameMaster" });
+    if (warFacts) systemPrompt = `${systemPrompt}\n\n${warFacts}`;
+  }
+
   // A time skip carries the scenario's own sheet in its live records instead.
   if (!jumpTask && customFullStatSheet) {
     systemPrompt = `${systemPrompt}\n\n${scenarioStatSheetDirective(statSheetDefinition)}`;

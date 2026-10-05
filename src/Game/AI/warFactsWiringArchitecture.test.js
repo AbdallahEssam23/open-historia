@@ -72,3 +72,22 @@ test("the game master preview says the war facts before it plans", () => {
   const planAt = gameplay.indexOf('runJsonTask("gameMaster"', previewAt);
   assert.ok(callAt > previewAt && callAt < planAt, "previewGameMasterCommand says the war facts before it plans");
 });
+
+test("the game master prompt carries the engine's war facts", () => {
+  const from = gameplay.indexOf("const buildTaskSystemPrompt");
+  const to = gameplay.indexOf("const GM_REMINDER_TASKS");
+  assert.ok(from > 0 && to > from, "the prompt builder span is missing");
+  const promptBody = gameplay.slice(from, to);
+  assert.match(
+    promptBody,
+    /if \(taskKey === "gameMaster"\) \{[\s\S]*?buildWarFactsDirective\(variables, \{ audience: "gameMaster" \}\)/,
+    "the GM block must be gated on the GM task key and live in buildTaskSystemPrompt",
+  );
+  assert.equal(
+    promptBody.split('buildWarFactsDirective(variables, { audience: "gameMaster" })').length - 1,
+    1,
+    "the GM war-facts append is exactly one",
+  );
+  // The scene append stays the no-audience literal.
+  assert.equal(promptBody.split("buildWarFactsDirective(variables)").length - 1, 1, "the scene append changed");
+});
