@@ -85,6 +85,21 @@ transaction needs: a record that closes, leaves or ceases fire a held war will
 be withheld by the engine. Nothing is enforced at preview time; `applyWarUpdates`
 stays the enforcement point.
 
+The deterministic phases a turn runs have one declared order.
+`src/engine/tickSchedule.js` exports `TICK_PHASES`, the frozen list of the
+sixteen phases `applySimulationResult` runs, each with the source literal that
+identifies its call and the world facts that make it apply, and
+`tickPhasePlan(facts)`, which returns the phases applicable to a set of facts in
+declared order. The schedule is data and imports nothing; the phases themselves
+stay where they are, because they read and write the stored world through
+`src/runtime` adapters and some live in `src/Game/AI`, and the runtime layer may
+not import `Game/AI`. A guard
+(`src/Game/AI/tickScheduleWiringArchitecture.test.js`) bounds the
+`applySimulationResult` region in `gameplay.js` and asserts every phase's anchor
+appears once there and in the declared order, so moving a phase across another
+fails the build. The order used to be an implicit property of the function's
+statement sequence, pinned only by pairwise guards; this names it once.
+
 ---
 
 ## Front lines - `src/runtime/frontLines.js`
