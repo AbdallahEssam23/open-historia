@@ -287,7 +287,7 @@ const SHOW_MS = 14000;
 
 const noticeStyle = {
   position: "fixed",
-  top: "4.25rem",
+  top: "8.5rem",
   left: "50%",
   transform: "translateX(-50%)",
   zIndex: 9999,
@@ -307,10 +307,10 @@ const noticeStyle = {
   pointerEvents: "auto",
 };
 
-// On a phone the notice drops below the game-menu button, as the fallback
-// notice does.
+// Below the fallback notice's own band, so the two never paint over each other
+// when a single turn both switches the model and holds a war.
 const phoneNoticeStyle = {
-  top: "4.75rem",
+  top: "9rem",
   width: "max-content",
 };
 
@@ -398,7 +398,7 @@ git commit -m "feat(ui): show the held war as a transient notice"
 ### Task 4: Document the notice
 
 **Files:**
-- Modify: `docs/runtime-services.md` (the `| Peace offer |` row at line ~29; a paragraph after the peace-offer section ending at ~line 379)
+- Modify: `docs/runtime-services.md` (the `| Peace offer |` row at line ~29; a paragraph after the peace-offer section, whose last paragraph ends `stay behind the projection gate.` at ~line 383)
 
 **Interfaces:**
 - Consumes: nothing (documentation only).
@@ -414,7 +414,7 @@ Replace the `| Peace offer | ... |` row's consumer column so it names the notice
 
 - [ ] **Step 2: Add a paragraph after the peace-offer section**
 
-After the paragraph that ends `...the casus verdict it already printed.`, insert:
+After the paragraph that ends `...stay behind the projection gate.` (line ~383), insert:
 
 ```markdown
 When the model writes a record that would close the player's offered war, the
