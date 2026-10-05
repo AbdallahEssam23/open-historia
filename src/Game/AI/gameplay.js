@@ -302,6 +302,7 @@ import { canRewindInteractiveTo, isSceneInProgress, openInteractive, recordInter
 import { chooseInteractiveOffer, offeredEvent } from "../../runtime/interactiveOffer.js";
 import { buildPeaceOfferDigest, choosePeaceOffer, keepHeldPeaceOffer } from "../../runtime/peaceOffer.js";
 import { buildWarFactsDirective } from "../../runtime/warFacts.js";
+import { buildWarHoldNotice, WAR_HELD_EVENT } from "../../runtime/warHoldNotice.js";
 import { buildCrossChatKnowledge } from "./crossChatKnowledge.js";
 import {
   eventsFromLegacyChat,
@@ -7018,6 +7019,14 @@ const applySimulationResult = async ({
   }
   if (normalizeArray(warMerge.withheldIds).length) {
     logDebugEvent("turn", `Held war operations awaiting the player's peace decision: ${normalizeArray(warMerge.withheldIds).join(", ")}.`);
+    // The player sees the war still on the map but not why. Say it, once per
+    // turn that actually withheld a record; the offer itself is the durable
+    // fact and this notice is transient.
+    const heldWarIds = normalizeArray(warMerge.withheldIds);
+    const message = buildWarHoldNotice({ warIds: heldWarIds });
+    if (message && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(WAR_HELD_EVENT, { detail: { message, warIds: heldWarIds } }));
+    }
   }
   try {
     const breachOutcome = readTreatyBreaches(worldWithImpacts, {
