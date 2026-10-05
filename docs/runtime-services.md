@@ -27,6 +27,7 @@ Related pages: [World state](world-state.md) · [Game state](world-state.md) · 
 | Engagements | `src/runtime/combatEngagements.js` (+ the pure core `src/engine/combat.js`) | resolves a declared battle deterministically: it reads `world.wars`, `world.units` and `economyEngine.mobilization`, returns the unit and control ops, and charges the losing reserves through `applyCombatReserveCost` | `src/Game/AI/gameplay.js` (the turn), `src/Game/AI/combatRegionResolution.js` (canonicalizing the declared `combatRegion`) |
 | Settlement | `src/runtime/warSettlement.js` (+ the pure core `src/engine/warSettlement.js`) | derives each active war's peace - goal progress, weariness and terms - and executes it through the narrated peace event and the reparations transfer | `src/Game/AI/gameplay.js` (the turn) |
 | Peace offer | `src/runtime/peaceOffer.js` | chooses and normalizes the peace the engine offers the player on their own due war (the interactive-peace increment) | `src/Game/AI/gameplay.js` (the turn), `src/Game/GameUI/peaceOffer.jsx` |
+| War facts | `src/runtime/warFacts.js` | renders the four engine war digests (standing obligations, a recorded breach, the casus verdict, the player's pending peace) as one block for a narrated scene | `src/Game/AI/gameplay.js` (the interactive event prompts) |
 
 ---
 
@@ -62,6 +63,18 @@ corrective retry, and the existing salvage drops it on the final attempt.
 ledger advance - cannot close the war either; the Game Master integrity check
 counts the held ids so the operation is reported, never thrown. The turn notes
 each held war with a `withheld` receipt line and a debug log.
+
+A scene played out as an interactive event runs the same turn as a time skip
+and narrates the same world, but until now it was told none of these war facts.
+`src/runtime/warFacts.js` renders the four digests the skip already carries -
+the standing treaty obligations, a recorded breach, the casus verdict and the
+pending peace offer - into one `[Standing War Facts]` block, and returns an
+empty string when there are none, so a world with no facts adds nothing.
+`buildTaskSystemPrompt` (`src/Game/AI/gameplay.js`) appends that block at call
+time to the `interactiveCreation` and `interactiveExecutor` prompts, and both
+interactive callers set the four variables through the shared
+`buildWarFactsVariables` helper, so the scene and the skip read the same facts
+the same way. The jump's own `[Wars]` ledger is unchanged.
 
 ---
 
