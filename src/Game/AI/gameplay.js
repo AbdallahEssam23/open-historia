@@ -7029,6 +7029,37 @@ const applySimulationResult = async ({
       window.dispatchEvent(new CustomEvent(WAR_HELD_EVENT, { detail: { message, warIds: heldWarIds } }));
     }
   }
+  // The facts the declared schedule gates on, derived once from the world this
+  // turn produced and from this turn's own records. A phase whose facts are all
+  // false has nothing to do this turn, so the executor skips its handler instead
+  // of running a body that would only no-op; the handlers keep their internal
+  // guards as a second line of defence.
+  //
+  // A war begun this turn is judged for a recorded warrant: a claim on land a
+  // defender holds, or a breach by a defender against the aggressor. Reading the
+  // start records, not the war records, is what keeps a later joiner from being
+  // judged an aggressor. Only the starts the ledger actually applied are judged,
+  // and each war once, so a re-issued or duplicated start cannot charge twice.
+  const appliedWarIds = new Set(normalizeArray(warMerge.appliedIds));
+  const judgedWarIds = new Set();
+  const casusStarts = warUpdates
+    .filter((update) => normalizeString(update?.op).toLowerCase() === "start")
+    .filter((update) => appliedWarIds.has(normalizeString(update?.id)))
+    .map((update) => ({
+      warId: normalizeString(update?.id),
+      aggressors: normalizeArray(update?.actors),
+      defenders: normalizeArray(update?.opponents),
+    }))
+    .filter((start) => {
+      if (!start.warId || judgedWarIds.has(start.warId)) return false;
+      judgedWarIds.add(start.warId);
+      return true;
+    });
+  const tickFacts = {
+    treaties: normalizeArray(worldWithImpacts.agreements).length > 0 || breachUpdates.length > 0,
+    casus: casusStarts.length > 0,
+    settlements: dueSettlements.length > 0,
+  };
   // The four phases below are run by one executor that walks the declared
   // schedule (runtime/simulationTick.js). Each handler holds the phase's code
   // unchanged, so the executed order is TICK_PHASES, not this object's key order.
@@ -7085,30 +7116,11 @@ const applySimulationResult = async ({
       }
     },
     casusBelli: () => {
-      // A war begun this turn is judged for a recorded warrant: a claim on land a
-      // defender holds, or a breach by a defender against the aggressor. It runs
-      // after the breach pre-pass, so a promise broken this turn justifies a war
-      // begun this turn, and before the obligation step. Reading the start records,
-      // not the war records, is what keeps a later joiner from being judged an
-      // aggressor. Only the starts the ledger actually applied are judged, and each
-      // war once, so a re-issued or duplicated start cannot charge twice. A failure
-      // here must never lose a completed turn.
+      // The starts were derived above and gate this phase. It runs after the
+      // breach pre-pass, so a promise broken this turn justifies a war begun this
+      // turn, and before the obligation step. A failure here must never lose a
+      // completed turn.
       try {
-        const appliedWarIds = new Set(normalizeArray(warMerge.appliedIds));
-        const judgedWarIds = new Set();
-        const casusStarts = warUpdates
-          .filter((update) => normalizeString(update?.op).toLowerCase() === "start")
-          .filter((update) => appliedWarIds.has(normalizeString(update?.id)))
-          .map((update) => ({
-            warId: normalizeString(update?.id),
-            aggressors: normalizeArray(update?.actors),
-            defenders: normalizeArray(update?.opponents),
-          }))
-          .filter((start) => {
-            if (!start.warId || judgedWarIds.has(start.warId)) return false;
-            judgedWarIds.add(start.warId);
-            return true;
-          });
         if (casusStarts.length) {
           const casusOutcome = readWarCasus(worldWithImpacts, {
             starts: casusStarts,
@@ -7163,7 +7175,7 @@ const applySimulationResult = async ({
       worldWithImpacts = applyWarReparations(worldWithImpacts, dueSettlements);
     },
   };
-  await runSimulationTick({ handlers: tickHandlers });
+  await runSimulationTick({ handlers: tickHandlers, facts: tickFacts });
 
   // Espionage resolves on the world the whole turn produced - after the standing
   // orders above have advanced, so an agent's round is decided against where the

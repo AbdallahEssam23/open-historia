@@ -121,6 +121,18 @@ test("the adapter reads a declared breach and names the wronged party", () => {
   ]);
 });
 
+test("a world with no agreements reads as a no-op obligation step", () => {
+  const out = readTreatyObligations(world(), { playerPolity: "France" });
+  assert.deepEqual(out.joins, []);
+  assert.equal(out.summary.joined, 0);
+});
+
+test("a world with no agreements and no declarations reads as a no-op breach step", () => {
+  const out = readTreatyBreaches(world(), { breaches: [] });
+  assert.deepEqual(out.breaches, []);
+  assert.equal(out.summary.declared, 0);
+});
+
 test("applyTreatyBreaches charges reputation and the relation and clamps", () => {
   const stored = world({
     wars: [{ id: "w1", status: "active", aggressor: "a", sideA: ["Germany"], sideB: ["France"], startedDate: "1914-08-03" }],

@@ -103,3 +103,20 @@ test("unknown facts are ignored and falsy facts exclude", () => {
   assert.deepEqual(tickPhasePlan({ nonsense: true }), ALWAYS_ON);
   assert.deepEqual(tickPhasePlan({ battles: false, production: 0 }), ALWAYS_ON);
 });
+
+test("a passed phase list sets the plan order", () => {
+  const subset = [
+    TICK_PHASES.find((phase) => phase.id === "reparations"),
+    TICK_PHASES.find((phase) => phase.id === "economy"),
+  ];
+  const all = Object.fromEntries(FACTS.map((fact) => [fact, true]));
+  assert.deepEqual(tickPhasePlan(all, subset), ["reparations", "economy"]);
+});
+
+test("the gate drops a phase whose fact is false from a passed list", () => {
+  const subset = TICK_PHASES.filter(
+    (phase) => phase.id === "treatyBreaches" || phase.id === "economy",
+  );
+  assert.deepEqual(tickPhasePlan({}, subset), ["economy"]);
+  assert.deepEqual(tickPhasePlan({ treaties: true }, subset), ["treatyBreaches", "economy"]);
+});

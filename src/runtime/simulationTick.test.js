@@ -63,3 +63,33 @@ test("a custom phase list sets the order", async () => {
   assert.deepEqual(trace, ["b", "a"]);
   assert.deepEqual(plan, ["b", "a"]);
 });
+
+test("with no facts every registered handler still runs", async () => {
+  const plan = await runSimulationTick({
+    handlers: { treatyBreaches: () => {}, casusBelli: () => {} },
+  });
+  assert.deepEqual(plan, ["treatyBreaches", "casusBelli"]);
+});
+
+test("an empty fact set drops every gated phase", async () => {
+  const trace = [];
+  const handlers = {
+    treatyBreaches: () => trace.push("treatyBreaches"),
+    casusBelli: () => trace.push("casusBelli"),
+    treatyObligations: () => trace.push("treatyObligations"),
+  };
+  const plan = await runSimulationTick({ handlers, facts: {} });
+  assert.deepEqual(plan, []);
+  assert.deepEqual(trace, []);
+});
+
+test("a true fact runs its phase and a false fact skips it", async () => {
+  const trace = [];
+  const handlers = {
+    treatyBreaches: () => trace.push("treatyBreaches"),
+    casusBelli: () => trace.push("casusBelli"),
+  };
+  const plan = await runSimulationTick({ handlers, facts: { treaties: true } });
+  assert.deepEqual(plan, ["treatyBreaches"]);
+  assert.deepEqual(trace, ["treatyBreaches"]);
+});

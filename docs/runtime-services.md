@@ -89,8 +89,10 @@ The deterministic phases a turn runs have one declared order.
 `src/engine/tickSchedule.js` exports `TICK_PHASES`, the frozen list of the
 sixteen phases `applySimulationResult` runs, each with the source literal that
 identifies its call and the world facts that make it apply, and
-`tickPhasePlan(facts)`, which returns the ids of the phases applicable to a set
-of facts, in declared order. The schedule is data and imports nothing; the phases
+`tickPhasePlan(facts, phases)`, which returns the ids of the phases applicable to
+a set of facts, in declared order, optionally restricted to a passed phase list
+so a caller's handler set and the fact gate decide the same order. The schedule
+is data and imports nothing; the phases
 themselves stay where they are, because they read and write the stored world
 through `src/runtime` adapters and some live in `src/Game/AI`, and those
 adapters may not import `Game/AI`. A guard
@@ -101,7 +103,7 @@ fails the build. The order used to be an implicit property of the function's
 statement sequence, pinned only by pairwise guards; this names it once.
 
 The declared order now has a runtime executor. `src/runtime/simulationTick.js`
-exports `runSimulationTick({ handlers })`: it derives its plan from
+exports `runSimulationTick({ handlers, facts })`: it derives its plan from
 `TICK_PHASES` and the registered handler keys, so the order is always the
 declared one and never the object's key order, and it awaits each handler in
 turn so a phase sees the world the one before it wrote. It imports only the
@@ -112,10 +114,24 @@ first four phases to run behind it are the contiguous treaty run -
 `treatyBreaches`, `casusBelli`, `treatyObligations`, `reparations` - moved
 unchanged into a `tickHandlers` object in `gameplay.js`; the other twelve
 phases and the deterministic steps between them stay inline for later, smaller
-moves. A guard (`src/runtime/simulationTickWiringArchitecture.test.js`) bounds
-the `applySimulationResult` region, asserts the executor is imported and called
-once there, and asserts the four pilot anchors live inside the handler object
-before the call.
+moves.
+
+When a `facts` set is handed in, the executor filters its plan by each phase's
+declared `requires`, so a phase whose fact is false is skipped instead of run;
+without a fact set every registered handler runs, which is the pre-gate
+behaviour. `applySimulationResult` derives the three facts once, from the world
+the turn produced and its own records: `treaties` is true when the world holds
+an agreement or the turn declares a breach, `casus` when a just-applied war
+start is judged this turn, and `settlements` when a war settlement is due. Each
+skipped phase is a proven no-op: an empty agreement ledger leaves
+`deriveTreatyObligations` with no joins and `deriveTreatyBreaches` with nothing
+declared, an empty start list makes `readWarCasus` run nothing, and
+`applyWarReparations` returns the same world when nothing is owed. The handlers
+keep their internal guards as a second line of defence. A guard
+(`src/runtime/simulationTickWiringArchitecture.test.js`) bounds the
+`applySimulationResult` region, asserts the executor is imported and called
+once there, asserts the four pilot anchors live inside the handler object before
+the call, and asserts the gate facts are derived before it.
 
 ---
 

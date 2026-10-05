@@ -36,8 +36,10 @@ export const TICK_PHASES = Object.freeze([
 ]);
 
 // The phases applicable to a set of facts, in declared order. The order always
-// comes from TICK_PHASES; this only filters.
-export const tickPhasePlan = (facts = {}) =>
-  TICK_PHASES
+// comes from the phase list; this only filters. The list defaults to the whole
+// schedule, and a caller may pass a subset (for example the handlers it has)
+// so the same filter is what decides the executed order.
+export const tickPhasePlan = (facts = {}, phases = TICK_PHASES) =>
+  phases
     .filter((phase) => phase.requires.every((fact) => Boolean(facts?.[fact])))
     .map((phase) => phase.id);

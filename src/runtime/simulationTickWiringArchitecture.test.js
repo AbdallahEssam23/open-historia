@@ -16,7 +16,7 @@ const start = gameplay.indexOf(REGION_START);
 const end = gameplay.indexOf(REGION_END);
 const region = gameplay.slice(start, end);
 
-const CALL = "await runSimulationTick({ handlers: tickHandlers });";
+const CALL = "await runSimulationTick({ handlers: tickHandlers, facts: tickFacts });";
 const HANDLERS = "const tickHandlers = {";
 const PILOT_ANCHORS = [
   "readTreatyBreaches(worldWithImpacts",
@@ -50,5 +50,15 @@ test("the four pilot phases live inside the handler object before the call", () 
     assert.equal(countOf(region, anchor), 1, `the pilot anchor must appear once in the region: ${anchor}`);
     const at = region.indexOf(anchor);
     assert.ok(at > handlersAt && at < callAt, `the pilot anchor must be inside the handler object: ${anchor}`);
+  }
+});
+
+test("the gate facts are derived before the call and passed to it", () => {
+  const callAt = region.indexOf(CALL);
+  const factsAt = region.indexOf("const tickFacts = {");
+  assert.ok(factsAt > 0 && factsAt < callAt, "the facts must be derived before the call");
+  const facts = region.slice(factsAt, callAt);
+  for (const key of ["treaties", "casus", "settlements"]) {
+    assert.ok(facts.includes(`${key}:`), `the fact set must carry ${key}`);
   }
 });
