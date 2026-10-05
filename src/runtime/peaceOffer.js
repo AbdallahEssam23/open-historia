@@ -93,3 +93,18 @@ export const buildPeaceOfferDigest = ({ offer } = {}) => {
   return `[Peace Offer Pending, as simulated]
 - ${pending.warId} is settled on the engine's terms and awaits the player's decision; do not narrate it as concluded, and do not close, leave or cease fire the war until the player accepts or declines.`;
 };
+
+// The operations that end a war's life. A pending offer holds exactly these:
+// a goal declaration or a joiner does not close the war, so neither is held.
+export const PEACE_OFFER_HELD_OPS = Object.freeze(["end", "ceasefire", "leave"]);
+
+// True when this war record would close, leave or cease fire the war the engine
+// is holding open for the player's decision. The ledger trims an id and
+// lower-cases an op, so this matches that normalisation and nothing more.
+export const peaceOfferHoldsWarUpdate = ({ update, offer } = {}) => {
+  const pending = normalizePeaceOffer(offer);
+  if (!pending) return false;
+  const warId = String(update?.id ?? "").trim();
+  if (!warId || warId !== pending.warId) return false;
+  return PEACE_OFFER_HELD_OPS.includes(String(update?.op ?? "").trim().toLowerCase());
+};

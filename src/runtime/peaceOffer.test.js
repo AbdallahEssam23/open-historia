@@ -2,7 +2,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildPeaceOfferDigest, choosePeaceOffer, normalizePeaceOffer } from "./peaceOffer.js";
+import {
+  buildPeaceOfferDigest,
+  choosePeaceOffer,
+  normalizePeaceOffer,
+  PEACE_OFFER_HELD_OPS,
+  peaceOfferHoldsWarUpdate,
+} from "./peaceOffer.js";
 
 const offer = (over = {}) => ({
   warId: "war-1",
@@ -78,4 +84,40 @@ test("the peace digest names the pending war and holds it open", () => {
   assert.match(line, /\[Peace Offer Pending/);
   assert.match(line, /war-7/);
   assert.match(line, /do not close/);
+});
+
+test("the held ops are the three that close the offered war", () => {
+  assert.deepEqual([...PEACE_OFFER_HELD_OPS], ["end", "ceasefire", "leave"]);
+});
+
+test("a record that would close the offered war is held", () => {
+  const held = { warId: "war-7" };
+  for (const op of ["end", "ceasefire", "leave"]) {
+    assert.equal(peaceOfferHoldsWarUpdate({ update: { id: "war-7", op }, offer: held }), true, op);
+  }
+  assert.equal(
+    peaceOfferHoldsWarUpdate({ update: { id: "war-7", op: " END " }, offer: held }),
+    true,
+    "the op is trimmed and lower-cased like the ledger does",
+  );
+});
+
+test("a record the offered war survives is not held", () => {
+  const held = { warId: "war-7" };
+  for (const op of ["join-a", "join-b", "resume", "goals", "start"]) {
+    assert.equal(peaceOfferHoldsWarUpdate({ update: { id: "war-7", op }, offer: held }), false, op);
+  }
+  assert.equal(
+    peaceOfferHoldsWarUpdate({ update: { id: "war-8", op: "end" }, offer: held }),
+    false,
+    "another war is untouched",
+  );
+  assert.equal(peaceOfferHoldsWarUpdate({ update: { id: "war-7", op: "" }, offer: held }), false);
+});
+
+test("no offer holds nothing", () => {
+  assert.equal(peaceOfferHoldsWarUpdate({ update: { id: "war-7", op: "end" }, offer: null }), false);
+  assert.equal(peaceOfferHoldsWarUpdate({ update: { id: "war-7", op: "end" }, offer: { warId: "" } }), false);
+  assert.equal(peaceOfferHoldsWarUpdate({ update: { id: "war-7", op: "end" } }), false);
+  assert.equal(peaceOfferHoldsWarUpdate(), false);
 });
