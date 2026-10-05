@@ -27,7 +27,7 @@ Related pages: [World state](world-state.md) · [Game state](world-state.md) · 
 | Engagements | `src/runtime/combatEngagements.js` (+ the pure core `src/engine/combat.js`) | resolves a declared battle deterministically: it reads `world.wars`, `world.units` and `economyEngine.mobilization`, returns the unit and control ops, and charges the losing reserves through `applyCombatReserveCost` | `src/Game/AI/gameplay.js` (the turn), `src/Game/AI/combatRegionResolution.js` (canonicalizing the declared `combatRegion`) |
 | Settlement | `src/runtime/warSettlement.js` (+ the pure core `src/engine/warSettlement.js`) | derives each active war's peace - goal progress, weariness and terms - and executes it through the narrated peace event and the reparations transfer | `src/Game/AI/gameplay.js` (the turn) |
 | Peace offer | `src/runtime/peaceOffer.js` | chooses and normalizes the peace the engine offers the player on their own due war (the interactive-peace increment) | `src/Game/AI/gameplay.js` (the turn), `src/Game/GameUI/peaceOffer.jsx` |
-| War facts | `src/runtime/warFacts.js` | renders the four engine war digests (standing obligations, a recorded breach, the casus verdict, the player's pending peace) as one block for a narrated scene | `src/Game/AI/gameplay.js` (the interactive event prompts) |
+| War facts | `src/runtime/warFacts.js` | renders the four engine war digests (standing obligations, a recorded breach, the casus verdict, the player's pending peace) as one block for a narrated scene or a Game Master transaction | `src/Game/AI/gameplay.js` (the interactive event prompts and the GM preview) |
 
 ---
 
@@ -75,6 +75,15 @@ time to the `interactiveCreation` and `interactiveExecutor` prompts, and both
 interactive callers set the four variables through the shared
 `buildWarFactsVariables` helper, so the scene and the skip read the same facts
 the same way. The jump's own `[Wars]` ledger is unchanged.
+
+The Game Master transaction is the one path that writes the war ledger without
+a retry. `previewGameMasterCommand` sets the four variables through the same
+`buildWarFactsVariables` helper, and `buildTaskSystemPrompt` appends
+`buildWarFactsDirective(variables, { audience: "gameMaster" })` to its prompt at
+call time. The GM framing says what the scene's does and adds the consequence a
+transaction needs: a record that closes, leaves or ceases fire a held war will
+be withheld by the engine. Nothing is enforced at preview time; `applyWarUpdates`
+stays the enforcement point.
 
 ---
 
