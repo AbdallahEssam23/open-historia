@@ -50,6 +50,19 @@ The engagement core is the fifth deterministic system, and it is not on the econ
 
 The settlement core is the sixth deterministic system, and it runs in the same turn, after the battles resolve. `src/engine/warSettlement.js` imports only `./economyMath.js` and stays pure: `normalizeWarGoals` and `normalizeWeariness` validate the declared `goals` and the stored `weariness`, `warGoalScore` measures each side's progress toward the kind it declared, `wearinessStep` accumulates elapsed time (`WEARINESS_MONTHLY_GAIN`), this turn's own battle losses (`WEARINESS_LOSS_GAIN`) and the drag of the mobilization posture, `warPressure` reads the compulsory-peace (`WEARINESS_COMPEL`) and capitulation (`WEARINESS_CAPITULATION`) thresholds, and `settleWar` derives the terms - the regions the victor takes, the capped reparations share, or a white peace - returning nothing until a peace is due. `src/runtime/warSettlement.js` is the sole executor and imports no Game/AI module: `resolveWarSettlements` reads the pre-turn world and the turn's battle results and does not write the ledger, `buildSettlementEvent` builds the narrated `military` peace event (carrying `warId`, the `combatants` and `impacts.regionTransfers`, but no `combatRegion`, so the battle resolver treats it as narrative), and `applyWarReparations` moves the loser's pools to the victor with an absolute zero floor. The turn (`src/Game/AI/gameplay.js`) runs the adapter after the battles, appends an `end` record to its `warUpdates` so the ledger closes the war, and pays the reparations after the impacts land. A war the player is a party to is deliberately left active, noted `withheld` on the receipt, until a later player-facing peace surface exists. The war ledger (`src/Game/AI/nativeWarLedger.js`) carries the declaration: the link-free `goals` op (`warId~goals~polity:kind[:region|region];polity:kind~~~`) writes `war.goals`, and `applyWarUpdates` preserves `goals` and `weariness` and accepts optional `weariness` and `resolveRegion`.
 
+A due settlement of the player's own war is offered, not applied, so the war
+stays active until the player answers. The engine enforces that hold at two
+doors. `src/runtime/peaceOffer.js` names the operations that would close it
+(`end`, `ceasefire`, `leave`) in an import-free predicate; the turn's validator
+(`validateWarLedgerPayload` in `src/Game/AI/nativeWarLedger.js`) refuses such a
+record while an offer is pending, so the model rewrites its prose on the
+corrective retry, and the existing salvage drops it on the final attempt.
+`applyWarUpdates` withholds the same record on its own and reports the ids in
+`withheldIds`, so a path with no retry - the Game Master apply, the per-segment
+ledger advance - cannot close the war either; the Game Master integrity check
+counts the held ids so the operation is reported, never thrown. The turn notes
+each held war with a `withheld` receipt line and a debug log.
+
 ---
 
 ## Front lines - `src/runtime/frontLines.js`
