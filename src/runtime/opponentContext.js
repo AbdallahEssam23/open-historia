@@ -9,12 +9,14 @@
 // function of. It never imports the Game/AI layer.
 
 import { derivePersonality } from "../engine/opponentPersonality.js";
+import { deriveIntentMenu } from "../engine/strategicIntent.js";
 import { resolveCountryTags } from "./countryTags.js";
 import { normalizeWorldState } from "./gameState.js";
 import { toCountryName } from "./ownerNames.js";
 
 export const DEFAULT_REPORT_LIMIT = 12;
 export const NEUTRAL_REPUTATION = 50;
+export const MAX_MENU_REGIONS = 48;
 
 const asName = (value) => String(value ?? "").trim();
 const asList = (value) => (Array.isArray(value) ? value : []);
@@ -174,5 +176,108 @@ export const buildStrategicReport = (world, { playerPolity = "", limit = DEFAULT
   return politiesInPlay(normalized, { playerPolity, limit }).map((polity) => {
     const facts = worldFactsFor(normalized, polity, { baseTags });
     return { polity: facts.polity, facts, personality: derivePersonality(facts) };
+  });
+};
+
+// The names the actor is at war with, read from the active wars it appears in.
+// A pair on opposite sides is a war; a pair on the same side is an alliance.
+const enemiesOf = (world, polity) => {
+  const selfKey = keyLower(polity);
+  const enemies = new Set();
+  for (const war of asList(world?.wars)) {
+    if (keyLower(war?.status) !== "active") continue;
+    const sideA = asList(war?.sideA);
+    const sideB = asList(war?.sideB);
+    const onA = sideA.some((name) => keyLower(name) === selfKey);
+    const onB = sideB.some((name) => keyLower(name) === selfKey);
+    if (!onA && !onB) continue;
+    for (const name of onA ? sideB : sideA) {
+      const other = canonical(name);
+      if (other && keyLower(other) !== selfKey) enemies.add(other);
+    }
+  }
+  return enemies;
+};
+
+// The regions the actor claims, from the world's own claimant list.
+const claimedRegionIds = (world, polity) => {
+  const selfKey = keyLower(polity);
+  const regions = new Set();
+  for (const [regionId, claimants] of Object.entries(world?.regionClaimants ?? {})) {
+    if (asList(claimants).some((name) => keyLower(name) === selfKey)) regions.add(asName(regionId));
+  }
+  return regions;
+};
+
+// The compact menu inputs for one actor, from the normalized world and a region
+// option list the caller assembled from the scenario catalog. `regions` carries
+// only an id and its owner; everything else is read from the world.
+const menuInputsFromNormalized = (world, polity, regions) => {
+  const selfKey = keyLower(polity);
+  const enemies = enemiesOf(world, polity);
+  const actorClaims = claimedRegionIds(world, polity);
+  const inPlay = politiesInPlay(world, { playerPolity: polity });
+
+  // The region options, bounded and ordered by id so the same world yields the
+  // same list, each marked with whether the actor already claims it.
+  const actorRegions = asList(regions)
+    .map((region) => ({
+      regionId: asName(region?.regionId ?? region?.id),
+      owner: canonical(region?.owner ?? region?.country),
+    }))
+    .filter((region) => region.regionId)
+    .sort((a, b) => (a.regionId < b.regionId ? -1 : a.regionId > b.regionId ? 1 : 0))
+    .slice(0, MAX_MENU_REGIONS)
+    .map((region) => ({
+      regionId: region.regionId,
+      owner: region.owner,
+      claimedByActor: actorClaims.has(region.regionId),
+    }));
+
+  const claimedOwners = new Set(
+    actorRegions.filter((region) => region.claimedByActor).map((region) => keyLower(region.owner)),
+  );
+
+  const targets = inPlay
+    .filter((name) => keyLower(name) !== selfKey)
+    .map((name) => ({
+      polity: name,
+      atWar: enemies.has(name),
+      holdsActorClaim: claimedOwners.has(keyLower(name)),
+      breachedActor: asList(world?.agreements).some((agreement) =>
+        keyLower(agreement?.status) === "breached"
+        && keyLower(agreement?.breachedBy) === keyLower(name)
+        && asList(agreement?.parties).some((party) => keyLower(party) === selfKey)),
+    }));
+
+  return {
+    actor: {
+      polity: canonical(polity),
+      existingWarIds: asList(world?.wars).map((war) => asName(war?.id)).filter(Boolean),
+    },
+    targets,
+    regions: actorRegions,
+  };
+};
+
+// The menu inputs for one actor. Normalizes the world, so a raw save is safe.
+export const strategicInputsFor = (world, polity, { regions = [] } = {}) => {
+  const normalized = normalizeWorldState(world);
+  return menuInputsFromNormalized(normalized, polity, regions);
+};
+
+// The profiles and the legal menus for the polities in play, in one stable
+// report. `regions` is the scenario catalog's id/owner list, supplied by the
+// caller because a runtime module does not read the map.
+export const buildStrategicMenus = (world, { playerPolity = "", limit = DEFAULT_REPORT_LIMIT, regions = [], baseTags = {} } = {}) => {
+  const normalized = normalizeWorldState(world);
+  return politiesInPlay(normalized, { playerPolity, limit }).map((polity) => {
+    const facts = worldFactsFor(normalized, polity, { baseTags });
+    return {
+      polity: facts.polity,
+      facts,
+      personality: derivePersonality(facts),
+      menu: deriveIntentMenu(menuInputsFromNormalized(normalized, polity, regions)),
+    };
   });
 };

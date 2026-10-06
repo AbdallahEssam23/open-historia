@@ -251,6 +251,10 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
   const relationUpdates = [];
   const agreementUpdates = [];
   const storylineUpdates = [];
+  // The computer powers' chosen strategic intents. Like the ledgers they
+  // concatenate: each segment's choices are its own, and the gateway re-derives
+  // and de-duplicates them against the one pre-turn world.
+  const strategicIntents = [];
   // The model's classified economic shocks. They concatenate like the ledgers;
   // the engine's own normalizer caps the total and drops a bad entry, so a
   // segment can never lose the turn over one shock.
@@ -281,6 +285,7 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     relationUpdates.push(...asLedgerRecords(payload.relationUpdates));
     agreementUpdates.push(...asLedgerRecords(payload.agreementUpdates));
     storylineUpdates.push(...asLedgerRecords(payload.storylineUpdates));
+    strategicIntents.push(...asLedgerRecords(payload.strategicIntents));
     economicShocks.push(...asArray(payload.economicShocks));
     mobilization.push(...asArray(payload.mobilization));
     reinforcement.push(...asArray(payload.reinforcement));
@@ -335,6 +340,7 @@ export const mergeSegmentPayloads = (payloads, { targetDate = "" } = {}) => {
     rotations,
     merges,
     relationUpdates,
+    strategicIntents,
     stopDate: stopDate || normalizeString(targetDate),
     storylineUpdates,
     warUpdates,

@@ -1153,6 +1153,12 @@ export const JUMP_FORWARD_SCHEMA = {
       type: "string",
       description: "Newline-separated war-state records, format in the prompt. Empty string when belligerency did not change.",
     },
+    strategicIntents: {
+      type: "string",
+      description:
+        "Newline-separated computer-power decisions chosen from the strategic menu, format in the prompt. "
+        + "Empty string when no power acts on its own this period.",
+    },
     relationUpdates: {
       type: "string",
       description: "Newline-separated bilateral relation records, format in the prompt. Empty string when none changed materially.",

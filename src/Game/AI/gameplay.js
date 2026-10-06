@@ -242,6 +242,8 @@ import {
   validateCanonicalWarEvents,
   validateWarLedgerPayload,
 } from "./nativeWarLedger.js";
+import { applyStrategicIntents } from "./strategicGateway.js";
+import { buildStrategicMenus } from "../../runtime/opponentContext.js";
 import {
   DIPLOMATIC_LEDGER_VERSION,
   applyDiplomaticUpdates,
@@ -627,6 +629,52 @@ A power that begins a war with no recorded claim against the target and no recor
 warUpdates is one string, one record per line, fields separated by ~ (never inside a field): warId~op~actorsCSV~opponentsCSV~eventNumbersCSV~note. op is start, join-a, join-b, leave, ceasefire, resume, end or goals; for start the actors are the side that starts the war (side A) and the opponents side B; for join and leave the actors are the polities joining or leaving; eventNumbersCSV may be blank. goals declares war aims: warId~goals~polity:kind[:region|region];polity:kind~~~, kind annex, reparations or status_quo. Give a war a stable id (war-france-germany-1914) and reuse it. An empty string when nothing changes.`;
 };
 
+// The id/owner list the strategic menu reads: the primed scenario catalog's
+// regions with the world's own ownership already folded in. A claim can only
+// name a region here, so the catalog's absence yields an empty list and the
+// menu simply offers no claims.
+const buildStrategicRegionOptions = (world) => {
+  const catalog = getPrimedScenarioRegionCatalog() ?? [];
+  const overrides = world?.regionOwnershipOverrides ?? {};
+  return catalog
+    .map((region) => {
+      const regionId = normalizeString(region?.id);
+      const owner =
+        toCountryName(normalizeString(overrides[regionId]))
+        || toCountryName(normalizeString(region?.country))
+        || toCountryName(normalizeString(region?.countryCode))
+        || "";
+      return { regionId, owner };
+    })
+    .filter((region) => region.regionId && region.owner);
+};
+
+// The strategic decision menu: the derived character of each polity in play and
+// the closed list of choices it may take this period. It is shown as LAW, not
+// advice: the model may choose inside it and may not invent outside it. The
+// engine re-derives the same menu before it applies anything, so an option the
+// world no longer supports is refused.
+const buildStrategicDirective = (report, playerName) => {
+  const rows = normalizeArray(report).filter((row) => row?.menu);
+  if (!rows.length) return "";
+  const lines = rows.map(({ polity, personality, menu }) => {
+    const options = [];
+    for (const entry of normalizeArray(menu.declareWar)) {
+      options.push(
+        `declare_war -> ${entry.target} (${entry.justified ? `justified: ${entry.reasons.join(", ") || "cause on record"}` : "no recorded cause: unjust"}); warId ${entry.warId}`,
+      );
+    }
+    for (const entry of normalizeArray(menu.pressClaim)) {
+      options.push(`press_claim ${entry.regionId} (held by ${entry.owner})`);
+    }
+    return `- ${polity} [${normalizeString(personality?.character) || "no profile"}]: ${options.length ? options.join(" | ") : "no legal action"}`;
+  });
+  return `[Strategic Decisions]
+The computer powers act on their own this period. Below is the legal menu, derived from the world, for each power whose decision can reach ${playerName || "the player"}. It is law, not advice: a power may take a listed option and may not invent one, and the engine re-derives this menu before it applies anything, refusing any option the world no longer supports. You still choose WHAT each power does inside the menu; the engine owns what is legal.
+${lines.join("\n")}
+Return chosen actions in strategicIntents, one record per line, fields separated by ~ (never inside a field): op~polity~target~goal~regions~note. op is declare_war or press_claim. declare_war takes the polity, the target and a goal from annex, reparations or status_quo; use the warId shown for that option as the event's warId and narrate the declaration in that event, leaving warUpdates empty for it because the engine writes the ledger record. press_claim takes the polity and the region ids (comma-separated) and stripes the map without moving a border. An empty string when no power acts. A war the player's own diplomacy or a pre-game history opens still travels in warUpdates as before.`;
+};
+
 const buildDiplomaticLedgerDirective = (variables) => {
   const playerName = normalizeString(variables?.playerPolity) || "the player's polity";
   const canonicalDiplomacy = normalizeString(variables?.canonicalDiplomaticContext);
@@ -828,6 +876,22 @@ const validateSegmentLedgers = (candidate, { world, strict, segmentIndex = 0, re
     const first = combatWarRepair.unresolved[0];
     return `Combat event "${first.title || `event ${first.index + 1}`}" could not be canonically bound: ${first.reason}. ` +
       "If this is real battlefield combat, name the direct opposing combatants in event.combatants and supply the matching warUpdates lifecycle record. If it is deployment, readiness, an exercise, deterrence, military cooperation or other non-combat activity, remove warId/combatants/warUpdates rather than inventing belligerency.";
+  }
+
+  // The computer powers' declared wars: the model picks them from the menu it was
+  // shown, and the gateway turns each accepted declaration into the ledger record
+  // the war path already understands, bound to the very event the model stamped
+  // with the option's warId. It runs here, at the AI boundary and before the
+  // ledger below, so the record and its causal event are validated together. An
+  // answer with no intent leaves `warUpdates` untouched (the inert path).
+  if (normalizeString(candidate?.strategicIntents)) {
+    const preflight = applyStrategicIntents({
+      world,
+      intents: candidate.strategicIntents,
+      warUpdates: candidate.warUpdates,
+      events,
+    });
+    candidate.warUpdates = preflight.warUpdates;
   }
 
   normalizeWorldWarEventLinks(candidate);
@@ -1471,6 +1535,9 @@ const SUPPLY_ATTRITION_EVENT_ID = "engine-supply-attrition";
 // The board-only carrier for reinforcement and consolidation, beside the
 // supply and research carriers.
 const REINFORCEMENT_EVENT_ID = "engine-reinforcement";
+// The board-only carrier for the strategic gateway's accepted claims: a claim
+// stripes the map and nothing else, so it rides like the supply and research ops.
+const STRATEGIC_CLAIMS_EVENT_ID = "engine-strategic-claims";
 
 // The deterministic engine owns the standard economy, so the periodic AI stats
 // batch would be a second writer of the same fields. Kept as a named switch
@@ -2178,6 +2245,20 @@ const buildJumpLiveState = async ({ variables = {}, lookups = null, reminders = 
   if (director) blocks.push(director);
   blocks.push(buildWarLedgerDirective(variables));
   blocks.push(buildDiplomaticLedgerDirective(variables));
+
+  // The strategic menu: each power in play's derived character and the closed
+  // list of legal choices it may take this period. Built from the live world and
+  // the primed catalog; empty when there is nothing to show.
+  try {
+    const strategicReport = buildStrategicMenus(world, {
+      playerPolity: normalizeString(variables?.playerPolity) || normalizeString(game?.country),
+      regions: buildStrategicRegionOptions(world),
+    });
+    const strategicBlock = buildStrategicDirective(strategicReport, normalizeString(variables?.playerPolity));
+    if (strategicBlock) blocks.push(strategicBlock);
+  } catch (error) {
+    console.warn("[ai] the strategic menu could not be built for this prompt.", error);
+  }
 
   // What earlier chats agreed, promised, threatened or declared.
   const continuity = normalizeString(variables.diplomaticContinuity);
@@ -6849,6 +6930,32 @@ const applySimulationResult = async ({
   for (const entry of settlementOutcome.unresolved) {
     if (receipt) noteReceipt(receipt, "withheld", `The war ${entry.warId} was left open: ${entry.reason}.`);
   }
+
+  // The strategic gateway: the computer powers' chosen decisions, re-derived
+  // here before the impacts land and before the ledger runs. A declaration was
+  // already translated into its ledger record at the segment boundary (so the
+  // ledger there saw its causal event); the gateway recognizes that existing
+  // record and does not write a second. What remains is the claim, which needs
+  // no event binding and is applied to the board below exactly as an authored
+  // one would be. Inert when no intent was returned: `warUpdates` keeps its
+  // exact contents and no claim op exists.
+  const strategicOutcome = applyStrategicIntents({
+    world: baseWorldNormalized,
+    intents: result.strategicIntents,
+    warUpdates,
+    events: freshEvents,
+    regions: buildStrategicRegionOptions(baseWorldNormalized),
+  });
+  for (const entry of strategicOutcome.rejected) {
+    logDebugEvent("turn", `Strategic intent refused: ${entry.op} by ${entry.polity || "unknown"} (${entry.reason}).`, undefined, { verbose: true });
+  }
+  if (strategicOutcome.accepted.declareWar.length || strategicOutcome.accepted.pressClaim.length) {
+    logDebugEvent("turn", `Strategic decisions accepted: ${strategicOutcome.accepted.declareWar.length} declaration(s), ${strategicOutcome.accepted.pressClaim.length} claim(s).`, undefined, { verbose: true });
+  }
+  // Rebuild in place so every phase below, the schedule guard and the receipt
+  // read one list through the same binding.
+  warUpdates.splice(0, warUpdates.length, ...strategicOutcome.warUpdates);
+
   const impactMerge = applyEventImpactsToWorld({
     colors: baseColors,
     events: freshEvents,
@@ -6896,6 +7003,25 @@ const applySimulationResult = async ({
   });
   let nextColors = impactMerge.colors;
   let impactedWorld = impactMerge.world;
+  // The accepted claims: a claim stripes the map and moves no border, so it
+  // rides the board-only synthetic-event path the supply and research ops use.
+  if (strategicOutcome.claimOps.length) {
+    const claimApply = applyEventImpactsToWorld({
+      colors: nextColors,
+      events: [{
+        id: STRATEGIC_CLAIMS_EVENT_ID,
+        date: nextGame.gameDate || "",
+        title: "Strategic claims",
+        description: "",
+        impacts: { regionClaims: strategicOutcome.claimOps },
+      }],
+      world: impactedWorld,
+      engineSourced: true,
+      boardOnlyEventIds: [STRATEGIC_CLAIMS_EVENT_ID],
+    });
+    impactedWorld = claimApply.world;
+    nextColors = claimApply.colors;
+  }
   tickHandlers.engagementReserve = () => {
     impactedWorld = applyCombatReserveCost(impactedWorld, engagementOutcome.reserveCost);
   };

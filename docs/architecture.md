@@ -228,6 +228,8 @@ Because the web router keys on `url.origin === location.origin && pathname.start
 
 Gameplay writes flow: **AI turn / cheat / UI action → `gameState.js` write → PUT `/api/runtime/json/{world|game|events|…}` → store persists → library token bumps → `assets.js` sweeps stale caches → affected layers re-read**. Library mutations (create/select/save game or scenario, asset upload) go through `src/runtime/library.js`, which force-refreshes the catalog and re-syncs the runtime token. See [World state](world-state.md) and [AI system](ai-overview.md).
 
+The AI turn's own decisions cross one boundary. A model returns `strategicIntents` (the choices it made inside the opponent menu) and the turn hands them to `src/Game/AI/strategicGateway.js`, which re-derives the menu from the live world, refuses anything outside it, and translates an accepted declaration or claim into the `warUpdates`/`regionClaims` shapes the ledger and the map already consume. The gateway sits at the boundary before the ledger runs, so an opponent's war travels the same path as the player's, and with no intent returned it changes nothing. See [Runtime services](runtime-services.md) and [AI system](ai-overview.md).
+
 ---
 
 ## 6. Beyond the game loop

@@ -28,7 +28,8 @@ Related pages: [World state](world-state.md) · [Game state](world-state.md) · 
 | Settlement | `src/runtime/warSettlement.js` (+ the pure core `src/engine/warSettlement.js`) | derives each active war's peace - goal progress, weariness and terms - and executes it through the narrated peace event and the reparations transfer | `src/Game/AI/gameplay.js` (the turn) |
 | Peace offer | `src/runtime/peaceOffer.js` | chooses and normalizes the peace the engine offers the player on their own due war (the interactive-peace increment) | `src/Game/AI/gameplay.js` (the turn), `src/Game/GameUI/peaceOffer.jsx`, with a held-war notice from `src/runtime/warHoldNotice.js` |
 | War facts | `src/runtime/warFacts.js` | renders the four engine war digests (standing obligations, a recorded breach, the casus verdict, the player's pending peace) as one block for a narrated scene or a Game Master transaction | `src/Game/AI/gameplay.js` (the interactive event prompts and the GM preview) |
-| Opponent context | `src/runtime/opponentContext.js` (+ the pure core `src/engine/opponentPersonality.js`) | reads the world's standing facts into one derived profile per polity in play (the strategic report a decision will read); it decides nothing | the decision gateway (slice 30b), `src/Game/AI/gameplay.js` |
+| Opponent context | `src/runtime/opponentContext.js` (+ the pure cores `src/engine/opponentPersonality.js`, `src/engine/strategicIntent.js`) | reads the world's standing facts into one derived profile and one legal intent menu per polity in play (the strategic report a decision reads); it decides nothing | `src/Game/AI/gameplay.js` (the prompt directive), `src/Game/AI/strategicGateway.js` |
+| Decision gateway | `src/Game/AI/strategicGateway.js` (+ the pure core `src/engine/strategicIntent.js`) | decodes a model's `strategicIntents`, re-derives the menu from the world, refuses anything outside it, and translates an accepted `declare_war`/`press_claim` into the existing `warUpdates`/`regionClaims` shapes | `src/Game/AI/gameplay.js` (the segment ledger check and the turn apply) |
 
 ---
 
@@ -170,7 +171,8 @@ purpose, so the map-maker's open tag list can never move a number.
 `normalizePersonality(value)` returns a clamped profile or `null` when the value
 carries no finite axis, and never throws. The profile decides nothing the engine
 computes: it is an interpretive lens the narrator reads, never a filter on what
-is legal, and the menu of legal choices is a separate, later concern (slice 30b).
+is legal; the menu of legal choices is derived separately by the pure core
+`src/engine/strategicIntent.js`.
 
 The adapter `src/runtime/opponentContext.js` imports no `Game/AI` module.
 `worldFactsFor(world, polity)` reads one polity's facts,
@@ -190,6 +192,55 @@ integer bounds, the tag directions, the inert unknown tag and the clamped
 normalizer; `src/runtime/opponentContext.test.js` pins the fact reads, the power
 share, the stable capped report and the absence of a `Game/AI` import.
 `src/engine/enginePurity.test.js` covers the core.
+
+---
+
+## The decision gateway - `src/engine/strategicIntent.js` and `src/Game/AI/strategicGateway.js`
+
+An opponent chooses inside a menu, and the engine owns what is on it. The pure
+core `src/engine/strategicIntent.js` imports nothing: `deriveIntentMenu({ actor,
+targets, regions })` returns the options one polity may take - `declareWar`, one
+entry per other polity in play that is not itself and not already at war with
+the actor, each carrying a stable `warId` (`warIdFor(actor, target,
+existingIds)`, stepped past a taken id) and whether the declaration is
+`justified` by a standing claim or a recorded breach; and `pressClaim`, one
+entry per unowned region, each carrying its present owner. A menu is a prompt
+budget, not a catalogue: `MAX_DECLARATIONS` (6) and `MAX_CLAIMS` (6) bound each
+kind so the report is a fixed size. The goals a declaration may carry are the
+closed `WAR_GOALS` (`annex`, `reparations`, `status_quo`), the same set the
+settlement core reads. The menu carries the reason an entry is legal and never a
+recommendation; the model still makes the choice.
+
+The adapter `src/runtime/opponentContext.js` extends the report with the menu:
+`strategicInputsFor(world, polity, { regions })` builds one actor's compact
+inputs from the normalized world, and `buildStrategicMenus(world, { playerPolity,
+limit, regions })` returns the profile and the menu for every polity in play.
+`regions` is the scenario catalog's id/owner list, supplied by the caller because
+a runtime module does not read the map; it is bounded by `MAX_MENU_REGIONS` (48)
+and ordered by id so the same world yields the same menu.
+
+The boundary `src/Game/AI/strategicGateway.js` decodes the model's chosen
+`strategicIntents` - one `op~polity~target~goal~regions~note` line per choice -
+re-derives the menu for each named actor from the world and refuses anything
+outside it, so a stale or invented option cannot pass. An accepted `declare_war`
+becomes a `warUpdates start` record bound to the event the model stamped with the
+option's `warId`, plus a `goals` record; an accepted `press_claim` becomes a
+`regionClaims` op. A start record already present for the same pair (the segment
+pass wrote it, or the model used the direct path) stands and the intent is not
+written twice, so one war has one authority. The prompt directive
+(`buildStrategicDirective` in `gameplay.js`) prints the menu as law, and the
+gateway runs at the segment boundary before the ledger validates the segment - so
+the ledger sees a declaration's causal event - and again at apply time, where the
+claim is applied board-only through `applyEventImpactsToWorld`. With no intent
+returned the gateway is inert: `warUpdates` keeps its exact contents and no claim
+op exists.
+
+Tests: `src/engine/strategicIntent.test.js` pins determinism, the `warIdFor`
+collision step, the exclusion of self, an at-war power and an owned region, the
+justified/unjust distinction and the caps; `src/Game/AI/strategicGateway.test.js`
+pins the decode of lines, arrays and objects, the inert path, the declaration
+translation and its event binding, the duplicate record, the claim op and the
+refusals. `src/engine/enginePurity.test.js` covers the core.
 
 ---
 

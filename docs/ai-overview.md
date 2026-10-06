@@ -648,6 +648,20 @@ See [World state](world-state.md) for the shape of what these writers touch, and
 
 ---
 
+## The opponent menu: the engine owns the law, the model makes the choice
+
+An opponent has no mind of its own and no separate request. In the same jump answer the model is shown the **strategic menu** - one line per polity in play, each with its derived character and the closed list of choices it may take this period - and returns the choices it made in `strategicIntents`. The menu is law, not advice: the model may pick a listed option and may not invent one.
+
+- **The menu is derived, never stored.** `src/engine/strategicIntent.js` turns compact facts into the options: `declare_war` for each other polity it is not already fighting, carrying a stable `warId` and whether a standing claim or a recorded breach makes it `justified`, and `press_claim` for each region it does not already hold. `derivePersonality` (`src/engine/opponentPersonality.js`) gives each polity its character. The adapter `src/runtime/opponentContext.js` builds both from the live world, so no polity is ever characterless and the profile cannot drift.
+- **The prompt directive** (`buildStrategicDirective`, `gameplay.js`) prints that report as given facts, alongside the war ledger.
+- **`strategicIntents`** is one `op~polity~target~goal~regions~note` record per line: `op` is `declare_war` or `press_claim`; `goal` is `annex`, `reparations` or `status_quo`. It is the **single channel for a computer power's war**: the direct `warUpdates` path stays for the player's own diplomacy, pre-game history and engine-injected settlement endings, and a direct start that duplicates an intent is dropped so one war has one authority.
+- **The gateway re-derives and refuses.** `src/Game/AI/strategicGateway.js` (`applyStrategicIntents`) re-derives the menu from the world, refuses any option outside it, and translates an accepted `declare_war` into a `warUpdates start` bound to the event the model stamped with the option's `warId` (plus a `goals` record) and an accepted `press_claim` into a `regionClaims` op. It runs at the segment boundary before the ledger check, and again at apply time where the claim is applied board-only.
+- **Inert without intents.** An answer that returns no `strategicIntents` leaves `warUpdates` byte-for-byte unchanged and writes no claim: the recorded equivalence argument for the gateway.
+
+See [Runtime services](runtime-services.md) for the module split and the tests.
+
+---
+
 ## The deterministic economy: the model narrates, it does not compute
 
 The economic numbers on a country's stat sheet are produced by the deterministic core in `src/engine/`, not by the model. Each turn `advanceWorldEconomy` (`runtime/economyEngine.js`) advances every initialized polity from the committed month to the turn's date and writes `gdp`, `gdpPerCapita`, `gdpGrowth`, `inflation`, `unemployment`, `publicDebt` and `budgetBalance` **last**, through `mergeCountryStatPatch` with `engineSourced: true`, so an event patch applied earlier in the same turn cannot overwrite them, and the continuity guard, which exists to catch an absurd model estimate, does not band them either. The engine writes `stability` and the `forces` mirror (the reserves, the posture in force and, when the army went unpaid, the shortfall) on the same pass; the mirror replaces rather than merges, so a paid-off shortfall clears; indices, the text fields and the territorial ledger are untouched. The model is shown the period as a short digest (`runtime/economyDigest.js`: the player's polity first, up to six tracked polities, capped) and told to treat it as fact.
