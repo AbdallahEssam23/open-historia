@@ -38,8 +38,9 @@ two columns of infantry.
 - **Terrain, coasts and sea zones.** The engine has no map: the runtime region
   catalog carries no water flag today, and plumbing one is a separate data-model
   decision. The rules are keyed on the unit's declared `type` only.
-- **Type-versus-type lethality (anti-air, anti-ship).** One domain edge per kind,
-  not a matrix.
+- **Type-versus-type lethality (anti-air, anti-ship).** Deferred to
+  `docs/specs/2026-10-06-anti-type-tactics-design.md`, which adds a named table
+  of matchups within the declared types.
 - **Reach, range or movement.** A domain changes a unit's effect on a battle it
   is already in; it does not change where the unit can go.
 - **A model-facing readout.** No new payload field and no prompt change. The
