@@ -3615,6 +3615,54 @@ const normalizeEconomyEngine = (value) => {
   return out;
 };
 
+// What the opponent gateway accepted this turn (runtime/strategicNarration.js
+// builds it, Game/AI/gameplay.js writes it): a declaration or a pressed claim,
+// with the legal cause that made it, so the player can be told. Sparse and
+// bounded. A row without the fields its kind needs is dropped, never kept raw.
+const TURN_MOVE_KINDS = new Set(["declare_war", "press_claim"]);
+const MAX_TURN_MOVES = 12;
+const MAX_MOVE_REASONS = 3;
+const MAX_MOVE_TEXT = 120;
+
+const normalizeTurnMove = (entry) => {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
+  const kind = normalizeOptionalString(entry.kind).toLowerCase();
+  if (!TURN_MOVE_KINDS.has(kind)) return null;
+  const actor = normalizeOptionalString(entry.actor);
+  if (!actor) return null;
+  const eventId = normalizeOptionalString(entry.eventId);
+  const date = normalizeOptionalString(entry.date);
+  if (kind === "declare_war") {
+    const target = normalizeOptionalString(entry.target);
+    if (!target) return null;
+    return {
+      kind,
+      actor,
+      target,
+      goal: normalizeOptionalString(entry.goal).slice(0, MAX_MOVE_TEXT),
+      justified: entry.justified === true,
+      reasons: normalizeArray(entry.reasons)
+        .map((reason) => normalizeOptionalString(reason).slice(0, MAX_MOVE_TEXT))
+        .filter(Boolean)
+        .slice(0, MAX_MOVE_REASONS),
+      ...(eventId ? { eventId } : {}),
+      ...(date ? { date } : {}),
+    };
+  }
+  const regionId = normalizeOptionalString(entry.regionId);
+  if (!regionId) return null;
+  return {
+    kind,
+    actor,
+    regionId,
+    owner: normalizeOptionalString(entry.owner).slice(0, MAX_MOVE_TEXT),
+    ...(date ? { date } : {}),
+  };
+};
+
+const normalizeTurnMoves = (value) =>
+  normalizeArray(value).map(normalizeTurnMove).filter(Boolean).slice(0, MAX_TURN_MOVES);
+
 export const normalizeWorldState = (world, options = {}) => {
   const nextWorld = withFormerSceneKeyMoved(world && typeof world === "object" ? world : {});
   // A caller may hand back the pair it already holds - readWorldStateView does -
@@ -3839,14 +3887,19 @@ export const normalizeWorldState = (world, options = {}) => {
         // cost the simulator what it was about to be told.
         const newestReceiptIndex = entries.findIndex((candidate) => candidate && typeof candidate === "object" && candidate.receipt);
         const receipt = normalizeApplicationReceipt(entry.receipt, { keepNotes: index === newestReceiptIndex });
+        // The opponent's accepted moves, told to the player (see
+        // runtime/strategicNarration.js). Sparse: a turn with none keeps no key,
+        // so a save from before this increment reads back byte-for-byte.
+        const turnMoves = normalizeTurnMoves(entry.strategicMoves);
         // Taken out of the spread so a malformed receipt is dropped, not kept raw;
         // and the scene a time skip used to propose (under either name), which
         // nothing reads since skips stopped proposing them.
-        const { receipt: _storedReceipt, interactive: _scene, catalyst: _formerScene, ...rest } = cloneValue(entry);
+        const { receipt: _storedReceipt, strategicMoves: _storedMoves, interactive: _scene, catalyst: _formerScene, ...rest } = cloneValue(entry);
 
         return {
           ...rest,
           ...(receipt ? { receipt } : {}),
+          ...(turnMoves.length ? { strategicMoves: turnMoves } : {}),
           date: normalizeOptionalString(entry.date),
           eventIds: normalizeActionParticipants(entry.eventIds),
           fallbackReason: normalizeOptionalString(entry.fallbackReason),

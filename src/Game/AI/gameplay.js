@@ -244,6 +244,7 @@ import {
 } from "./nativeWarLedger.js";
 import { applyStrategicIntents } from "./strategicGateway.js";
 import { buildStrategicMenus } from "../../runtime/opponentContext.js";
+import { buildTurnMoves } from "../../runtime/strategicNarration.js";
 import {
   DIPLOMATIC_LEDGER_VERSION,
   applyDiplomaticUpdates,
@@ -6955,6 +6956,15 @@ const applySimulationResult = async ({
   // Rebuild in place so every phase below, the schedule guard and the receipt
   // read one list through the same binding.
   warUpdates.splice(0, warUpdates.length, ...strategicOutcome.warUpdates);
+  // The surface's own record: what the opponent decided, with the cause that
+  // made it legal, so the timeline can tell the player. Built here, while the
+  // `warId` the gateway stamped on freshEvents is still in hand, and stored on
+  // the turn below so a reload keeps it. Sparse: no decision, no key.
+  const turnMoves = buildTurnMoves({
+    accepted: strategicOutcome.accepted,
+    events: freshEvents,
+    date: nextGame.gameDate || "",
+  });
 
   const impactMerge = applyEventImpactsToWorld({
     colors: baseColors,
@@ -6991,6 +7001,10 @@ const applySimulationResult = async ({
           // (runtime/applicationReceipt.js). normalizeWorldState keeps the notes
           // on the newest receipt only, so older turns carry their counts alone.
           ...(receipt ? { receipt } : {}),
+          // The opponent's accepted moves, told to the player in the timeline
+          // (runtime/strategicNarration.js). Omitted when there was none, so an
+          // intent-less turn's entry is byte-for-byte what it was.
+          ...(turnMoves.length ? { strategicMoves: turnMoves } : {}),
           round: nextGame.round,
           summary: normalizeString(result.summary),
           source: result.generation?.source || "ai",

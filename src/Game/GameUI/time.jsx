@@ -44,6 +44,7 @@ import {
     tileGeometryParts,
 } from "./eventFocus.js";
 import { summarizeEventImpacts } from "./eventImpacts.js";
+import { describeStrategicMove } from "../../runtime/strategicNarration.js";
 import { setWorldStateOverride } from "../Map/useWorldState.js";
 import { getUnitById, setUnitsOverride } from "../Map/unitsController.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
@@ -554,6 +555,10 @@ const buildTurnRecord = ({ entry, index, history, eventLookup, game, lookups }) 
         rangeLabel: formatRange(fromDate, toDate),
         round: entry.round || 0,
         source: entry.source || "ai",
+        // The opponent's accepted decisions for this turn, told to the player
+        // beside the events (runtime/strategicNarration.js). Empty on every turn
+        // the gateway recorded none.
+        strategicMoves: Array.isArray(entry.strategicMoves) ? entry.strategicMoves : [],
         summary: entry.summary || "",
         tags: Array.from(tags).slice(0, 10),
         title:
@@ -836,9 +841,55 @@ const eventDisclosureKey = (event) => {
     return title || String(event?.id ?? "");
 };
 
+// The opponent's move, told beside the event that narrates it - or, for a
+// pressed claim (which has no event), as the turn's closing block. Past tense:
+// what a power DID, with the cause the gateway found, never an option for the
+// player. The wording lives in runtime/strategicNarration.js; this is the frame.
+const StrategicMoveBanner = ({ move, regionLookup }) => {
+    const described = useMemo(
+        () => describeStrategicMove(move, { regionName: regionLookup?.get(move?.regionId)?.name || "" }),
+        [move, regionLookup],
+    );
+    if (!described) return null;
+    const isWar = move?.kind === "declare_war";
+    const accent = isWar ? "244,63,94" : "245,158,11";
+    const label = isWar ? "Opponent act: declaration" : "Opponent act: claim";
+    return (
+        <div
+        style={{
+            background: `rgba(${accent},0.09)`,
+            border: `1px solid rgba(${accent},0.35)`,
+            borderRadius: "12px",
+            display: "grid",
+            gap: "0.35rem",
+            padding: "0.55rem 0.7rem",
+        }}
+        >
+        <div style={{ color: `rgba(${accent},0.95)`, fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase" }}>
+        {label}
+        </div>
+        <div style={{ color: "rgba(255,255,255,0.95)", fontSize: "0.8rem", fontWeight: 700, lineHeight: 1.45 }}>
+        {described.headline}
+        </div>
+        {described.detail && (
+            <div style={{ color: "rgba(228,228,231,0.72)", fontSize: "0.72rem", lineHeight: 1.45 }}>
+            {described.detail}
+            </div>
+        )}
+        {described.reasons.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+            {described.reasons.map((reason) => (
+                <TagPill key={`${move.kind}-${reason}`}>{reason}</TagPill>
+            ))}
+            </div>
+        )}
+        </div>
+    );
+};
+
 // openMapChanges/onToggleMapChanges let the panel hold the disclosure instead of
 // the card. Left out, the card keeps its own.
-const EventCard = ({ event, footer = null, lookups, openMapChanges = null, onToggleMapChanges = null }) => {
+const EventCard = ({ event, footer = null, lookups, move = null, openMapChanges = null, onToggleMapChanges = null }) => {
     // The model's category tags, then what the event is about: links the map
     // can fly to when the card has them, the participants it names otherwise.
     const links = useMemo(
@@ -921,6 +972,8 @@ const EventCard = ({ event, footer = null, lookups, openMapChanges = null, onTog
             ))}
             </div>
         )}
+
+        {move && <StrategicMoveBanner move={move} regionLookup={lookups?.regionLookup} />}
 
         <div style={{ color: "rgba(255,255,255,0.94)", fontSize: "0.82rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
         {event.title}
@@ -1792,6 +1845,20 @@ const TimelineHistoryPanel = ({
     ? filteredEvents.slice(0, Math.min(visibleEventCount, totalEvents))
     : [];
     const hasMoreEvents = visibleEvents.length < totalEvents;
+    // The opponent's moves for this turn: the declarations ride the event that
+    // narrates them (by id); a pressed claim has no event of its own, so it is
+    // held back for the closing block, shown once the reveal finishes.
+    const moveByEventId = useMemo(() => {
+        const byEventId = new Map();
+        for (const move of record?.strategicMoves ?? []) {
+            if (move?.eventId) byEventId.set(move.eventId, move);
+        }
+        return byEventId;
+    }, [record?.strategicMoves]);
+    const closingMoves = useMemo(
+        () => (record?.strategicMoves ?? []).filter((move) => !move?.eventId),
+        [record?.strategicMoves],
+    );
     const lastVisibleEventRef = React.useRef(null);
     // The reveal buttons pin a compact minHeight inline, which the finger-sized
     // .oh-tap-row cannot beat; on a touch screen it is left to the class.
@@ -1977,6 +2044,7 @@ const TimelineHistoryPanel = ({
                     <EventCard
                     event={event}
                     lookups={lookups}
+                    move={moveByEventId.get(event.id) ?? null}
                     openMapChanges={openMapChanges ? openMapChanges.has(openKey) : null}
                     onToggleMapChanges={onToggleMapChanges ? () => onToggleMapChanges(openKey) : null}
                     footer={offeredInteractiveId && event.id === offeredInteractiveId ? <InteractiveOfferStrip /> : null}
@@ -2080,6 +2148,11 @@ const TimelineHistoryPanel = ({
                 )}
                 </>
             )}
+            {/* The pressed claims, held until the reveal is done so the turn closes
+                on them (a claim has no event to sit inside). */}
+            {!hasMoreEvents && closingMoves.map((move, index) => (
+                <StrategicMoveBanner key={`closing-${move.kind}-${move.regionId ?? index}`} move={move} regionLookup={lookups?.regionLookup} />
+            ))}
             </div>
         )}
         {/* Under the cards, so the list reads as a finished turn's would. */}
