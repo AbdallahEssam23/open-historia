@@ -3615,13 +3615,31 @@ const normalizeEconomyEngine = (value) => {
   return out;
 };
 
-export const normalizeWorldState = (world) => {
+export const normalizeWorldState = (world, options = {}) => {
   const nextWorld = withFormerSceneKeyMoved(world && typeof world === "object" ? world : {});
-  const polityOverrides = Object.fromEntries(
-    Object.entries(nextWorld.polityOverrides ?? {})
-      .map(([key, value]) => [key, normalizePolityOverride(key, value)])
-      .filter(([, value]) => value),
-  );
+  // A caller may hand back the pair it already holds - readWorldStateView does -
+  // so a scope whose inputs did not move is reused by reference instead of
+  // rebuilt. `source` is the raw input: reference identity against the previous
+  // raw means the input did not change, and identity against the previous
+  // normalized means the caller passed an already normalized value through a
+  // spread. Either way the previous output is what a full rebuild would produce,
+  // and sharing it also saves the allocation. Scopes whose inputs moved rebuild
+  // exactly as before, so the result is byte-for-byte a full normalize. The
+  // contract is that a supplied pair has not been mutated in place since it was
+  // produced (see docs/world-state.md).
+  const source = world && typeof world === "object" ? world : {};
+  const previous = options?.previous?.raw && options?.previous?.normalized ? options.previous : null;
+  const unchanged = (field) =>
+    Boolean(previous) && (source[field] === previous.raw[field] || source[field] === previous.normalized[field]);
+
+  const reusePolityOverrides = unchanged("polityOverrides");
+  const polityOverrides = reusePolityOverrides
+    ? previous.normalized.polityOverrides
+    : Object.fromEntries(
+      Object.entries(nextWorld.polityOverrides ?? {})
+        .map(([key, value]) => [key, normalizePolityOverride(key, value)])
+        .filter(([, value]) => value),
+    );
 
   // Canonicalise on READ too, so a save written before this migrated — or one
   // whose owners were split across a polity's token and its era display name by
@@ -3629,59 +3647,77 @@ export const normalizeWorldState = (world) => {
   // everything computed now. See ownerNames.js for why a name is an identity.
   const resolveOwner = createOwnerResolver(buildOwnerAliasMap(polityOverrides));
 
-  const regionOwnershipOverrides = Object.fromEntries(
-    Object.entries(nextWorld.regionOwnershipOverrides ?? {})
-      .map(([regionId, ownerCode]) => [normalizeOptionalString(regionId), resolveOwner(ownerCode)])
-      .filter(([regionId, ownerCode]) => regionId && ownerCode),
-  );
+  // Owner-resolving, so a change to polityOverrides invalidates it even when its
+  // own field is reference-identical: the resolver folds names through them.
+  const reuseRegionOwnership = unchanged("regionOwnershipOverrides") && reusePolityOverrides;
+  const regionOwnershipOverrides = reuseRegionOwnership
+    ? previous.normalized.regionOwnershipOverrides
+    : Object.fromEntries(
+      Object.entries(nextWorld.regionOwnershipOverrides ?? {})
+        .map(([regionId, ownerCode]) => [normalizeOptionalString(regionId), resolveOwner(ownerCode)])
+        .filter(([regionId, ownerCode]) => regionId && ownerCode),
+    );
 
-  const regionClaimants = Object.fromEntries(
-    Object.entries(nextWorld.regionClaimants ?? {})
-      // Claimants share the owner namespace — they are compared against owners to
-      // paint a disputed region's stripes (Nations.jsx).
-      .map(([regionId, claimants]) => [
-        normalizeOptionalString(regionId),
-        normalizeArray(claimants).map((name) => resolveOwner(name)).filter(Boolean).slice(0, 4),
-      ])
-      .filter(([regionId, claimants]) => regionId && claimants.length),
-  );
+  const reuseRegionClaimants = unchanged("regionClaimants") && reusePolityOverrides;
+  const regionClaimants = reuseRegionClaimants
+    ? previous.normalized.regionClaimants
+    : Object.fromEntries(
+      Object.entries(nextWorld.regionClaimants ?? {})
+        // Claimants share the owner namespace — they are compared against owners to
+        // paint a disputed region's stripes (Nations.jsx).
+        .map(([regionId, claimants]) => [
+          normalizeOptionalString(regionId),
+          normalizeArray(claimants).map((name) => resolveOwner(name)).filter(Boolean).slice(0, 4),
+        ])
+        .filter(([regionId, claimants]) => regionId && claimants.length),
+    );
 
   // Settled disputes: unique region ids, none of them disputed again — a live
   // claimant list is the region's state and wins.
-  const settledRegionClaims = [...new Set(
-    normalizeArray(nextWorld.settledRegionClaims).map((regionId) => normalizeOptionalString(regionId)),
-  )].filter((regionId) => regionId && !Object.prototype.hasOwnProperty.call(regionClaimants, regionId));
+  const reuseSettledRegionClaims = unchanged("settledRegionClaims") && reuseRegionClaimants;
+  const settledRegionClaims = reuseSettledRegionClaims
+    ? previous.normalized.settledRegionClaims
+    : [...new Set(
+      normalizeArray(nextWorld.settledRegionClaims).map((regionId) => normalizeOptionalString(regionId)),
+    )].filter((regionId) => regionId && !Object.prototype.hasOwnProperty.call(regionClaimants, regionId));
 
   // Legal sovereignty is SPARSE: only regions whose lawful sovereign differs
   // from the polity administering them. A row that agrees with the controller
   // is dropped (a save from before the ledger simply has none), and owners
   // fold through the same alias map as everything else.
-  const regionSovereigntyOverrides = Object.fromEntries(
-    Object.entries(nextWorld.regionSovereigntyOverrides ?? {})
-      .map(([regionId, ownerCode]) => [normalizeOptionalString(regionId), resolveOwner(ownerCode)])
-      .filter(([regionId, ownerCode]) => {
-        if (!regionId || !ownerCode) return false;
-        const controller = normalizeOptionalString(regionOwnershipOverrides[regionId]);
-        return !controller || controller.toLowerCase() !== ownerCode.toLowerCase();
-      }),
-  );
+  const reuseRegionSovereignty = unchanged("regionSovereigntyOverrides") && reuseRegionOwnership;
+  const regionSovereigntyOverrides = reuseRegionSovereignty
+    ? previous.normalized.regionSovereigntyOverrides
+    : Object.fromEntries(
+      Object.entries(nextWorld.regionSovereigntyOverrides ?? {})
+        .map(([regionId, ownerCode]) => [normalizeOptionalString(regionId), resolveOwner(ownerCode)])
+        .filter(([regionId, ownerCode]) => {
+          if (!regionId || !ownerCode) return false;
+          const controller = normalizeOptionalString(regionOwnershipOverrides[regionId]);
+          return !controller || controller.toLowerCase() !== ownerCode.toLowerCase();
+        }),
+    );
 
-  const internationalReputation = Object.fromEntries(
-    Object.entries(nextWorld.internationalReputation ?? {})
-      .map(([polityCode, value]) => [normalizeOptionalString(polityCode), Number(value)])
-      .filter(([polityCode, value]) => polityCode && Number.isFinite(value))
-      .map(([polityCode, value]) => [polityCode, Math.max(0, Math.min(100, Math.round(value)))]),
-  );
+  const internationalReputation = unchanged("internationalReputation")
+    ? previous.normalized.internationalReputation
+    : Object.fromEntries(
+      Object.entries(nextWorld.internationalReputation ?? {})
+        .map(([polityCode, value]) => [normalizeOptionalString(polityCode), Number(value)])
+        .filter(([polityCode, value]) => polityCode && Number.isFinite(value))
+        .map(([polityCode, value]) => [polityCode, Math.max(0, Math.min(100, Math.round(value)))]),
+    );
 
   // Same treatment as reputation: name-keyed, integer, 0-100.
-  const intelligence = Object.fromEntries(
-    Object.entries(nextWorld.intelligence ?? {})
-      .map(([polityCode, value]) => [normalizeOptionalString(polityCode), Number(value)])
-      .filter(([polityCode, value]) => polityCode && Number.isFinite(value))
-      .map(([polityCode, value]) => [polityCode, Math.max(0, Math.min(100, Math.round(value)))]),
-  );
+  const intelligence = unchanged("intelligence")
+    ? previous.normalized.intelligence
+    : Object.fromEntries(
+      Object.entries(nextWorld.intelligence ?? {})
+        .map(([polityCode, value]) => [normalizeOptionalString(polityCode), Number(value)])
+        .filter(([polityCode, value]) => polityCode && Number.isFinite(value))
+        .map(([polityCode, value]) => [polityCode, Math.max(0, Math.min(100, Math.round(value)))]),
+    );
   const SPY_STATUSES = ["active", "discovered", "turned", "exposed", "recalled"];
-  const spies = normalizeArray(nextWorld.spies)
+  const spies = unchanged("spies") ? previous.normalized.spies : normalizeArray(nextWorld.spies)
     .map((spy, index) => {
       const target = normalizeOptionalString(spy?.target || spy?.polity);
       if (!target) return null;
@@ -3708,23 +3744,27 @@ export const normalizeWorldState = (world) => {
   // did not, so one applyEventImpacts change.code landed under two different keys
   // (countryTags["RUSSIA"] but internationalReputation["Russia"]). Harmless while
   // owners were uppercase GADM codes; a silent desync the moment they are names.
-  const countryTags = Object.fromEntries(
-    Object.entries(nextWorld.countryTags ?? {})
-      .map(([country, list]) => [normalizeOptionalString(country), normalizeTagList(list)])
-      .filter(([country, list]) => country && list.length),
-  );
+  const countryTags = unchanged("countryTags")
+    ? previous.normalized.countryTags
+    : Object.fromEntries(
+      Object.entries(nextWorld.countryTags ?? {})
+        .map(([country, list]) => [normalizeOptionalString(country), normalizeTagList(list)])
+        .filter(([country, list]) => country && list.length),
+    );
 
   // Persisted per-country stat sheets, each through the native Stats
   // compatibility boundary (countryStats.js): a legacy sheet stays readable, and
   // a component ledger recomputes its population/GDP aggregates on every read.
   // Explicit, not via the spread — new-field trap.
-  const countryStats = Object.fromEntries(
-    Object.entries(nextWorld.countryStats ?? {})
-      .map(([code, sheet]) => [normalizeOptionalString(code), normalizeCountryStatSheet(sheet)])
-      .filter(([code, sheet]) => code && sheet && typeof sheet === "object"),
-  );
+  const countryStats = unchanged("countryStats")
+    ? previous.normalized.countryStats
+    : Object.fromEntries(
+      Object.entries(nextWorld.countryStats ?? {})
+        .map(([code, sheet]) => [normalizeOptionalString(code), normalizeCountryStatSheet(sheet)])
+        .filter(([code, sheet]) => code && sheet && typeof sheet === "object"),
+    );
 
-  const units = normalizeUnits(nextWorld.units);
+  const units = unchanged("units") ? previous.normalized.units : normalizeUnits(nextWorld.units);
 
   // The ledgers resolve their polity names against the overrides computed above,
   // not the raw input, so a renamed polity folds onto one identity.
@@ -3738,6 +3778,11 @@ export const normalizeWorldState = (world) => {
   const diplomaticIdentityIndex = (normalizeArray(nextWorld.relations).length || normalizeArray(nextWorld.agreements).length)
     ? buildPolityIdentityIndex(diplomaticIdentityWorld)
     : null;
+
+  // A project's owner folds through the same resolver as everything else, so a
+  // change to polityOverrides rebuilds the board even when the field itself is
+  // reference-identical.
+  const reuseProjects = unchanged("projects") && reusePolityOverrides;
 
   return {
     ...WORLD_DEFAULTS,
@@ -3780,7 +3825,7 @@ export const normalizeWorldState = (world) => {
     settledRegionClaims,
     regionOwnershipOverrides,
     regionSovereigntyOverrides,
-    simulationHistory: normalizeArray(nextWorld.simulationHistory)
+    simulationHistory: unchanged("simulationHistory") ? previous.normalized.simulationHistory : normalizeArray(nextWorld.simulationHistory)
       .map((entry, index, entries) => {
         if (!entry || typeof entry !== "object") {
           return null;
@@ -3821,8 +3866,8 @@ export const normalizeWorldState = (world) => {
         };
       })
       .filter(Boolean),
-    markers: normalizeMarkers(nextWorld.markers),
-    reports: normalizeReports(nextWorld.reports),
+    markers: unchanged("markers") ? previous.normalized.markers : normalizeMarkers(nextWorld.markers),
+    reports: unchanged("reports") ? previous.normalized.reports : normalizeReports(nextWorld.reports),
     chatKnowledgeCursors: (() => {
       const source = nextWorld.chatKnowledgeCursors;
       if (!source || typeof source !== "object" || Array.isArray(source)) return {};
@@ -3845,7 +3890,7 @@ export const normalizeWorldState = (world) => {
     // and no colour — and where the renamed polity is the PLAYER'S, it is their own
     // programme sitting in the Foreign column with both of its controls gone. Idempotent,
     // so a board already correct reads back unchanged.
-    projects: normalizeProjects(nextWorld.projects).map((project) => {
+    projects: reuseProjects ? previous.normalized.projects : normalizeProjects(nextWorld.projects).map((project) => {
       const owner = resolveOwner(project.ownerCode);
       return owner === project.ownerCode ? project : { ...project, ownerCode: owner };
     }),
@@ -3864,16 +3909,18 @@ export const normalizeWorldState = (world) => {
     diplomaticLedgerVersion: Number.isFinite(Number(nextWorld.diplomaticLedgerVersion))
       ? Math.max(0, Math.trunc(Number(nextWorld.diplomaticLedgerVersion)))
       : 0,
-    wars: normalizeWorldWars(nextWorld.wars),
+    wars: unchanged("wars") ? previous.normalized.wars : normalizeWorldWars(nextWorld.wars),
     storylines: normalizeWorldStorylines(nextWorld.storylines),
     simulationRules: normalizeOptionalString(nextWorld.simulationRules),
     startingTimelineText: normalizeOptionalString(nextWorld.startingTimelineText),
-    economyEngine: normalizeEconomyEngine(nextWorld.economyEngine),
+    economyEngine: unchanged("economyEngine") ? previous.normalized.economyEngine : normalizeEconomyEngine(nextWorld.economyEngine),
     units,
     // Pruned against the units computed just above, on every read AND write, so
     // an order clears itself the moment its unit actually arrives — see
     // pruneSatisfiedUnitOrders.
-    pendingUnitOrders: pruneSatisfiedUnitOrders(units, normalizePendingUnitOrders(nextWorld.pendingUnitOrders)),
+    pendingUnitOrders: unchanged("pendingUnitOrders") && unchanged("units")
+      ? previous.normalized.pendingUnitOrders
+      : pruneSatisfiedUnitOrders(units, normalizePendingUnitOrders(nextWorld.pendingUnitOrders)),
     // Which unit system last took a turn on this save: "beta", "classic", or ""
     // for a save written before the two were distinguishable. Stamped by
     // applyEventImpactsToWorld, never by a normalizer — this module has no idea
@@ -4017,7 +4064,13 @@ export const readWorldStateView = async ({ force = false } = {}) => {
   }
 
   const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-  const normalized = normalizeWorldState(raw);
+  // Reuse the scopes the new raw did not move. A forced rebuild skips the pair
+  // on purpose: force means "read the bytes again", including an in-place patch
+  // the caller may have made since the cached pair was taken.
+  const previous = !force && worldViewRaw && worldViewNormalized
+    ? { raw: worldViewRaw, normalized: worldViewNormalized }
+    : null;
+  const normalized = normalizeWorldState(raw, { previous });
   const elapsed = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt;
   reportPerfOperation("normalize world read-only view", elapsed, { warnAt: 40 });
 
