@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 
 import {
   AIR_EDGE_MAX,
+  ANTI_COUNTERS,
+  ANTI_SUPPORT_MAX,
   COMBAT_LOSS_MAX,
   COMBAT_LOSS_MIN,
   CONTROL_THRESHOLD,
@@ -249,6 +251,100 @@ test("every domain case is deterministic", () => {
     controllerPolity: "France",
     sideA: [side("France", "partial", [unit("f1", "infantry", 70), unit("f2", "air", 50), unit("f3", "naval", 40)])],
     sideB: [side("Prussia", "total", [unit("p1", "armor", 90), unit("p2", "naval", 60)])],
+  };
+  assert.deepEqual(resolveEngagement(input), resolveEngagement(input));
+});
+
+// A battle between one French formation and one Prussian formation, both at
+// peacetime so the mobilization multiplier is the identity, at a fixed key.
+const duel = (sideAUnits, sideBUnits) => resolveEngagement({
+  warId: "war-a-b", regionId: "alsace", date: "1870-07-19", round: 0,
+  controllerPolity: "France",
+  sideA: [side("France", "peacetime", sideAUnits)],
+  sideB: [side("Prussia", "peacetime", sideBUnits)],
+});
+
+test("the anti-type table names only declared unit types", () => {
+  const declared = Object.keys(UNIT_COMBAT_WEIGHT);
+  for (const [counter, targets] of Object.entries(ANTI_COUNTERS)) {
+    assert.ok(declared.includes(counter), `unknown counter ${counter}`);
+    assert.ok(Array.isArray(targets) && targets.length > 0, `${counter} has no targets`);
+    for (const target of targets) {
+      assert.ok(declared.includes(target), `${counter} names unknown target ${target}`);
+    }
+  }
+});
+
+test("the land triangle gives the counter holder a positive anti edge", () => {
+  const cases = [
+    [unit("a1", "artillery", 100), unit("b1", "armor", 100)],
+    [unit("a1", "armor", 100), unit("b1", "infantry", 100)],
+    [unit("a1", "infantry", 100), unit("b1", "artillery", 100)],
+  ];
+  for (const [a, b] of cases) {
+    const result = duel([a], [b]);
+    assert.ok(result.antiEdge > 0, `${a.type} counters ${b.type}`);
+    assert.ok(result.sideA.antiPower > 0, `${a.type} has counter power`);
+    assert.equal(result.sideB.antiPower, 0, `${b.type} counters nothing here`);
+  }
+});
+
+test("artillery counters the air and naval domains too", () => {
+  for (const domain of ["air", "naval"]) {
+    const result = duel([unit("a1", "artillery", 100)], [unit("b1", domain, 100)]);
+    assert.ok(result.antiEdge > 0, `artillery counters ${domain}`);
+    assert.ok(result.sideA.antiPower > 0);
+    assert.equal(result.sideB.antiPower, 0);
+  }
+});
+
+test("the anti-type factor scales raw power and is bounded", () => {
+  const result = duel([unit("a1", "artillery", 100)], [unit("b1", "armor", 100)]);
+  // Artillery holds the whole counter score here (armour counters nothing on
+  // this field), so the edge is exactly +1.
+  assert.equal(result.antiEdge, 1);
+  const plainA = unitCombatPower(unit("a1", "artillery", 100));
+  const plainB = unitCombatPower(unit("b1", "armor", 100));
+  assert.equal(result.sideA.power, plainA * (1 + ANTI_SUPPORT_MAX));
+  assert.equal(result.sideB.power, plainB * (1 - ANTI_SUPPORT_MAX));
+  assert.ok(result.sideA.power <= plainA * (1 + ANTI_SUPPORT_MAX));
+  assert.ok(result.sideA.power >= plainA * (1 - ANTI_SUPPORT_MAX));
+});
+
+test("a battle with no connecting matchup is inert to the anti-type rule", () => {
+  const result = duel([unit("a1", "infantry", 100)], [unit("b1", "infantry", 100)]);
+  assert.equal(result.antiEdge, 0);
+  assert.equal(result.sideA.antiPower, 0);
+  assert.equal(result.sideB.antiPower, 0);
+  // The anti-type factor is exactly 1, so the raw power is the plain side score
+  // and the loss fractions are the shares the domain rules already produced.
+  assert.equal(result.sideA.power, unitCombatPower(unit("a1", "infantry", 100)));
+  assert.equal(result.sideB.power, unitCombatPower(unit("b1", "infantry", 100)));
+  assert.equal(
+    result.sideA.lossFraction,
+    combatLossFraction(result.sideB.adjustedPower / (result.sideA.adjustedPower + result.sideB.adjustedPower)),
+  );
+});
+
+test("the anti-type factor leaves the air edge untouched", () => {
+  const withArtillery = duel(
+    [unit("a1", "artillery", 80), unit("a2", "infantry", 80)],
+    [unit("b1", "air", 60), unit("b2", "infantry", 80)],
+  );
+  const without = duel(
+    [unit("a2", "infantry", 80)],
+    [unit("b1", "air", 60), unit("b2", "infantry", 80)],
+  );
+  assert.equal(withArtillery.airEdge, without.airEdge);
+  assert.notEqual(withArtillery.sideA.power, without.sideA.power, "the matchup still bites power");
+});
+
+test("every anti-type case is deterministic", () => {
+  const input = {
+    warId: "war-a-b", regionId: "alsace", date: "1870-07-19", round: 4,
+    controllerPolity: "France",
+    sideA: [side("France", "peacetime", [unit("f1", "artillery", 70), unit("f2", "armor", 40)])],
+    sideB: [side("Prussia", "partial", [unit("p1", "naval", 80), unit("p2", "infantry", 60)])],
   };
   assert.deepEqual(resolveEngagement(input), resolveEngagement(input));
 });

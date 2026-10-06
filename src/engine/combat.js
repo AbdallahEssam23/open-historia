@@ -11,6 +11,11 @@
 // gives them a tactical effect a land force does not have. The rules are inert
 // unless a side actually fields an air or naval unit, so a land-only battle
 // resolves exactly as it did before the domains existed.
+//
+// A formation also has a tactical effect against the types it counters: the
+// artillery arm plus a land triangle. This is a raw-power factor beside naval
+// support, and it is inert unless a matchup in the table actually connects the
+// two sides.
 
 // How much a formation of this type is worth per point of strength. Ordered so
 // heavier formations weigh more; first-draft calibration, and the tests assert
@@ -58,6 +63,21 @@ export const UNIT_DOMAIN = Object.freeze({
 // assert the ordering and the bounds, never a magnitude.
 export const AIR_EDGE_MAX = 0.35;
 export const NAVAL_SUPPORT_MAX = 0.25;
+
+// The counter arm plus a land triangle: artillery reaches armour with direct
+// fire, air with anti-aircraft fire and ships with coastal fire; armour beats
+// infantry in the open; infantry beats artillery in close terrain. One named
+// table of matchups, not a full type-versus-type matrix.
+export const ANTI_COUNTERS = Object.freeze({
+  artillery: Object.freeze(["armor", "air", "naval"]),
+  armor: Object.freeze(["infantry"]),
+  infantry: Object.freeze(["artillery"]),
+});
+
+// A side whose counter score dominates multiplies its raw power by at most this
+// share. First-draft calibration, and the tests assert the bounds, never a
+// magnitude.
+export const ANTI_SUPPORT_MAX = 0.2;
 
 const name = (value) => String(value ?? "").trim();
 const foldKey = (value) => name(value).toLocaleLowerCase();
@@ -139,6 +159,33 @@ const domainPower = (side, domain) => {
   return power;
 };
 
+// A side's power grouped by unit type, mobilized exactly the way scoreSide and
+// domainPower mobilize it, so the three read the same quantity.
+const powerByType = (side) => {
+  const byType = {};
+  for (const entry of side) {
+    const multiplier = mobilizationCombatMultiplier(entry?.posture);
+    for (const unit of entry?.units ?? []) {
+      const type = name(unit?.type) || "infantry";
+      byType[type] = (byType[type] ?? 0) + unitCombatPower(unit) * multiplier;
+    }
+  }
+  return byType;
+};
+
+// How hard one side's counters bite the other: the sum, over every matchup in
+// the table, of the counter type's power times the countered type's power. It is
+// zero when no matchup connects the sides, which is what keeps the rule inert.
+const counterScore = (attackerByType, targetByType) => {
+  let score = 0;
+  for (const [counter, targets] of Object.entries(ANTI_COUNTERS)) {
+    const power = attackerByType[counter] ?? 0;
+    if (!power) continue;
+    for (const target of targets) score += power * (targetByType[target] ?? 0);
+  }
+  return score;
+};
+
 // A signed share in [-1, 1]: +1 when A holds the whole domain, 0 when the sides
 // are equal or neither fields the domain, -1 when B holds the whole of it.
 const domainEdge = (powerA, powerB) => {
@@ -155,6 +202,11 @@ const adjustLoss = (loss, sideEdge) =>
 // The naval edge scales a side's raw power before the jitter. Absent any naval
 // power on either side it is exactly 1, so the arithmetic is unchanged.
 const navalFactor = (sideEdge) => 1 + NAVAL_SUPPORT_MAX * sideEdge;
+
+// The anti-type factor scales a side's raw power by its share of the counter
+// score, before the jitter. Absent any connecting matchup the edge is 0 and the
+// factor is exactly 1, so the arithmetic is unchanged.
+const antiFactor = (sideEdge) => 1 + ANTI_SUPPORT_MAX * sideEdge;
 
 // A winning force can only finish off a formation it can reach. Land is reached
 // by any force; air needs air power; a fleet needs air or naval power.
@@ -210,8 +262,13 @@ export const resolveEngagement = ({
   const navalB = domainPower(sideB, "naval");
   const airEdge = domainEdge(airA, airB);
   const navalEdge = domainEdge(navalA, navalB);
-  const powerA = scoreSide(sideA) * navalFactor(navalEdge);
-  const powerB = scoreSide(sideB) * navalFactor(-navalEdge);
+  const byTypeA = powerByType(sideA);
+  const byTypeB = powerByType(sideB);
+  const antiA = counterScore(byTypeA, byTypeB);
+  const antiB = counterScore(byTypeB, byTypeA);
+  const antiEdge = domainEdge(antiA, antiB);
+  const powerA = scoreSide(sideA) * navalFactor(navalEdge) * antiFactor(antiEdge);
+  const powerB = scoreSide(sideB) * navalFactor(-navalEdge) * antiFactor(-antiEdge);
   const adjustedA = powerA * (COMBAT_JITTER_MIN + COMBAT_JITTER_SPAN * engagementRoll(`${key}|a`));
   const adjustedB = powerB * (COMBAT_JITTER_MIN + COMBAT_JITTER_SPAN * engagementRoll(`${key}|b`));
   const total = adjustedA + adjustedB;
@@ -252,8 +309,9 @@ export const resolveEngagement = ({
     controlChange,
     airEdge,
     navalEdge,
-    sideA: { power: powerA, adjustedPower: adjustedA, lossFraction: lossA, airPower: airA, navalPower: navalA, units: a.units },
-    sideB: { power: powerB, adjustedPower: adjustedB, lossFraction: lossB, airPower: airB, navalPower: navalB, units: b.units },
+    antiEdge,
+    sideA: { power: powerA, adjustedPower: adjustedA, lossFraction: lossA, airPower: airA, navalPower: navalA, antiPower: antiA, units: a.units },
+    sideB: { power: powerB, adjustedPower: adjustedB, lossFraction: lossB, airPower: airB, navalPower: navalB, antiPower: antiB, units: b.units },
     casualties: [...a.casualties, ...b.casualties],
   };
 };
