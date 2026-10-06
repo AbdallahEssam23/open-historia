@@ -34,7 +34,8 @@ const IS_BETA = CHANNEL === "beta";
 // and the Start Menu shortcut the installer creates. It has to match `productName`
 // in electron-builder.beta.yml, because that is the name the player sees, and
 // nothing derives one from the other.
-const BETA_APP_NAME = "Open Historia Beta";
+const APP_NAME = "Historia Nova";
+const BETA_APP_NAME = "Historia Nova Beta";
 
 // Electron derives userData — the Chromium profile, and with it the single-instance
 // lock — from the app name, which for both builds would otherwise be package.json's
@@ -60,7 +61,7 @@ if (IS_BETA) app.setName(BETA_APP_NAME);
 // told an update exists by one feed while the other cannot find it.
 // server/betaPackaging.test.js is what keeps the two honest.
 const BETA_UPDATE_MANIFEST =
-  "https://github.com/Open-Historia/open-historia/releases/download/desktop-beta/latest.json";
+  "https://github.com/AbdallahEssam23/open-historia/releases/download/desktop-beta/latest.json";
 
 // Everything the app writes lives under Electron's per-user data directory.
 // Program Files is read-only for a normal user and the app bundle is read-only
@@ -80,7 +81,7 @@ const DATA_DIR = path.join(USER_ROOT, "server", "data");
 // app's copy saves a tester that download; with no stable install the fetcher just
 // creates the folder, and a later stable install finds the map already there.
 // Unpackaged runs keep their own, so a dev build cannot scribble on an install.
-const STABLE_LIBRARY_NAME = "open-historia";
+const STABLE_LIBRARY_NAME = "historia-nova";
 const ASSETS_DIR = IS_BETA && app.isPackaged
   ? path.join(app.getPath("appData"), STABLE_LIBRARY_NAME, "public", "assets")
   : path.join(USER_ROOT, "public", "assets");
@@ -476,7 +477,7 @@ const handlePageGone = (win, details, { quitting: isQuitting = false } = {}) => 
   const reason = String(details?.reason || "unknown");
   if (reason === "clean-exit" || isQuitting || !win || win.isDestroyed()) return false;
   logMain("error", "window.pageGone", `The game's page stopped (${reason}).`, { reason, exitCode: details?.exitCode });
-  const name = IS_BETA ? BETA_APP_NAME : "Open Historia";
+  const name = IS_BETA ? BETA_APP_NAME : APP_NAME;
   const { message, detail } = pageGoneWording(reason, name);
   dialog
     .showMessageBox(win, { type: "error", title: name, message, detail, buttons: ["Reload", "Quit"], defaultId: 0, cancelId: 1, noLink: true })
@@ -499,7 +500,7 @@ const createMainWindow = () => {
     autoHideMenuBar: true,
     backgroundColor: "#131315",
     show: false,
-    title: IS_BETA ? BETA_APP_NAME : "Open Historia",
+    title: IS_BETA ? BETA_APP_NAME : APP_NAME,
     // Explicit even though it's already Electron's default — the whole reason
     // this window needs a context menu at all is to surface what this enables.
     webPreferences: { spellcheck: true },
@@ -620,7 +621,7 @@ const startServer = async () => {
   const requested = Number(process.env.PORT) || 3000;
   const port = await findFreePort(requested);
   if (port !== requested) {
-    console.log(`Port ${requested} is in use — starting Open Historia on ${port} instead.`);
+    console.log(`Port ${requested} is in use — starting ${APP_NAME} on ${port} instead.`);
     logMain("warn", "server.portInUse", `Port ${requested} is in use; using ${port} instead.`);
   }
   // Both server.js and the loadURL below read this, so they cannot disagree.
@@ -671,7 +672,7 @@ const boot = async () => {
 const reportFatalBootError = (error) => {
   const message = String((error && error.message) || error || "Unknown error");
   logMain("error", "main.bootFailed", message, { code: error && error.code });
-  const name = IS_BETA ? BETA_APP_NAME : "Open Historia";
+  const name = IS_BETA ? BETA_APP_NAME : APP_NAME;
   const portClash = (error && error.code === "EADDRINUSE") || message.includes("EADDRINUSE") || message.startsWith("No free port");
   dialog.showErrorBox(
     `${name} could not start`,

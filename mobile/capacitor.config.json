@@ -1,10 +1,10 @@
 {
-  "appId": "io.github.arkniem.paxhistoria",
-  "appName": "Open Historia",
+  "appId": "io.github.abdallahessam23.historianova",
+  "appName": "Historia Nova",
   "webDir": "www",
   "server": {
     "androidScheme": "http",
-    "hostname": "app.paxhistoria",
+    "hostname": "app.historianova",
     "cleartext": true
   },
   "android": {

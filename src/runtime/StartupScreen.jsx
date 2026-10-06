@@ -1,6 +1,7 @@
 /*! Open Historia — portions (loading-screen cycling + creator credit) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import React, { useEffect, useState } from "react";
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP } from "./mobileUi.js";
+import { BRAND_NAME } from "./brand.js";
 // Cinzel + EB Garamond from the bundle rather than Google Fonts: no request to
 // Google on every start, and the right faces with no network. The Arabic faces
 // (Amiri for these headings) come from styles.css as --oh-font-display.
@@ -428,9 +429,9 @@ const StartupScreen = ({
       {/* Title row */}
       <div className="ss-top-row">
       <div className="ss-identity">
-      <img className="ss-logo" src="/logo.png" alt="Open Historia" />
+      <img className="ss-logo" src="/logo.png" alt={BRAND_NAME} />
       <div className="ss-title-block">
-      <div className="ss-game-name">Open Historia</div>
+      <div className="ss-game-name">{BRAND_NAME}</div>
       <div className="ss-title">
       {timedOut ? "Continuing…" : "Preparing the World"}
       </div>

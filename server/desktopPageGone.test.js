@@ -39,9 +39,10 @@ const load = ({ isBeta = false, response = 0 } = {}) => {
     "logMain",
     "app",
     "IS_BETA",
+    "APP_NAME",
     "BETA_APP_NAME",
     `${source.slice(start, end)}\nreturn { handlePageGone };`,
-  )(dialog, logMain, app, isBeta, "Open Historia Beta");
+  )(dialog, logMain, app, isBeta, "Historia Nova", "Historia Nova Beta");
   return { handlePageGone, logs, dialogs, quits };
 };
 
@@ -62,7 +63,7 @@ test("a page that runs out of memory is logged, explained, and Reload brings the
   assert.equal(logs[0].event, "window.pageGone");
   assert.equal(logs[0].data.reason, "oom", "the diagnostics log says why");
   assert.equal(dialogs.length, 1);
-  assert.equal(dialogs[0].message, "Open Historia ran out of memory.");
+  assert.equal(dialogs[0].message, "Historia Nova ran out of memory.");
   assert.ok(dialogs[0].detail.includes("Reload"), "the player is told the way back");
   assert.deepEqual(dialogs[0].buttons, ["Reload", "Quit"]);
   await settle();
@@ -74,7 +75,7 @@ test("Quit quits, and any other reason gets the plain wording", async () => {
   const { handlePageGone, dialogs, quits } = load({ response: 1 });
   const win = makeWindow();
   assert.equal(handlePageGone(win, { reason: "crashed", exitCode: 1 }), true);
-  assert.equal(dialogs[0].message, "Open Historia's page stopped unexpectedly.");
+  assert.equal(dialogs[0].message, "Historia Nova's page stopped unexpectedly.");
   assert.ok(dialogs[0].detail.includes("(crashed)"));
   await settle();
   assert.equal(quits.length, 1);
@@ -97,8 +98,8 @@ test("the beta says its own name, and a window closed during the dialog is left 
   const { handlePageGone, dialogs, quits } = load({ isBeta: true, response: 0 });
   const win = makeWindow();
   handlePageGone(win, { reason: "oom" });
-  assert.equal(dialogs[0].title, "Open Historia Beta");
-  assert.equal(dialogs[0].message, "Open Historia Beta ran out of memory.");
+  assert.equal(dialogs[0].title, "Historia Nova Beta");
+  assert.equal(dialogs[0].message, "Historia Nova Beta ran out of memory.");
   win.destroyed = true;
   await settle();
   assert.equal(win.reloads, 0);

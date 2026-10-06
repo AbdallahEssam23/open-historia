@@ -6,6 +6,7 @@
 
 import { connectBestNode } from "./nodeConnect.js";
 import { isNativeApp } from "./nativeBoot.js";
+import { BRAND_NAME, SOURCE_URL } from "../brand.js";
 
 const ENTERED_KEY = "oh:entered";
 const FONTS_HREF = "https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap";
@@ -187,7 +188,7 @@ const demoAcknowledged = () => {
                          el("div", { className: "oh-modal-box" },
                             el("h2", { className: "oh-modal-h", id: "oh-demo-h", textContent: "This is a demo of the game" }),
                             el("p", { className: "oh-modal-p" },
-                               "Open Historia is meant to be played in the ",
+                               `${BRAND_NAME} is meant to be played in the `,
                                el("b", { textContent: "desktop app" }),
                                ", which runs the world map from your own machine.",
                             ),
@@ -198,7 +199,7 @@ const demoAcknowledged = () => {
                             ),
                             el("p", { className: "oh-modal-p", textContent: "Either way, your games are saved on this device." }),
                             el("div", { className: "oh-modal-acts" },
-                               el("a", { className: "oh-btn ghost", href: "https://github.com/Open-Historia/open-historia/releases/tag/desktop-stable", target: "_blank", rel: "noopener", textContent: "Get the desktop app" }),
+                               el("a", { className: "oh-btn ghost", href: `${SOURCE_URL}/releases`, target: "_blank", rel: "noopener", textContent: "Get the desktop app" }),
                                go,
                             ),
                          ),
@@ -222,20 +223,19 @@ const demoAcknowledged = () => {
         renderConnection(null); // initial "finding…" state
         // Starts disabled: renderConnection enables it once a node (or the origin
         // fallback) is settled, so nobody can enter a half-connected session.
-        const play = el("button", { className: "oh-btn primary", textContent: "⚔  Enter Open Historia", onclick: () => showDemoNotice(enter) });
+        const play = el("button", { className: "oh-btn primary", textContent: `⚔  Enter ${BRAND_NAME}`, onclick: () => showDemoNotice(enter) });
         play.disabled = true;
         playBtn = play;
+        // The AGPL section 13 offer: this build's complete source is one link away.
         const foot = el("div", { className: "oh-foot" },
-                        el("a", { href: "https://github.com/Open-Historia/open-historia", target: "_blank", rel: "noopener", textContent: "GitHub" }),
-                        el("a", { href: "https://discord.gg/QaqAK7fQAg", target: "_blank", rel: "noopener", textContent: "Discord" }),
-                        el("a", { href: "https://github.com/Open-Historia/open-historia-node", target: "_blank", rel: "noopener", textContent: "Host a node" }),
+                        el("a", { href: SOURCE_URL, target: "_blank", rel: "noopener", textContent: "Source code (AGPL-3.0)" }),
         );
 
         const card = el("div", { className: "oh-card" },
                         el("span", { className: "oh-badge" },
                            el("img", { className: "oh-badge-icon", src: MARK_SRC, alt: "", width: 16, height: 16 }),
                            "Free & open source · community-hosted alternative to ", el("b", { textContent: "Pax Historia" })),
-                        el("h1", { className: "oh-logo" }, "Open ", el("span", { className: "oh-grad", textContent: "Historia" })),
+                        el("h1", { className: "oh-logo" }, "Historia ", el("span", { className: "oh-grad", textContent: "Nova" })),
                         el("p", { className: "oh-tag", textContent: "An AI-driven alternate-history strategy game. Lead any nation on a living world map and reshape history." }),
                         el("div", { className: "oh-rule" }),
                         connPanel,

@@ -1,4 +1,5 @@
 import React, { useId, useMemo, useState } from "react";
+import { BRAND_NAME } from "../../runtime/brand.js";
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
@@ -208,7 +209,7 @@ export const ApiSetupPrompt = ({ providerLabel = "the selected provider", missin
           <div style={{ fontSize: "1.05rem", fontWeight: 900 }}>Set up your AI provider</div>
         )}
         <div style={{ color: "rgba(255,255,255,0.64)", fontSize: "0.8rem", lineHeight: 1.55, marginTop: "0.5rem" }}>
-          Open Historia writes every turn, advisor reply and diplomatic message with an AI model, and {providerLabel} has {missing} missing.
+          {BRAND_NAME} writes every turn, advisor reply and diplomatic message with an AI model, and {providerLabel} has {missing} missing.
           Until it is set, time skips fall back to canned events and the advisor cannot answer. Paste your details below and you are ready to play.
         </div>
 

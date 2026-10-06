@@ -16,7 +16,7 @@ android {
     namespace "io.github.arkniem.openhistoria"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId ohBeta ? "io.github.arkniem.paxhistoria.beta" : "io.github.arkniem.paxhistoria"
+        applicationId ohBeta ? "io.github.abdallahessam23.historianova.beta" : "io.github.abdallahessam23.historianova"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // From the workflow's run number (OH_ANDROID_BUILD), so every published
@@ -25,7 +25,7 @@ android {
         versionCode = ((System.getenv("OH_ANDROID_BUILD") ?: "1") as Integer)
         versionName = "1.0." + (System.getenv("OH_ANDROID_BUILD") ?: "0") + (ohBeta ? "-beta" : "")
         manifestPlaceholders.putAll([
-            appLabel: ohBeta ? "Open Historia Beta" : "Open Historia",
+            appLabel: ohBeta ? "Historia Nova Beta" : "Historia Nova",
             appIcon: ohBeta ? "@mipmap/ic_launcher_beta" : "@mipmap/ic_launcher",
             appIconRound: ohBeta ? "@mipmap/ic_launcher_beta_round" : "@mipmap/ic_launcher_round",
         ])

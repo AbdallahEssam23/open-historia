@@ -5,6 +5,8 @@
 // React component, because a save can finish from anywhere — the library, the
 // Workshop, the settings — and none of them has to mount anything for it. The
 // interface translator picks the text up as it appears; the file name opts out.
+import { BRAND_NAME } from "../brand.js";
+
 const NOTICE_ID = "oh-saved-notice";
 const VISIBLE_MS = 8000;
 
@@ -71,7 +73,7 @@ export const showSavedNotice = ({ fileName, onShare = null }) => {
   Object.assign(title.style, { fontSize: "0.86rem", fontWeight: "700" });
   const place = document.createElement("div");
   place.setAttribute("data-no-translate", "");
-  place.textContent = `Open Historia / ${fileName}`;
+  place.textContent = `${BRAND_NAME} / ${fileName}`;
   Object.assign(place.style, { color: "rgba(255,255,255,0.62)", fontSize: "0.74rem", overflowWrap: "anywhere" });
   text.append(title, place);
   box.append(text);

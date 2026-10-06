@@ -8,7 +8,7 @@ import { ApiSetupPrompt } from "./apiSetupPrompt.jsx";
 import { GameLoadingScreen, useGameLoading } from "./gameLoadingScreen.jsx";
 import { useLibraryState } from "../../runtime/library.js";
 import { presenceFor, useDiscordPresence } from "../../runtime/discordPresence.js";
-import { DISCORD_URL, GITHUB_URL, REDDIT_URL } from "../../runtime/communityLinks.js";
+import { BUG_REPORT_URL, SOURCE_URL } from "../../runtime/communityLinks.js";
 import { useCountryDisplayName } from "../../runtime/polityNames.js";
 import { DateWidget } from "./time";
 import { Other } from "./other";
@@ -645,10 +645,8 @@ const Main = ({
       <Presence open={isSettingsOpen} leaveMs={260}>
         <Suspense fallback={null}>
         <LazySettingsMenu
-          discordUrl={DISCORD_URL}
-          redditUrl={REDDIT_URL}
-          githubUrl={GITHUB_URL}
-          reportBugUrl="https://github.com/Open-Historia/open-historia/issues/new"
+          sourceUrl={SOURCE_URL}
+          reportBugUrl={BUG_REPORT_URL}
           context={{
             gameName: activeGame?.name || "",
             scenarioName: runtimeScenario?.name || "",

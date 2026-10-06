@@ -19,9 +19,8 @@ import {
   useLibraryState,
 } from "../../runtime/library.js";
 import { enqueueStrings } from "../../runtime/translator.js";
-import { DISCORD_URL } from "../../runtime/communityLinks.js";
+import { SOURCE_URL } from "../../runtime/communityLinks.js";
 import { saveBlobToDisk } from "../../runtime/saveFile.js";
-import { DISCORD_BLURPLE, DiscordMark } from "./communityLogos.jsx";
 import {
   dedupeScenarioBundleBackground,
   splitScenarioBundleImage,
@@ -666,11 +665,10 @@ const CommunityPanel = ({ fullPage = false, onImported }) => {
             <a href={HUB_URL} target="_blank" rel="noopener noreferrer" className="oh-tap-row" style={touchFit({ ...pillButton, textDecoration: "none" }, touch)}>
               Open Hub ↗
             </a>
-            {/* The one coloured control on this page, on purpose: it is the brand's
-                own blue, and the corner is where a newcomer looks for the door. */}
-            <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="oh-tap-row" style={touchFit({ ...pillButton, background: DISCORD_BLURPLE, borderColor: "#6d78f5", color: "#fff", fontWeight: 700, gap: "0.45rem", textDecoration: "none" }, touch)}>
-              <DiscordMark size="1.05rem" />
-              Join the Discord
+            {/* The AGPL section 13 offer: the complete source of THIS build, one
+                click away for every network user. */}
+            <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className="oh-tap-row" style={touchFit({ ...pillButton, textDecoration: "none" }, touch)}>
+              Source code (AGPL-3.0)
             </a>
           </div>
 

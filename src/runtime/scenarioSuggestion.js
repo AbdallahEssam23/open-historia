@@ -15,6 +15,7 @@
 import { zipBundle, unzipBundle, looksLikeZip } from "./bundleZip.js";
 import { countChanges, summarizeChangesForComment } from "./scenarioChanges.js";
 import { SUGGESTION_MARKER } from "./hubPosts.js";
+import { BRAND_NAME } from "./brand.js";
 
 export const SUGGESTION_SCHEMA = "open-historia-scenario-suggestion/1";
 const MAX_NOTE = 1500;
@@ -179,7 +180,7 @@ export const buildSuggestionComment = (suggestion, { fileName = "" } = {}) => {
   const lines = summarizeChangesForComment(suggestion.changes);
   const total = counts.details + counts.map;
   return [
-    `**Suggested changes** to this scenario (${total} ${total === 1 ? "change" : "changes"}), made with Open Historia's Suggest changes.`,
+    `**Suggested changes** to this scenario (${total} ${total === 1 ? "change" : "changes"}), made with ${BRAND_NAME}'s Suggest changes.`,
     ...(suggestion.note ? ["", suggestion.note] : []),
     "",
     ...lines.map((line) => `- ${line}`),

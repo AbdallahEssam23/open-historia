@@ -167,8 +167,8 @@ export const sanitizeRelayHeaders = (headers) => {
 // Reflect a known origin instead — the app's own origin, plus the handful of
 // origins a Capacitor shell can run under.
 const APP_SHELL_ORIGINS = new Set([
-  "http://app.paxhistoria",
-  "https://app.paxhistoria",
+  "http://app.historianova",
+  "https://app.historianova",
   "capacitor://localhost",
   "ionic://localhost",
   "http://localhost",

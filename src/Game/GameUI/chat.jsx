@@ -1,5 +1,6 @@
 /*! Open Historia — portions (era diplomacy + mobile panel sizing) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import React, { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { BRAND_NAME } from "../../runtime/brand.js";
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP, isTouchPrimary, useCanHover, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
@@ -2826,7 +2827,7 @@ const Chat = ({ hovered, setHovered, isOpen, onToggle }) => {
                 typeof Notification !== "undefined" &&
                 Notification.permission === "granted"
             ) {
-                const desktop = new Notification(`Open Historia — ${item.sender}`, {
+                const desktop = new Notification(`${BRAND_NAME} — ${item.sender}`, {
                     body: item.preview,
                     tag: `oh-diplomacy-${item.chatId}`,
                     renotify: true,

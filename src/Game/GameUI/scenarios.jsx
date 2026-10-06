@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { BRAND_NAME } from "../../runtime/brand.js";
 import { GAMEPLAY_PROMPT_DEFAULTS } from "../AI/gameplayPrompts.js";
 import {
   activateScenario,
@@ -921,11 +922,11 @@ const ScenarioTopBar = () => {
           width: "2.65rem",
     }}
     >
-    <img alt="Open Historia" src="/logo.png" style={{ height: "1.7rem", width: "1.7rem" }} />
+    <img alt={BRAND_NAME} src="/logo.png" style={{ height: "1.7rem", width: "1.7rem" }} />
     </div>
     <div style={{ minWidth: 0 }}>
     <div style={{ color: "#fff", fontSize: "1rem", fontWeight: 800, letterSpacing: "-0.03em" }}>
-    Open Historia
+    {BRAND_NAME}
     </div>
     <div style={{ color: "rgba(255,255,255,0.48)", fontSize: "0.72rem", marginTop: "0.08rem" }}>
     Server-backed scenario deck

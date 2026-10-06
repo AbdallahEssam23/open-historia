@@ -1,5 +1,6 @@
 /*! Open Historia — scenario-defined National Stats sheet editor © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import React, { useMemo, useState } from "react";
+import { BRAND_NAME } from "../../runtime/brand.js";
 import {
   MAX_CUSTOM_STATS,
   MAX_STAT_SECTIONS,
@@ -474,7 +475,7 @@ const StatsSheetEditor = ({ value, onChange }) => {
     <div className="oh-stats-sheet-editor" style={{ display: "grid", gap: "0.8rem", maxWidth: "100%", minWidth: 0, width: "100%" }}>
       <style>{statsEditorControlCss}</style>
       <div style={{ background: "rgba(59,130,246,0.07)", border: "1px solid rgba(96,165,250,0.15)", borderRadius: "12px", color: "rgba(219,234,254,0.74)", fontSize: "0.7rem", lineHeight: 1.5, padding: "0.72rem 0.78rem" }}>
-        The standard sheet is Open Historia&apos;s modern audited economy/statistics model. Customize it to make the entire National Stats panel scenario-defined: add, remove and reorder sections and values for any era. Custom sheets use general-purpose persistent numeric stats, so a medieval scenario can track timber, silver, grain, ships or legitimacy without being forced to generate modern GDP or unemployment.
+        The standard sheet is {BRAND_NAME}&apos;s modern audited economy/statistics model. Customize it to make the entire National Stats panel scenario-defined: add, remove and reorder sections and values for any era. Custom sheets use general-purpose persistent numeric stats, so a medieval scenario can track timber, silver, grain, ships or legitimacy without being forced to generate modern GDP or unemployment.
       </div>
 
       {!custom && (

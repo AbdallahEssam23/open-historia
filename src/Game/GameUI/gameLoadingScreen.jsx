@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { BRAND_NAME } from "../../runtime/brand.js";
 import { useWorldState } from "../Map/useWorldState.js";
 import { SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT } from "../../runtime/mobileUi.js";
 import {
@@ -144,7 +145,7 @@ export const GameLoadingScreen = ({ gameName = "", scenarioName = "", countryNam
     >
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: "1.35rem", fontWeight: 900, letterSpacing: "0.02em", textShadow }}>
-          {gameName || scenarioName || "Open Historia"}
+          {gameName || scenarioName || BRAND_NAME}
         </div>
         {(scenarioName || countryName) && (
           <div style={{ color: "rgba(255,255,255,0.72)", fontSize: "0.85rem", marginTop: "0.3rem", textShadow }}>

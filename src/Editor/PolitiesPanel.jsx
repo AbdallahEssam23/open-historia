@@ -8,6 +8,7 @@ import Panel from "./Panel.jsx";
 import { inputStyle, pillButton } from "./editorStyles.js";
 import { ColorField, TagField } from "./fields.jsx";
 import { TAG_SUGGESTIONS } from "../runtime/countryTags.js";
+import { BRAND_NAME } from "../runtime/brand.js";
 import { flagImageUrlFromGid } from "../runtime/countryFlags.js";
 import { resolveStockCountryCode } from "../runtime/polityIdentity.js";
 import { acceptFor } from "../runtime/fileAccept.js";
@@ -628,7 +629,7 @@ const PolitiesPanel = ({
             type="button"
             style={pillButton(false)}
             onClick={fillMissingStandardFlags}
-            title="Fill only missing scenario flags from Open Historia's built-in standard country flag catalog"
+            title={`Fill only missing scenario flags from ${BRAND_NAME}'s built-in standard country flag catalog`}
           >
             Fill standard flags
           </button>
@@ -645,7 +646,7 @@ const PolitiesPanel = ({
         </div>
 
         <div style={{ fontSize: 10.8, lineHeight: 1.45, color: "rgba(255,255,255,0.5)" }}>
-          <b>Fill standard flags</b> stores Open Historia&apos;s built-in country flags in this scenario for safely recognized polities that are currently missing a flag; custom/historical flags are never overwritten. Roster import creates or updates polity records in bulk. Territory is untouched. Supports
+          <b>Fill standard flags</b> stores {BRAND_NAME}&apos;s built-in country flags in this scenario for safely recognized polities that are currently missing a flag; custom/historical flags are never overwritten. Roster import creates or updates polity records in bulk. Territory is untouched. Supports
           <code> {"{ polities: [...] }"}</code>, a direct array, or an object keyed by polity name.
         </div>
 

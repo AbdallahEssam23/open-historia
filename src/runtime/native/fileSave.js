@@ -18,8 +18,9 @@
 // MAX_EMBEDDED_SCENARIO_BYTES).
 import { nativePlugin } from "./bridge.js";
 import { showSavedNotice } from "./savedNotice.js";
+import { BRAND_NAME } from "../brand.js";
 
-export const DOWNLOADS_FOLDER = "Download/Open Historia";
+export const DOWNLOADS_FOLDER = `Download/${BRAND_NAME}`;
 
 const safeFileName = (name) => String(name || "export").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120);
 

@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { BRAND_NAME } from "./runtime/brand.js";
 import { installAppHeight } from "./runtime/mobileUi.js";
 import { installNativeBackgroundPause } from "./runtime/native/backgroundPause.js";
 import { isGenerating } from "./Game/AI/simulationStatus.js";
@@ -61,7 +62,7 @@ setDebugLogContext({
     build: import.meta.env.VITE_OH_WEB ? "web" : (import.meta.env.DEV ? "dev" : "desktop/local"),
     language: typeof navigator !== "undefined" ? navigator.language : "",
 });
-logDebugEvent("app", "Open Historia started.");
+logDebugEvent("app", `${BRAND_NAME} started.`);
 
 if (import.meta.env.VITE_OH_WEB) {
     // Web build (the hosted website): install the IndexedDB-backed /api

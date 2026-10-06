@@ -14,6 +14,7 @@ import { handleLibrary, handleScenarios, handleGames, handleRuntimeJson, getScen
 import { handleLang, handleUiSettings } from "./settingsStore.js";
 import { getConnected } from "./nodeConnect.js";
 import { getSession } from "./account.js";
+import { SOURCE_URL } from "../brand.js";
 
 let installed = false;
 
@@ -36,8 +37,8 @@ const isAssetUpload = (domain, segments, method) =>
 
 // Same manifests the desktop server proxies (server/server.js APP_UPDATE_MANIFESTS).
 const APP_UPDATE_MANIFESTS = {
-  stable: "https://github.com/Open-Historia/open-historia/releases/download/android/latest.json",
-  beta: "https://github.com/Open-Historia/open-historia/releases/download/android-beta/latest.json",
+  stable: `${SOURCE_URL}/releases/download/android/latest.json`,
+  beta: `${SOURCE_URL}/releases/download/android-beta/latest.json`,
 };
 
 // Native HTTP when Capacitor provides it — the WebView's own fetch is subject to

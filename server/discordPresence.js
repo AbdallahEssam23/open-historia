@@ -20,14 +20,17 @@
 import crypto from "node:crypto";
 import net from "node:net";
 
-// The "Open Historia" application in Discord's developer portal. Public, not a
-// secret: every Rich Presence client sends its application id in the clear.
-export const DISCORD_APPLICATION_ID = "1529270119916896326";
+// No Discord application ships with this fork: the upstream "Open Historia"
+// application is not ours to point at, and a Discord application's NAME (the
+// "Playing X" line) can only be changed in the portal that owns it. Presence is
+// therefore off until an operator registers an application and sets
+// OH_DISCORD_APP_ID to its id; see the environment table in docs/server.md.
+export const DISCORD_APPLICATION_ID = "";
 
 // The logo is an image URL, which Discord fetches itself, so there is no art to
 // upload to the developer portal.
-export const PRESENCE_IMAGE = "https://openhistoria.com/icon-512.png";
-export const PRESENCE_BUTTON = { label: "Play Open Historia", url: "https://openhistoria.com" };
+export const PRESENCE_IMAGE = "https://github.com/AbdallahEssam23/open-historia/raw/main/public/icon-512.png";
+export const PRESENCE_BUTTON = { label: "Play Historia Nova", url: "https://github.com/AbdallahEssam23/open-historia" };
 
 // Discord's opcodes on the local socket.
 export const OP_HANDSHAKE = 0;
@@ -77,7 +80,7 @@ export const normalizePresence = (body) => {
 export const activityFor = (presence, { startedAt } = {}) => {
   if (!presence) return null;
   const activity = {
-    assets: { large_image: PRESENCE_IMAGE, large_text: "Open Historia" },
+    assets: { large_image: PRESENCE_IMAGE, large_text: "Historia Nova" },
     buttons: [PRESENCE_BUTTON],
   };
   if (Number.isFinite(startedAt)) activity.timestamps = { start: Math.floor(startedAt) };

@@ -10,6 +10,7 @@ import {
   parseUpdateManifest,
 } from "./appUpdate.js";
 import { logDebugEvent } from "./debugLog.js";
+import { BRAND_NAME } from "./brand.js";
 import { UI_FONT_STACK } from "./fontStacks.js";
 
 // Stamped into the native app build by the APK workflow (VITE_APP_BUILD / _TRACK).
@@ -298,7 +299,7 @@ export default function AppUpdateBanner() {
   return (
     <div style={bar} role="status" aria-live="polite">
       <div style={text}>
-        A new version of Open Historia is ready.
+        A new version of {BRAND_NAME} is ready.
         <span style={sub} title={desktop && progress?.state === "error" ? desktopStatus() : undefined}>
           {desktop
             ? desktopStatus()

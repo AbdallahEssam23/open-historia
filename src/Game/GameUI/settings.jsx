@@ -63,8 +63,7 @@ import {
 } from "../../runtime/i18n.js";
 import { LABEL_FONT_SUGGESTIONS, MAP_SETTING_KEYS, getMapSetting, getMapSettingDefaultOn, setMapSetting, setMapSettingValue, useMapSettingValue } from "../../runtime/mapSettings.js";
 import { getLibraryState } from "../../runtime/library.js";
-import { DISCORD_URL, REDDIT_URL } from "../../runtime/communityLinks.js";
-import { CommunityTile, DISCORD_BLURPLE, DiscordMark, REDDIT_ORANGERED, RedditMark } from "./communityLogos.jsx";
+import { BRAND_NAME, SOURCE_URL } from "../../runtime/communityLinks.js";
 import { copyToClipboard } from "../../runtime/clipboard.js";
 import {
     buildLoggingFile,
@@ -1196,14 +1195,13 @@ const RequestBudgetSection = () => {
     );
 };
 
-const SocialLinks = ({ discordUrl, redditUrl, githubUrl }) => {
+// The AGPL section 13 offer, as a link: the complete source of this build.
+const SocialLinks = ({ sourceUrl }) => {
     // A link is not a button: its text would sit at the top of the 44 px the
     // tap class gives it, so on a touch screen it centres its own text.
     const touch = useTouchPrimary();
     const links = [
-        discordUrl ? { label: "Discord", href: discordUrl } : null,
-        redditUrl ? { label: "Reddit", href: redditUrl } : null,
-        githubUrl ? { label: "GitHub", href: githubUrl } : null,
+        sourceUrl ? { label: "Source code (AGPL-3.0)", href: sourceUrl } : null,
     ].filter(Boolean);
 
     if (!links.length) return null;
@@ -2191,7 +2189,7 @@ const QuickMenuPanel = ({ title, description, children }) => (
 
 const ContextSummaryCard = ({ context }) => {
     const rows = [
-        { label: "Scenario", value: context?.scenarioName || context?.gameName || "Open Historia" },
+        { label: "Scenario", value: context?.scenarioName || context?.gameName || BRAND_NAME },
         { label: "Playing as", value: context?.countryName || "—" },
         { label: "Date", value: context?.date || "—" },
     ];
@@ -2224,9 +2222,7 @@ const SettingsMenu = ({
     onOpenEvents,
     onOpenGameManagement,
     onClose,
-    discordUrl,
-    redditUrl,
-    githubUrl,
+    sourceUrl,
     reportBugUrl,
     context,
     // A workspace section to open on straight away (the AI setup prompt sends
@@ -2398,7 +2394,7 @@ const SettingsMenu = ({
                 </div>
                 <div style={{ alignItems: isMobile ? "stretch" : "center", display: "flex", flexDirection: isMobile ? "column" : "row", gap: "0.55rem", justifyContent: "space-between" }}>
                     <span style={{ color: "rgba(255,255,255,0.24)", fontSize: "0.6rem" }}>Community</span>
-                    <SocialLinks discordUrl={discordUrl} redditUrl={redditUrl} githubUrl={githubUrl} />
+                    <SocialLinks sourceUrl={sourceUrl} />
                 </div>
             </QuickMenuPanel>
         );
@@ -2417,13 +2413,8 @@ const SettingsMenu = ({
                     {typeof onOpenDebugConsole === "function" && (
                         <QuickAction title="AI debug console" description="Every AI call, its prompt, answer and cost" symbol="◈" onClick={() => runAndClose(onOpenDebugConsole)} />
                     )}
-                    {/* The last slot of the row is the community's: two half-width
-                        tiles, each nothing but the brand's own mark on the brand's own
-                        colour. No words - the logos say where they go. */}
-                    <div style={{ display: "grid", gap: "0.55rem", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-                        <CommunityTile href={DISCORD_URL} label="Join the Discord" color={DISCORD_BLURPLE}><DiscordMark /></CommunityTile>
-                        <CommunityTile href={REDDIT_URL} label="Open r/OpenHistoria on Reddit" color={REDDIT_ORANGERED}><RedditMark /></CommunityTile>
-                    </div>
+                    {/* The AGPL section 13 offer, in the same row as the tools. */}
+                    <QuickAction title="Source code" description="AGPL-3.0 licensed - read this build's source" symbol="</>" tone="slate" href={SOURCE_URL} />
                 </div>
             </QuickMenuPanel>
         );
@@ -2456,10 +2447,10 @@ const SettingsMenu = ({
         }}
         >
             <div style={{ alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: "0.75rem", margin: "-0.1rem -0.1rem 0.75rem", padding: "0 0.1rem 0.7rem" }}>
-                <img alt="Open Historia" src="/logo.png" style={{ borderRadius: "8px", flexShrink: 0, height: "2.25rem", width: "2.25rem" }} />
+                <img alt={BRAND_NAME} src="/logo.png" style={{ borderRadius: "8px", flexShrink: 0, height: "2.25rem", width: "2.25rem" }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ alignItems: "baseline", display: "flex", flexWrap: "wrap", gap: "0.35rem 0.55rem" }}>
-                        <span style={{ color: "#f8fafc", fontSize: "0.92rem", fontWeight: 900 }}>{context?.scenarioName || context?.gameName || "Open Historia"}</span>
+                        <span style={{ color: "#f8fafc", fontSize: "0.92rem", fontWeight: 900 }}>{context?.scenarioName || context?.gameName || BRAND_NAME}</span>
                     </div>
                     <div style={{ color: "rgba(255,255,255,0.34)", fontSize: "0.61rem", marginTop: "0.15rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {[context?.countryName ? `Playing as ${context.countryName}` : "", context?.date || ""].filter(Boolean).join(" · ") || "Game menu"}

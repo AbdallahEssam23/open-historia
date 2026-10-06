@@ -448,8 +448,8 @@ app.get("/api/library", (_req, res) => {
 // thousands of clients polling don't each hit GitHub. We read the tiny latest.json
 // release asset (a CDN download, not the rate-limited REST API) for the app's track.
 const APP_UPDATE_MANIFESTS = {
-  stable: "https://github.com/Open-Historia/open-historia/releases/download/android/latest.json",
-  beta: "https://github.com/Open-Historia/open-historia/releases/download/android-beta/latest.json",
+  stable: "https://github.com/AbdallahEssam23/open-historia/releases/download/android/latest.json",
+  beta: "https://github.com/AbdallahEssam23/open-historia/releases/download/android-beta/latest.json",
   // The desktop app checks through here rather than from the page: a release asset
   // sends no CORS headers, and the GitHub API is rate limited per IP. Exactly the
   // reason the Android tracks are served this way.
@@ -459,7 +459,7 @@ const APP_UPDATE_MANIFESTS = {
   // installer as an "update" and leave the build they signed up to test. Read once,
   // at import: main.cjs sets the variable before it imports this file.
   desktop: process.env.OH_DESKTOP_UPDATE_URL
-    || "https://github.com/Open-Historia/open-historia/releases/download/desktop-stable/latest.json",
+    || "https://github.com/AbdallahEssam23/open-historia/releases/download/desktop-stable/latest.json",
 };
 // The desktop app imports this server into its Electron main process
 // (electron/main.cjs startServer), so the updater living there is reachable
@@ -494,6 +494,20 @@ app.get("/api/app-update", async (req, res) => {
     res.json({}); // unknown track -> no update info, never an error
     return;
   }
+  // The two fields that come from THIS process, not GitHub. They are answered even
+  // when the manifest fetch fails, because the banner must still be able to tell it
+  // is inside the desktop app (current) and whether that app can install an update
+  // itself (autoUpdate) while the release asset is unreachable.
+  const localFields = () => ({
+    // Set only when this server is the one running inside the desktop app. That is
+    // how the page can tell it is there at all — it is otherwise an ordinary
+    // localhost page — and it is absent everywhere else, so no banner appears.
+    current: String(process.env.OH_DESKTOP_BUILD || ""),
+    // True when this app can install the update itself. False on a build that
+    // cannot (unsigned macOS, an unpackaged dev run), and the banner then offers
+    // the download link exactly as it did before.
+    autoUpdate: Boolean(desktopUpdater()),
+  });
   const cached = appUpdateCache.get(track);
   if (cached && Date.now() - cached.at < APP_UPDATE_TTL_MS) {
     res.json(cached.data);
@@ -502,7 +516,7 @@ app.get("/api/app-update", async (req, res) => {
   try {
     const response = await fetch(manifestUrl, { signal: AbortSignal.timeout(6000) });
     if (!response.ok) {
-      res.json(cached ? cached.data : {}); // stale-if-error, else empty
+      res.json({ ...(cached ? cached.data : {}), ...localFields() }); // stale-if-error, else the local facts
       return;
     }
     const raw = await response.json();
@@ -514,20 +528,13 @@ app.get("/api/app-update", async (req, res) => {
       // Desktop ids are opaque strings (a CI run id), not the ascending integer the
       // Android tracks use, so they are kept as text and compared for INEQUALITY.
       buildId: String((raw && raw.build) ?? ""),
-      // Set only when this server is the one running inside the desktop app. That is
-      // how the page can tell it is there at all — it is otherwise an ordinary
-      // localhost page — and it is absent everywhere else, so no banner appears.
-      current: String(process.env.OH_DESKTOP_BUILD || ""),
       download: str(raw && raw[{ win32: "windows", darwin: "mac", linux: "linux" }[process.platform]]),
-      // True when this app can install the update itself. False on a build that
-      // cannot (unsigned macOS, an unpackaged dev run), and the banner then offers
-      // the download link exactly as it did before.
-      autoUpdate: Boolean(desktopUpdater()),
+      ...localFields(),
     };
     appUpdateCache.set(track, { at: Date.now(), data });
     res.json(data);
   } catch {
-    res.json(cached ? cached.data : {}); // offline / timeout -> fail-open
+    res.json({ ...(cached ? cached.data : {}), ...localFields() }); // offline / timeout -> fail-open
   }
 });
 

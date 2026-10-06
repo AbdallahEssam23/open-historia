@@ -1,5 +1,6 @@
 /*! Open Historia — portions (map-editor embed, apply-to-scenario, country picker) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { BRAND_NAME } from "../../runtime/brand.js";
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP, SCREEN_HEIGHT, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
 import { TOP_BAR_OFFSET } from "./hudDock.js";
@@ -314,7 +315,7 @@ const promptPackFromImport = (value) => {
         : value;
 
   if (!("promptModel" in candidate) && !("guidance" in candidate)) {
-    throw new Error("That file does not contain an Open Historia prompt pack.");
+    throw new Error(`That file does not contain a ${BRAND_NAME} prompt pack.`);
   }
 
   return candidate;
@@ -3117,9 +3118,9 @@ const LibraryTopBar = () => {
               padding: "0.42rem 0.7rem",
             }}
           >
-            <img alt="Open Historia" src="/logo.png" style={{ borderRadius: "8px", flexShrink: 0, height: "1.9rem", width: "1.9rem" }} />
+            <img alt={BRAND_NAME} src="/logo.png" style={{ borderRadius: "8px", flexShrink: 0, height: "1.9rem", width: "1.9rem" }} />
             <div style={{ minWidth: 0, lineHeight: 1.08 }}>
-              <div style={{ color: "rgba(255,255,255,0.94)", fontSize: "0.72rem", fontWeight: 850 }}>Open Historia</div>
+              <div style={{ color: "rgba(255,255,255,0.94)", fontSize: "0.72rem", fontWeight: 850 }}>{BRAND_NAME}</div>
               <div style={{ color: "rgba(226,226,229,0.42)", fontSize: "0.6rem", marginTop: "0.18rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summaryText}</div>
             </div>
           </div>
@@ -3472,10 +3473,10 @@ const LibraryTopBar = () => {
             {!isMobile && (
               <div style={{ alignItems: "center", display: "flex", gap: "0.8rem", minWidth: 0 }}>
                 <div style={{ alignItems: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "999px", display: "flex", flexShrink: 0, height: "2.65rem", justifyContent: "center", overflow: "hidden", width: "2.65rem" }}>
-                  <img alt="Open Historia" src="/logo.png" style={{ height: "1.7rem", width: "1.7rem" }} />
+                  <img alt={BRAND_NAME} src="/logo.png" style={{ height: "1.7rem", width: "1.7rem" }} />
                 </div>
                 <div style={{ color: "#fff", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "-0.03em" }}>
-                  Open Historia
+                  {BRAND_NAME}
                 </div>
               </div>
             )}

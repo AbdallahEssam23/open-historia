@@ -33,7 +33,6 @@ const router = read("src/runtime/web/router.js");
 
 const STABLE_ID = JSON.parse(read("mobile/capacitor.config.json")).appId;
 const BETA_ID = `${STABLE_ID}.beta`;
-const REPO = "https://github.com/Open-Historia/open-historia";
 
 // `gh release <verb> <tag>` lines in a workflow, as [verb, tag].
 const releaseCommands = (workflow) => [...workflow.matchAll(/gh release (create|edit|upload) ([\w.-]+)/g)].map((m) => [m[1], m[2]]);
@@ -41,7 +40,7 @@ const releaseCommands = (workflow) => [...workflow.matchAll(/gh release (create|
 test("the channel gives the beta its own id, name and icon, and the stable app keeps its own", () => {
   assert.match(gradle, /def ohChannel = System\.getenv\("OH_ANDROID_CHANNEL"\) \?: "stable"/);
   assert.ok(gradle.includes(`applicationId ohBeta ? "${BETA_ID}" : "${STABLE_ID}"`), "applicationId by channel");
-  assert.match(gradle, /appLabel: ohBeta \? "Open Historia Beta" : "Open Historia"/);
+  assert.match(gradle, /appLabel: ohBeta \? "Historia Nova Beta" : "Historia Nova"/);
   assert.match(gradle, /appIcon: ohBeta \? "@mipmap\/ic_launcher_beta" : "@mipmap\/ic_launcher"/);
   assert.match(gradle, /appIconRound: ohBeta \? "@mipmap\/ic_launcher_beta_round" : "@mipmap\/ic_launcher_round"/);
   // An unknown channel stops the build rather than making a stable app by accident.
@@ -105,6 +104,6 @@ test("the stable workflow stays the stable app, from main, on the android releas
 });
 
 test("each track's update banner reads its own release", () => {
-  assert.ok(router.includes(`stable: "${REPO}/releases/download/android/latest.json"`));
-  assert.ok(router.includes(`beta: "${REPO}/releases/download/android-beta/latest.json"`));
+  assert.ok(router.includes("`${SOURCE_URL}/releases/download/android/latest.json`"));
+  assert.ok(router.includes("`${SOURCE_URL}/releases/download/android-beta/latest.json`"));
 });

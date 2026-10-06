@@ -1,5 +1,5 @@
 {
-  "name": "open-historia",
+  "name": "historia-nova",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "version": "0.0.0",
@@ -91,8 +91,8 @@
   },
   "main": "electron/main.cjs",
   "build": {
-    "appId": "io.github.arkniem.openhistoria",
-    "productName": "Open Historia",
+    "appId": "io.github.abdallahessam23.historianova",
+    "productName": "Historia Nova",
     "files": [
       "LICENSE",
       "dist/**",
@@ -111,7 +111,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://github.com/Open-Historia/open-historia/releases/download/desktop-stable",
+        "url": "https://github.com/AbdallahEssam23/open-historia/releases/download/desktop-stable",
         "channel": "latest"
       }
     ],
@@ -137,7 +137,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Open Historia",
+      "shortcutName": "Historia Nova",
       "artifactName": "Open-Historia-Setup.${ext}"
     },
     "mac": {
