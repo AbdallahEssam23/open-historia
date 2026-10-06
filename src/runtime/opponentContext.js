@@ -13,6 +13,7 @@ import { deriveIntentMenu } from "../engine/strategicIntent.js";
 import { resolveCountryTags } from "./countryTags.js";
 import { normalizeWorldState } from "./gameState.js";
 import { toCountryName } from "./ownerNames.js";
+import { seekPeaceFacts } from "./warSettlement.js";
 
 export const DEFAULT_REPORT_LIMIT = 12;
 export const NEUTRAL_REPUTATION = 50;
@@ -212,7 +213,7 @@ const claimedRegionIds = (world, polity) => {
 // The compact menu inputs for one actor, from the normalized world and a region
 // option list the caller assembled from the scenario catalog. `regions` carries
 // only an id and its owner; everything else is read from the world.
-const menuInputsFromNormalized = (world, polity, regions) => {
+const menuInputsFromNormalized = (world, polity, regions, { playerPolity = "" } = {}) => {
   const selfKey = keyLower(polity);
   const enemies = enemiesOf(world, polity);
   const actorClaims = claimedRegionIds(world, polity);
@@ -257,13 +258,23 @@ const menuInputsFromNormalized = (world, polity, regions) => {
     },
     targets,
     regions: actorRegions,
+    // The wars this actor may sue to leave, each with the weariness and the
+    // progress comparison the pure law reads (engine/strategicIntent.js).
+    wars: asList(world?.wars)
+      .map((war) => seekPeaceFacts({
+        war,
+        polity,
+        playerPolity,
+        regionOwnershipOverrides: world?.regionOwnershipOverrides,
+      }))
+      .filter(Boolean),
   };
 };
 
 // The menu inputs for one actor. Normalizes the world, so a raw save is safe.
-export const strategicInputsFor = (world, polity, { regions = [] } = {}) => {
+export const strategicInputsFor = (world, polity, { regions = [], playerPolity = "" } = {}) => {
   const normalized = normalizeWorldState(world);
-  return menuInputsFromNormalized(normalized, polity, regions);
+  return menuInputsFromNormalized(normalized, polity, regions, { playerPolity });
 };
 
 // The profiles and the legal menus for the polities in play, in one stable
@@ -277,7 +288,7 @@ export const buildStrategicMenus = (world, { playerPolity = "", limit = DEFAULT_
       polity: facts.polity,
       facts,
       personality: derivePersonality(facts),
-      menu: deriveIntentMenu(menuInputsFromNormalized(normalized, polity, regions)),
+      menu: deriveIntentMenu(menuInputsFromNormalized(normalized, polity, regions, { playerPolity })),
     };
   });
 };

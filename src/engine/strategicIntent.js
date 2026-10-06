@@ -10,12 +10,15 @@
 // The module imports nothing: every input is a compact fact set, so the same
 // facts yield the same menu in any process.
 
+import { canSeekPeace } from "./warSettlement.js";
+
 export const WAR_GOALS = Object.freeze(["annex", "reparations", "status_quo"]);
 
 // A menu is a prompt budget, not a catalogue: a bound on each kind keeps the
 // report a fixed size no matter how large the map grows.
 export const MAX_DECLARATIONS = 6;
 export const MAX_CLAIMS = 6;
+export const MAX_PEACE_SEEKS = 6;
 
 const asName = (value) => String(value ?? "").trim();
 const key = (value) => asName(value).toLowerCase();
@@ -41,12 +44,13 @@ export const warIdFor = (actor, target, existingIds = []) => {
 // at war with the actor, whether it holds land the actor claims, and whether it
 // is recorded as having breached an agreement against the actor. `regions` are
 // the regions the actor could claim, each with its present owner.
-export const deriveIntentMenu = ({ actor = {}, targets = [], regions = [] } = {}) => {
+export const deriveIntentMenu = ({ actor = {}, targets = [], regions = [], wars = [] } = {}) => {
   const polity = asName(actor.polity);
   const actorKey = key(polity);
   const existingWarIds = asList(actor.existingWarIds).map(asName).filter(Boolean);
   const declareWar = [];
   const pressClaim = [];
+  const seekPeace = [];
   const seenTargets = new Set();
 
   for (const target of asList(targets)) {
@@ -81,5 +85,19 @@ export const deriveIntentMenu = ({ actor = {}, targets = [], regions = [] } = {}
     if (pressClaim.length >= MAX_CLAIMS) break;
   }
 
-  return { polity, declareWar, pressClaim };
+  // A war the actor may sue to leave. The player's wars are the player's
+  // decision (offered through peaceOffer.js), never an opponent's, so a war the
+  // player is a party to is refused here however weary the actor is.
+  const seenWars = new Set();
+  for (const war of asList(wars)) {
+    const warId = asName(war?.warId);
+    if (!warId || seenWars.has(warId)) continue;
+    if (war?.party === true) continue;
+    if (!canSeekPeace({ weariness: war?.weariness, ahead: war?.ahead })) continue;
+    seenWars.add(warId);
+    seekPeace.push({ warId, opponent: asName(war?.opponent), weariness: Number(war?.weariness) || 0 });
+    if (seekPeace.length >= MAX_PEACE_SEEKS) break;
+  }
+
+  return { polity, declareWar, pressClaim, seekPeace };
 };

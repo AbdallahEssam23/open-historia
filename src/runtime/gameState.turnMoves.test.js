@@ -93,3 +93,15 @@ test("a world's moves survive a normalize round trip", () => {
 test("a fresh world has no turn moves anywhere", () => {
   assert.equal("strategicMoves" in WORLD_DEFAULTS, false);
 });
+
+test("a sought peace keeps its war and its settlement event", () => {
+  const [move] = record({
+    strategicMoves: [{ kind: "seek_peace", actor: "France", target: "Prussia", warId: "war-france-prussia", eventId: "event-peace-1", date: "1815-11-20" }],
+  }).strategicMoves;
+  assert.equal(move.kind, "seek_peace");
+  assert.equal(move.actor, "France");
+  assert.equal(move.target, "Prussia");
+  assert.equal(move.warId, "war-france-prussia");
+  assert.equal(move.eventId, "event-peace-1");
+  assert.equal("strategicMoves" in record({ strategicMoves: [{ kind: "seek_peace", actor: "France", target: "Prussia" }] }), false, "no war id is dropped");
+});

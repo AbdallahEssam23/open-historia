@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import {
   MAX_CLAIMS,
   MAX_DECLARATIONS,
+  MAX_PEACE_SEEKS,
   WAR_GOALS,
   deriveIntentMenu,
   warIdFor,
@@ -98,9 +99,37 @@ test("claims are capped and a repeated region is offered once", () => {
 });
 
 test("a nameless actor or an empty fact set yields an empty menu", () => {
-  assert.deepEqual(deriveIntentMenu({}), { polity: "", declareWar: [], pressClaim: [] });
+  assert.deepEqual(deriveIntentMenu({}), { polity: "", declareWar: [], pressClaim: [], seekPeace: [] });
   assert.deepEqual(
     deriveIntentMenu({ actor: { polity: "Ruritania" } }),
-    { polity: "Ruritania", declareWar: [], pressClaim: [] },
+    { polity: "Ruritania", declareWar: [], pressClaim: [], seekPeace: [] },
   );
+});
+
+test("a weary, not-ahead war is offered to sue for peace", () => {
+  const menu = deriveIntentMenu({
+    actor: { polity: "Ruritania" },
+    wars: [
+      { warId: "war-ruritania-syldavia", opponent: "Syldavia", weariness: 0.62, ahead: false, party: false },
+      { warId: "war-fresh", opponent: "Borduria", weariness: 0.1, ahead: false, party: false },
+      { warId: "war-won", opponent: "Genovia", weariness: 0.7, ahead: true, party: false },
+      { warId: "war-player", opponent: "Player", weariness: 0.9, ahead: false, party: true },
+    ],
+  });
+  assert.deepEqual(menu.seekPeace, [
+    { warId: "war-ruritania-syldavia", opponent: "Syldavia", weariness: 0.62 },
+  ]);
+});
+
+test("the peace seeks are bounded and a repeated war is offered once", () => {
+  const wars = Array.from({ length: MAX_PEACE_SEEKS + 3 }, (_, index) => ({
+    warId: `war-${index}`,
+    opponent: `Power ${index}`,
+    weariness: 0.8,
+    ahead: false,
+  }));
+  wars.push({ warId: "war-0", opponent: "Power 0", weariness: 0.8, ahead: false });
+  const menu = deriveIntentMenu({ actor: { polity: "Ruritania" }, wars });
+  assert.equal(menu.seekPeace.length, MAX_PEACE_SEEKS);
+  assert.equal(new Set(menu.seekPeace.map((entry) => entry.warId)).size, MAX_PEACE_SEEKS);
 });

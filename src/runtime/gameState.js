@@ -3616,10 +3616,11 @@ const normalizeEconomyEngine = (value) => {
 };
 
 // What the opponent gateway accepted this turn (runtime/strategicNarration.js
-// builds it, Game/AI/gameplay.js writes it): a declaration or a pressed claim,
-// with the legal cause that made it, so the player can be told. Sparse and
-// bounded. A row without the fields its kind needs is dropped, never kept raw.
-const TURN_MOVE_KINDS = new Set(["declare_war", "press_claim"]);
+// builds it, Game/AI/gameplay.js writes it): a declaration, a pressed claim or a
+// sued-for peace, with the legal cause that made it, so the player can be told.
+// Sparse and bounded. A row without the fields its kind needs is dropped, never
+// kept raw.
+const TURN_MOVE_KINDS = new Set(["declare_war", "press_claim", "seek_peace"]);
 const MAX_TURN_MOVES = 12;
 const MAX_MOVE_REASONS = 3;
 const MAX_MOVE_TEXT = 120;
@@ -3645,6 +3646,19 @@ const normalizeTurnMove = (entry) => {
         .map((reason) => normalizeOptionalString(reason).slice(0, MAX_MOVE_TEXT))
         .filter(Boolean)
         .slice(0, MAX_MOVE_REASONS),
+      ...(eventId ? { eventId } : {}),
+      ...(date ? { date } : {}),
+    };
+  }
+  if (kind === "seek_peace") {
+    const target = normalizeOptionalString(entry.target).slice(0, MAX_MOVE_TEXT);
+    const warId = normalizeOptionalString(entry.warId).slice(0, MAX_MOVE_TEXT);
+    if (!target || !warId) return null;
+    return {
+      kind,
+      actor,
+      target,
+      warId,
       ...(eventId ? { eventId } : {}),
       ...(date ? { date } : {}),
     };

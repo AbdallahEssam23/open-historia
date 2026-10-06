@@ -119,3 +119,35 @@ test("an unknown or empty move describes to null", () => {
   assert.equal(describeStrategicMove({ kind: "press_claim", actor: "A" }), null);
   assert.equal(describeStrategicMove({ kind: "declare_war", target: "B" }), null);
 });
+
+test("a seek resolves to the settlement event the engine wrote for its war", () => {
+  const rows = buildTurnMoves({
+    accepted: { declareWar: [], pressClaim: [], seekPeace: [{ actor: "France", target: "Prussia", warId: "war-france-prussia" }] },
+    events: [{ id: "event-peace-war-france-prussia-1815-11-20", warId: "war-france-prussia" }],
+    date: "1815-11-20",
+  });
+  assert.deepEqual(rows, [{
+    kind: "seek_peace",
+    actor: "France",
+    target: "Prussia",
+    warId: "war-france-prussia",
+    eventId: "event-peace-war-france-prussia-1815-11-20",
+    date: "1815-11-20",
+  }]);
+});
+
+test("a seek with no actor or no war is dropped, never thrown", () => {
+  const rows = buildTurnMoves({
+    accepted: { declareWar: [], pressClaim: [], seekPeace: [{ target: "Prussia", warId: "war-1" }, { actor: "France" }, null] },
+    events: [],
+    date: "1815-11-20",
+  });
+  assert.deepEqual(rows, []);
+});
+
+test("a seek reads as a power suing for peace", () => {
+  const described = describeStrategicMove({ kind: "seek_peace", actor: "France", target: "Prussia", warId: "war-1" });
+  assert.equal(described.headline, "France seeks peace with Prussia");
+  assert.deepEqual(described.reasons, []);
+  assert.equal(described.detail, "");
+});

@@ -5,7 +5,7 @@
 // narrated military event and a reserve transfer. It never imports the Game/AI
 // layer and never writes the war ledger; gameplay.js owns that.
 
-import { normalizeWeariness, settleWar, wearinessStep } from "../engine/warSettlement.js";
+import { normalizeWeariness, settleWar, settlementTerms, warGoalScore, wearinessStep } from "../engine/warSettlement.js";
 import { monthsBetweenDates, roundTo } from "../engine/economyMath.js";
 import { normalizePools } from "../engine/forcePools.js";
 import { applyCountryStatPatchToWorld, normalizeWorldState } from "./gameState.js";
@@ -86,6 +86,61 @@ const heldRegions = (goal, memberKeys, overrides) => {
   return out;
 };
 
+// The strategic menu's view of one war, for a power deciding whether to sue for
+// peace: which war, against whom, how weary the actor is, whether the actor is
+// ahead of its enemy, and whether the player is a party. It reuses the same
+// held-region and goal-score logic the settlement loop uses, so the "is it
+// ahead" test cannot drift from the terms it is guarding. Returns null for a war
+// the actor is not a side of. Advancing uses `advantage` 0: the turn's battle
+// has not happened when a menu is built, and the locked rule keeps
+// `reparations` at a tie the existing `pickVictor` settles.
+export const seekPeaceFacts = ({ war, polity, playerPolity = "", regionOwnershipOverrides = {} } = {}) => {
+  if (!war || typeof war !== "object") return null;
+  if (asString(war.status).toLowerCase() !== "active") return null;
+  const warId = asString(war.id);
+  if (!warId) return null;
+  const selfKey = canonical(polity).toLowerCase();
+  if (!selfKey) return null;
+  const sideA = list(war.sideA);
+  const sideB = list(war.sideB);
+  const onA = sideA.some((name) => canonical(name).toLowerCase() === selfKey);
+  const onB = sideB.some((name) => canonical(name).toLowerCase() === selfKey);
+  if (!onA && !onB) return null;
+
+  const own = onA ? sideA : sideB;
+  const other = onA ? sideB : sideA;
+  const ownGoals = onA ? war?.goals?.a : war?.goals?.b;
+  const otherGoals = onA ? war?.goals?.b : war?.goals?.a;
+  const ownKind = asString(ownGoals?.kind).toLowerCase();
+  const ownScore = warGoalScore({
+    kind: ownKind,
+    targetRegionIds: ownGoals?.targetRegionIds,
+    heldRegionIds: heldRegions(ownGoals, canonicalKeys(own), regionOwnershipOverrides),
+    advantage: 0,
+  });
+  const otherScore = warGoalScore({
+    kind: asString(otherGoals?.kind).toLowerCase(),
+    targetRegionIds: otherGoals?.targetRegionIds,
+    heldRegionIds: heldRegions(otherGoals, canonicalKeys(other), regionOwnershipOverrides),
+    advantage: 0,
+  });
+  // A status_quo side wants nothing, so it can never be "ahead": it may seek
+  // peace the moment it is weary.
+  const ahead = ownKind !== "status_quo" && ownScore > otherScore;
+
+  const playerKey = canonical(playerPolity).toLowerCase();
+  const party = Boolean(playerKey) && [...sideA, ...sideB].some((name) => canonical(name).toLowerCase() === playerKey);
+
+  const weariness = normalizeWeariness(war.weariness);
+  return {
+    warId,
+    opponent: canonical(list(other)[0]),
+    weariness: onA ? (weariness?.a ?? 0) : (weariness?.b ?? 0),
+    ahead,
+    party,
+  };
+};
+
 // Resolve every active war's peace for one turn. Reads the world it is given
 // and the turn's battle results; it never mutates either and never writes the
 // ledger (the caller passes the returned weariness back for that).
@@ -94,6 +149,10 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
   const offers = [];
   const weariness = {};
   const unresolved = [];
+  // The terms a power could get by suing for peace, for every AI-vs-AI war
+  // nothing forced this turn. Read only when the gateway accepted a seek_peace,
+  // so an intent-less turn never touches it.
+  const peaceTermsByWarId = {};
   const eventList = list(events);
   const battles = Array.isArray(engagements) ? engagements : list(engagements?.results);
   const turnDate = asString(date);
@@ -166,7 +225,7 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
     // Persisted every turn, peace or no peace, so the next turn steps from here.
     weariness[warId] = { a: nextA, b: nextB, throughDate: turnDate };
 
-    const settlement = settleWar({
+    const settlementInputs = {
       warId,
       date: turnDate,
       goalsA,
@@ -183,8 +242,16 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
       poolsB: pools[leadB] ?? {},
       unjustA,
       unjustB,
-    });
+    };
+    const settlement = settleWar(settlementInputs);
     if (!settlement) {
+      // Not due, and the actor is not the player: this is a war a power could
+      // end by asking. Derive the very terms a forced peace would give, so a
+      // sought peace is priced by the same solver. A player's war is left to the
+      // offer path and gets no entry.
+      if (!party) {
+        peaceTermsByWarId[warId] = { settlement: settlementTerms(settlementInputs), belligerents: sides };
+      }
       // Not due. A player's open war is still reported, as it was when the
       // party check skipped it; a non-party war stays silent as before.
       if (party) unresolved.push({ warId, reason: `the player is a party to ${warId}` });
@@ -202,7 +269,7 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
     settlements.push({ ...settlement, belligerents: sides });
   }
 
-  return { settlements, offers, weariness, unresolved };
+  return { settlements, offers, weariness, unresolved, peaceTermsByWarId };
 };
 
 // The narrated peace: a military event with no combat region, so the battle

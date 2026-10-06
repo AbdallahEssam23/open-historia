@@ -668,12 +668,15 @@ const buildStrategicDirective = (report, playerName) => {
     for (const entry of normalizeArray(menu.pressClaim)) {
       options.push(`press_claim ${entry.regionId} (held by ${entry.owner})`);
     }
+    for (const entry of normalizeArray(menu.seekPeace)) {
+      options.push(`seek_peace ${entry.warId} (at war with ${entry.opponent}; weary)`);
+    }
     return `- ${polity} [${normalizeString(personality?.character) || "no profile"}]: ${options.length ? options.join(" | ") : "no legal action"}`;
   });
   return `[Strategic Decisions]
 The computer powers act on their own this period. Below is the legal menu, derived from the world, for each power whose decision can reach ${playerName || "the player"}. It is law, not advice: a power may take a listed option and may not invent one, and the engine re-derives this menu before it applies anything, refusing any option the world no longer supports. You still choose WHAT each power does inside the menu; the engine owns what is legal.
 ${lines.join("\n")}
-Return chosen actions in strategicIntents, one record per line, fields separated by ~ (never inside a field): op~polity~target~goal~regions~note. op is declare_war or press_claim. declare_war takes the polity, the target and a goal from annex, reparations or status_quo; use the warId shown for that option as the event's warId and narrate the declaration in that event, leaving warUpdates empty for it because the engine writes the ledger record. press_claim takes the polity and the region ids (comma-separated) and stripes the map without moving a border. An empty string when no power acts. A war the player's own diplomacy or a pre-game history opens still travels in warUpdates as before.`;
+Return chosen actions in strategicIntents, one record per line, fields separated by ~ (never inside a field): op~polity~target~goal~regions~note. op is declare_war, press_claim or seek_peace. declare_war takes the polity, the target and a goal from annex, reparations or status_quo; use the warId shown for that option as the event's warId and narrate the declaration in that event, leaving warUpdates empty for it because the engine writes the ledger record. press_claim takes the polity and the region ids (comma-separated) and stripes the map without moving a border. seek_peace takes the polity and, in the target field, the warId shown for a war it may leave; the engine derives the peace terms and the event, so write no warUpdates and no peace event for it. It is not offered for a war the player is in. An empty string when no power acts. A war the player's own diplomacy or a pre-game history opens still travels in warUpdates as before.`;
 };
 
 const buildDiplomaticLedgerDirective = (variables) => {
@@ -6946,22 +6949,55 @@ const applySimulationResult = async ({
     warUpdates,
     events: freshEvents,
     regions: buildStrategicRegionOptions(baseWorldNormalized),
+    playerPolity: normalizeString(baseGame.country),
   });
   for (const entry of strategicOutcome.rejected) {
     logDebugEvent("turn", `Strategic intent refused: ${entry.op} by ${entry.polity || "unknown"} (${entry.reason}).`, undefined, { verbose: true });
   }
-  if (strategicOutcome.accepted.declareWar.length || strategicOutcome.accepted.pressClaim.length) {
-    logDebugEvent("turn", `Strategic decisions accepted: ${strategicOutcome.accepted.declareWar.length} declaration(s), ${strategicOutcome.accepted.pressClaim.length} claim(s).`, undefined, { verbose: true });
+  if (strategicOutcome.accepted.declareWar.length || strategicOutcome.accepted.pressClaim.length || strategicOutcome.accepted.seekPeace.length) {
+    logDebugEvent("turn", `Strategic decisions accepted: ${strategicOutcome.accepted.declareWar.length} declaration(s), ${strategicOutcome.accepted.pressClaim.length} claim(s), ${strategicOutcome.accepted.seekPeace.length} seek(s).`, undefined, { verbose: true });
   }
   // Rebuild in place so every phase below, the schedule guard and the receipt
   // read one list through the same binding.
   warUpdates.splice(0, warUpdates.length, ...strategicOutcome.warUpdates);
+  // A power asking out of an AI-vs-AI war (the seek_peace intent): the engine
+  // settles it now, on the terms it already derived for exactly this war, through
+  // the same event, ledger `end` record and reparations the automatic path uses.
+  // A war the engine already settled this turn, or the model already closed, is
+  // skipped, so one war closes once. A war the player is in has no entry here and
+  // is the player's decision, not this increment's.
+  const settlementClosedIds = new Set([
+    ...normalizeArray(dueSettlements).map((settlement) => normalizeString(settlement.warId)),
+    ...modelClosedWarIds,
+  ]);
+  const honoredSeeks = [];
+  for (const peace of normalizeArray(strategicOutcome.accepted?.seekPeace)) {
+    const warId = normalizeString(peace?.warId);
+    if (!warId || settlementClosedIds.has(warId)) continue;
+    const entry = settlementOutcome.peaceTermsByWarId?.[warId];
+    if (!entry?.settlement) continue;
+    const event = buildSettlementEvent(entry.settlement, { date: nextGame.gameDate, round: nextGame.round });
+    if (!event) continue;
+    freshEvents.push(normalizeEventEntry(event, freshEvents.length));
+    warUpdates.push({ eventIds: [event.id], id: warId, op: "end" });
+    dueSettlements.push({ ...entry.settlement, belligerents: entry.belligerents });
+    settlementClosedIds.add(warId);
+    honoredSeeks.push(peace);
+    if (receipt) {
+      noteReceipt(receipt, "adjusted",
+        `The war ${warId} closed on the opponent's request: ${entry.settlement.white ? "white peace" : "settlement"}`
+        + `${entry.settlement.punitive && entry.settlement.white === false ? " on punitive terms" : ""}.`);
+    }
+  }
   // The surface's own record: what the opponent decided, with the cause that
   // made it legal, so the timeline can tell the player. Built here, while the
   // `warId` the gateway stamped on freshEvents is still in hand, and stored on
   // the turn below so a reload keeps it. Sparse: no decision, no key.
   const turnMoves = buildTurnMoves({
-    accepted: strategicOutcome.accepted,
+    // Only the seeks the engine honored this turn are told: a seek skipped
+    // because the war closed anyway did not move the world and must not read as
+    // if it had.
+    accepted: { ...strategicOutcome.accepted, seekPeace: honoredSeeks },
     events: freshEvents,
     date: nextGame.gameDate || "",
   });

@@ -85,6 +85,24 @@ export const buildTurnMoves = ({ accepted = {}, events = [], date = "" } = {}) =
     if (rows.length >= MAX_TURN_MOVES) return rows;
   }
 
+  for (const entry of asList(accepted?.seekPeace)) {
+    if (!entry || typeof entry !== "object") continue;
+    const actor = asName(entry.actor);
+    const warId = asName(entry.warId);
+    if (!actor || !warId) continue;
+    rows.push({
+      kind: "seek_peace",
+      actor,
+      target: asName(entry.target),
+      warId,
+      // The engine writes the settlement event for this war in the same turn, so
+      // the seek rides the card of the peace it brought about.
+      eventId: eventIdByWarId.get(warId) || "",
+      date: day,
+    });
+    if (rows.length >= MAX_TURN_MOVES) return rows;
+  }
+
   return rows;
 };
 
@@ -119,6 +137,11 @@ export const describeStrategicMove = (move, { regionName = "" } = {}) => {
       detail: owner ? `held by ${owner}` : "",
       reasons: [],
     };
+  }
+
+  if (move.kind === "seek_peace") {
+    const target = asName(move.target) || "its enemy";
+    return { headline: `${actor} seeks peace with ${target}`, detail: "", reasons: [] };
   }
 
   return null;

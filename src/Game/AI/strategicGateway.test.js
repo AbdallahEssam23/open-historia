@@ -152,3 +152,93 @@ test("an unknown operation and a nameless actor are reported, not thrown", () =>
   assert.equal(outcome.rejected[0].reason, "unknown intent");
   assert.equal(outcome.rejected[1].reason, "no actor named");
 });
+
+// A war Ruritania may sue to leave: weary, not ahead, between two computer
+// powers. `ahead` is false because neither side holds its declared target.
+const wearyWorld = (over = {}) => ({
+  ...world(),
+  wars: [{
+    id: "war-ruritania-syldavia",
+    status: "active",
+    startedDate: "1900-01-01",
+    sideA: ["Ruritania"],
+    sideB: ["Syldavia"],
+    goals: { a: { kind: "annex", targetRegionIds: ["r1"] }, b: { kind: "annex", targetRegionIds: ["r2"] } },
+    weariness: { a: 0.62, b: 0.2, throughDate: "1900-03-01" },
+    unjustAggressors: [],
+  }],
+  ...over,
+});
+
+test("a weary power may sue for peace: accepted, and no war record is written", () => {
+  const warUpdates = [{ id: "war-other", op: "start", actors: ["A"], opponents: ["B"] }];
+  const outcome = applyStrategicIntents({
+    world: wearyWorld(),
+    regions: REGIONS,
+    events: [],
+    warUpdates,
+    intents: "seek_peace~Ruritania~war-ruritania-syldavia~~~",
+  });
+  assert.deepEqual(outcome.rejected, []);
+  assert.deepEqual(outcome.accepted.seekPeace, [
+    { actor: "Ruritania", target: "Syldavia", warId: "war-ruritania-syldavia" },
+  ]);
+  assert.deepEqual(outcome.warUpdates, warUpdates, "the ledger records are untouched");
+  assert.deepEqual(outcome.claimOps, []);
+});
+
+test("a seek on a war the menu does not offer, or with no war named, is refused", () => {
+  const unknown = applyStrategicIntents({
+    world: wearyWorld(),
+    regions: REGIONS,
+    events: [],
+    intents: "seek_peace~Ruritania~war-does-not-exist~~~",
+  });
+  assert.deepEqual(unknown.accepted.seekPeace, []);
+  assert.equal(unknown.rejected[0].reason, "not a war it may seek peace in this turn");
+
+  const nameless = applyStrategicIntents({ world: wearyWorld(), regions: REGIONS, events: [], intents: "seek_peace~Ruritania~~~~" });
+  assert.equal(nameless.rejected[0].reason, "no war named");
+});
+
+test("a fresh war, an ahead power and the player's war are not offers", () => {
+  const fresh = applyStrategicIntents({
+    world: wearyWorld({
+      wars: [{
+        id: "war-ruritania-syldavia",
+        status: "active",
+        startedDate: "1900-01-01",
+        sideA: ["Ruritania"],
+        sideB: ["Syldavia"],
+        goals: { a: { kind: "annex", targetRegionIds: ["r1"] }, b: { kind: "annex", targetRegionIds: ["r2"] } },
+        weariness: { a: 0.1, b: 0.1, throughDate: "1900-03-01" },
+      }],
+    }),
+    regions: REGIONS,
+    events: [],
+    intents: "seek_peace~Ruritania~war-ruritania-syldavia~~~",
+  });
+  assert.deepEqual(fresh.accepted.seekPeace, [], "too fresh to seek");
+
+  const ahead = applyStrategicIntents({
+    world: wearyWorld({ regionOwnershipOverrides: { r1: "Ruritania" } }),
+    regions: REGIONS,
+    events: [],
+    intents: "seek_peace~Ruritania~war-ruritania-syldavia~~~",
+  });
+  assert.deepEqual(ahead.accepted.seekPeace, [], "a power ahead may not freeze the win");
+
+  const player = applyStrategicIntents({
+    world: wearyWorld(),
+    regions: REGIONS,
+    events: [],
+    playerPolity: "Syldavia",
+    intents: "seek_peace~Ruritania~war-ruritania-syldavia~~~",
+  });
+  assert.deepEqual(player.accepted.seekPeace, [], "the player's war is the player's decision");
+});
+
+test("the inert path reports an empty seekPeace list", () => {
+  const outcome = applyStrategicIntents({ world: wearyWorld(), intents: "", regions: REGIONS, events: [] });
+  assert.deepEqual(outcome.accepted.seekPeace, []);
+});

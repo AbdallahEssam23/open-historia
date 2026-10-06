@@ -851,9 +851,12 @@ const StrategicMoveBanner = ({ move, regionLookup }) => {
         [move, regionLookup],
     );
     if (!described) return null;
-    const isWar = move?.kind === "declare_war";
-    const accent = isWar ? "244,63,94" : "245,158,11";
-    const label = isWar ? "Opponent act: declaration" : "Opponent act: claim";
+    const tones = {
+        declare_war: { accent: "244,63,94", label: "Opponent act: declaration" },
+        press_claim: { accent: "245,158,11", label: "Opponent act: claim" },
+        seek_peace: { accent: "16,185,129", label: "Opponent act: peace" },
+    };
+    const { accent, label } = tones[move?.kind] ?? tones.press_claim;
     return (
         <div
         style={{

@@ -53,10 +53,13 @@ test("the adapter reads a war's recorded unjust aggressors", () => {
 });
 
 test("the adapter passes the unjust flags to the core", () => {
-  const callAt = adapter.indexOf("const settlement = settleWar({");
-  const call = adapter.slice(callAt, adapter.indexOf("});", callAt));
-  assert.match(call, /unjustA/);
-  assert.match(call, /unjustB/);
+  const inputsAt = adapter.indexOf("const settlementInputs = {");
+  const inputs = adapter.slice(inputsAt, adapter.indexOf("};", inputsAt));
+  assert.ok(inputsAt > 0, "the shared settlement inputs are not found");
+  assert.match(inputs, /unjustA/);
+  assert.match(inputs, /unjustB/);
+  assert.match(adapter, /const settlement = settleWar\(settlementInputs\);/);
+  assert.match(adapter, /settlementTerms\(settlementInputs\)/);
 });
 
 test("the turn's peace receipt names a punitive settlement", () => {

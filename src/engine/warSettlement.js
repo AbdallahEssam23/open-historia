@@ -22,6 +22,10 @@ export const WEARINESS_CAPITULATION = 0.9;
 export const WEARINESS_MONTHLY_GAIN = 0.04;
 export const WEARINESS_LOSS_GAIN = 0.5;
 
+// A power may sue for peace once it is this exhausted. Below it, a war is still
+// worth fighting and the engine does not offer the way out.
+export const PEACE_REQUEST_WEARINESS = 0.5;
+
 export const MOBILIZATION_WEARINESS_DRAG = Object.freeze({
   demobilized: 0,
   peacetime: 0,
@@ -124,6 +128,13 @@ export const warPressure = ({ wearinessA = 0, wearinessB = 0 } = {}) => {
   };
 };
 
+// Whether a side that is this weary may ask for terms. A side that is ahead must
+// not, or it could freeze a win the automatic settlement is about to award it.
+// `ahead` is the caller's warGoalScore comparison, so the law stays here and the
+// facts stay with the caller.
+export const canSeekPeace = ({ weariness = 0, ahead = false } = {}) =>
+  clamp(weariness, 0, 1) >= PEACE_REQUEST_WEARINESS && ahead !== true;
+
 const goalFor = (entry) => {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     return { kind: "status_quo", targetRegionIds: [], note: "" };
@@ -150,9 +161,10 @@ const pickVictor = (scoreA, scoreB, wearinessA, wearinessB) => {
 // even race. An absent flag is a just side.
 const legitimacy = (unjust) => (unjust ? UNJUST_LEGITIMACY_FACTOR : 1);
 
-// The peace, or nothing while no peace is due. The victor's declared kind, not
-// any inferred controller, decides the terms.
-export const settleWar = (input = {}) => {
+// The derived peace: the scores, the pressure and the victor, with `due` saying
+// whether anything forces it. One body, so `settlementTerms` and `settleWar`
+// can never price the same war differently.
+const deriveSettlement = (input = {}) => {
   const {
     warId = "",
     date = "",
@@ -201,6 +213,10 @@ export const settleWar = (input = {}) => {
   const achievedA = goals.a.kind !== "status_quo" && rawScoreA >= 1;
   const achievedB = goals.b.kind !== "status_quo" && rawScoreB >= 1;
 
+  // Whether a peace is due: exactly the negation of the old null branch, so
+  // `settleWar` keeps returning null on the same states it always did.
+  const due = capitulationA || capitulationB || compelled || achievedA || achievedB;
+
   let victor;
   let capitulation = false;
   if (capitulationA && capitulationB) {
@@ -212,8 +228,6 @@ export const settleWar = (input = {}) => {
   } else if (capitulationB) {
     victor = "a";
     capitulation = true;
-  } else if (!compelled && !achievedA && !achievedB) {
-    return null;
   } else {
     victor = pickVictor(scoreA, scoreB, wa, wb);
   }
@@ -262,6 +276,7 @@ export const settleWar = (input = {}) => {
   }
 
   return {
+    due,
     key: `${warId}|${date}|${victor}|${loser}`,
     warId,
     victor,
@@ -272,4 +287,18 @@ export const settleWar = (input = {}) => {
     transfers,
     reparations,
   };
+};
+
+const withoutDue = ({ due: _due, ...terms }) => terms;
+
+// The terms alone, whether or not a peace is due. A power suing for peace before
+// the arithmetic forces one reads this; the victor and the price are the same as
+// a forced peace would give on the same facts.
+export const settlementTerms = (input = {}) => withoutDue(deriveSettlement(input));
+
+// The peace, or nothing while no peace is due. The victor's declared kind, not
+// any inferred controller, decides the terms.
+export const settleWar = (input = {}) => {
+  const derived = deriveSettlement(input);
+  return derived.due ? withoutDue(derived) : null;
 };

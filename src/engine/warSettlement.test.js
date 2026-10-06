@@ -15,6 +15,9 @@ import {
   normalizeWarGoals,
   normalizeWeariness,
   settleWar,
+  settlementTerms,
+  canSeekPeace,
+  PEACE_REQUEST_WEARINESS,
   warGoalScore,
   warPressure,
   wearinessStep,
@@ -478,4 +481,60 @@ test("punitive is true exactly when the unjust side lost", () => {
     unjustA: true,
   }));
   assert.equal(wins.punitive, false);
+});
+
+test("settlementTerms is settleWar for every due war (the parity lock)", () => {
+  const due = [
+    baseWar({ wearinessA: WEARINESS_COMPEL }),
+    baseWar({ wearinessB: WEARINESS_COMPEL }),
+    baseWar({ wearinessA: WEARINESS_CAPITULATION }),
+    baseWar({ wearinessB: WEARINESS_CAPITULATION }),
+    baseWar({ heldRegionIdsA: ["r1"] }),
+    baseWar({ heldRegionIdsB: ["r2"] }),
+    baseWar({ goalsA: { kind: "reparations", targetRegionIds: [], note: "" }, advantageA: 0.8, wearinessA: WEARINESS_COMPEL }),
+    baseWar({ goalsB: { kind: "status_quo", targetRegionIds: [], note: "" }, wearinessB: WEARINESS_CAPITULATION }),
+    baseWar({ wearinessA: WEARINESS_CAPITULATION, unjustA: true }),
+  ];
+  for (const input of due) {
+    const forced = settleWar(input);
+    assert.ok(forced, "the fixture is a due war");
+    assert.deepEqual(settlementTerms(input), forced, "the terms are byte-for-byte the forced peace");
+  }
+});
+
+test("settlementTerms derives terms for a war nothing forces; settleWar still returns null", () => {
+  // Neither side holds a target, neither is weary: nothing forces a peace.
+  const fresh = baseWar({ goalsA: { kind: "annex", targetRegionIds: ["r1"], note: "" }, heldRegionIdsA: [] });
+  assert.equal(settleWar(fresh), null, "nothing forces this peace");
+  const terms = settlementTerms(fresh);
+  assert.ok(terms);
+  assert.equal(terms.warId, "war-1");
+  assert.equal(terms.victor, "a", "an even race goes to side A");
+  assert.equal(terms.white, true, "nothing was won, so the peace takes nothing");
+  assert.deepEqual(terms.transfers, []);
+  assert.equal("due" in terms, false, "the due flag is not part of the terms");
+});
+
+test("with no battle an even reparations war is settled by the lower weariness", () => {
+  const reparations = { kind: "reparations", targetRegionIds: [], note: "" };
+  const bWearier = settlementTerms(baseWar({
+    goalsA: reparations,
+    goalsB: reparations,
+    advantageA: 0,
+    advantageB: 0,
+    wearinessA: 0.2,
+    wearinessB: 0.7,
+  }));
+  assert.equal(bWearier.victor, "a", "the less weary side wins an even race");
+  assert.equal(bWearier.reparations.fromCode, "B");
+});
+
+test("canSeekPeace requires a weary side that is not ahead", () => {
+  assert.equal(PEACE_REQUEST_WEARINESS, 0.5);
+  assert.equal(canSeekPeace({ weariness: 0.5, ahead: false }), true);
+  assert.equal(canSeekPeace({ weariness: 0.7, ahead: false }), true);
+  assert.equal(canSeekPeace({ weariness: 0.49, ahead: false }), false, "below the floor");
+  assert.equal(canSeekPeace({ weariness: 0.9, ahead: true }), false, "ahead may not freeze a win");
+  assert.equal(canSeekPeace({}), false);
+  assert.equal(canSeekPeace({ weariness: 1 }), true, "an absent ahead flag is not ahead");
 });

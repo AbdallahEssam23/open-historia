@@ -132,11 +132,12 @@ export const applyStrategicIntents = ({
   warUpdates = [],
   regions = [],
   events = [],
+  playerPolity = "",
 } = {}) => {
   const decoded = decodeStrategicIntents(intents);
   const keptWarUpdates = asRecords(warUpdates);
   if (!decoded.length) {
-    return { warUpdates: keptWarUpdates, claimOps: [], accepted: { declareWar: [], pressClaim: [] }, rejected: [] };
+    return { warUpdates: keptWarUpdates, claimOps: [], accepted: { declareWar: [], pressClaim: [], seekPeace: [] }, rejected: [] };
   }
 
   const eventList = asList(events);
@@ -144,7 +145,7 @@ export const applyStrategicIntents = ({
   // the same actor/opponent fields whether the list arrived as lines or objects.
   const incoming = decodeWarUpdates(keptWarUpdates);
 
-  const accepted = { declareWar: [], pressClaim: [] };
+  const accepted = { declareWar: [], pressClaim: [], seekPeace: [] };
   const rejected = [];
   const generated = [];
   const claimOps = [];
@@ -152,7 +153,7 @@ export const applyStrategicIntents = ({
   const menuFor = (polity) => {
     const cacheKey = key(polity);
     if (!menuCache.has(cacheKey)) {
-      menuCache.set(cacheKey, deriveIntentMenu(strategicInputsFor(world, polity, { regions })));
+      menuCache.set(cacheKey, deriveIntentMenu(strategicInputsFor(world, polity, { regions, playerPolity })));
     }
     return menuCache.get(cacheKey);
   };
@@ -214,6 +215,24 @@ export const applyStrategicIntents = ({
         claimOps.push({ regionId: option.regionId, claimantCode: menu.polity, note: intent.note });
         accepted.pressClaim.push({ actor: menu.polity, regionId: option.regionId, owner: option.owner });
       }
+      continue;
+    }
+
+    if (intent.op === "seek_peace") {
+      // `target` carries the war id the menu printed, so a power with two wars
+      // against the same enemy is unambiguous. Nothing is applied here: the terms
+      // depend on this turn's battle, which only the settlement phase has.
+      const warId = asName(intent.target);
+      if (!warId) {
+        rejected.push({ op: "seek_peace", polity: intent.polity, reason: "no war named" });
+        continue;
+      }
+      const option = menu.seekPeace.find((entry) => asName(entry.warId) === warId);
+      if (!option) {
+        rejected.push({ op: "seek_peace", polity: intent.polity, warId, reason: "not a war it may seek peace in this turn" });
+        continue;
+      }
+      accepted.seekPeace.push({ actor: menu.polity, target: option.opponent, warId: option.warId });
       continue;
     }
 
