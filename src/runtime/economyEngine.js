@@ -5,8 +5,10 @@
 // else in the game needs to know the engine exists.
 
 import { advanceEconomy, makePolityEconomy } from "../engine/economyTick.js";
+import { TRADE_STEP } from "../engine/economyConstants.js";
 import { jitterFor, monthsBetweenDates, roundTo, stableOrder } from "../engine/economyMath.js";
 import { MAX_SHOCKS, normalizeShocks } from "../engine/economyShocks.js";
+import { tradeMultipliers } from "../engine/tradeCore.js";
 import {
   DEFAULT_POSTURE,
   UNIT_UPKEEP,
@@ -155,6 +157,33 @@ export const buildUpkeepTable = (world) => {
   return table;
 };
 
+// The trade field is a number the model should not have to quote; what it needs
+// is WHO the network favoured and who it cut off. This turns the field into one
+// lower-case clause naming up to two of each, or "" when the network nets to
+// nothing. Pure: the adapter's only narrative read of the field.
+const TRADE_NOTE_NAMES = 2;
+const joinNames = (names) =>
+  names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
+export const describeTradeClimate = (trade = {}) => {
+  const indexOf = (vector) => (Number(vector?.stability) || 0) / TRADE_STEP.STABILITY_MAX;
+  const ranked = Object.entries(trade ?? {})
+    .map(([polity, vector]) => [polity, indexOf(vector)])
+    .filter(([polity, index]) => polity && Math.abs(index) >= TRADE_STEP.NOTE_THRESHOLD);
+  if (!ranked.length) return "";
+  const pick = (sign) => ranked
+    .filter(([, index]) => (sign > 0 ? index > 0 : index < 0))
+    .sort((a, b) => (sign > 0 ? b[1] - a[1] : a[1] - b[1]) || (a[0] < b[0] ? -1 : 1))
+    .slice(0, TRADE_NOTE_NAMES)
+    .map(([polity]) => polity);
+  const beneficiaries = pick(1);
+  const cutOff = pick(-1);
+  const parts = [];
+  if (beneficiaries.length) parts.push(`open commerce favoured ${joinNames(beneficiaries)}`);
+  if (cutOff.length) parts.push(`hostility cut ${joinNames(cutOff)} off`);
+  return parts.join("; ");
+};
+
 // The words a completed unit is named with when the order gave no name. The
 // engine never invents a display name; this is the boundary's own fallback so a
 // spawned unit is readable on the map.
@@ -289,6 +318,13 @@ export const advanceWorldEconomy = (
 ) => {
   const seed = String(world?.economyEngine?.seed ?? economySeedFor(campaignId, scenarioId));
   const committed = extractEconomyState(world, { seed });
+  // The standing trade field, derived from the world's diplomatic ledgers. It is
+  // recomputed every advance and never stored, so it cannot drift from them.
+  const trade = tradeMultipliers({
+    relations: world?.relations,
+    agreements: world?.agreements,
+    wars: world?.wars,
+  });
   const appliedResearchEffects = normalizeResearchEffects(world?.economyEngine?.researchEffects);
   const months = monthsBetweenDates(fromDate, toDate);
   const knownPolities = Object.keys(committed.polities);
@@ -310,6 +346,7 @@ export const advanceWorldEconomy = (
       researchOps: [],
       research: {},
       researchEffects: appliedResearchEffects,
+      trade,
     };
   }
 
@@ -354,6 +391,7 @@ export const advanceWorldEconomy = (
       posture,
       orders: appliedOrders,
       researchEffects: appliedResearchEffects,
+      trade,
     },
   );
 
@@ -519,5 +557,6 @@ export const advanceWorldEconomy = (
     researchOps,
     research: state.research,
     researchEffects: appliedResearchEffects,
+    trade,
   };
 };

@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { MAX_SHOCKS, SHOCK_KINDS, activeMultipliers, normalizeDeclaredShocks, normalizeShocks } from "./economyShocks.js";
+import {
+  MAX_SHOCKS,
+  SHOCK_KINDS,
+  activeMultipliers,
+  composeMultipliers,
+  normalizeDeclaredShocks,
+  normalizeShocks,
+} from "./economyShocks.js";
 
 test("the enum is closed and every kind has a table entry", async () => {
   const mod = await import("./economyShocks.js");
@@ -94,4 +101,15 @@ test("normalizeDeclaredShocks drops the malformed and caps the list", () => {
     normalizeDeclaredShocks(Array.from({ length: MAX_SHOCKS + 3 }, () => ({ kind: "sanctions", severity: 1, durationMonths: 3 }))).length,
     MAX_SHOCKS,
   );
+});
+
+test("composeMultipliers multiplies the growth fields and adds the drift fields", () => {
+  const shock = { population: 0.99, gdp: 0.86, inflation: 0.26, unemployment: 0.24, stability: -0.65 };
+  const trade = { population: 1, gdp: 1.075, inflation: 0, unemployment: 0, stability: 0.125 };
+  const composed = composeMultipliers(shock, trade);
+  assert.equal(composed.population, shock.population * trade.population);
+  assert.equal(composed.gdp, shock.gdp * trade.gdp);
+  assert.equal(composed.inflation, shock.inflation);
+  assert.equal(composed.unemployment, shock.unemployment);
+  assert.equal(composed.stability, shock.stability + trade.stability);
 });

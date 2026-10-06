@@ -109,6 +109,23 @@ test("a shock is visible while it runs and gone afterwards", () => {
   assert.ok(state.polities.France.gdpGrowth < origin.polities.France.gdpGrowth);
 });
 
+test("the trade field lifts growth and stability, and only for the named polity", () => {
+  const origin = { month: 0, polities: { France: polityFixture(), Spain: polityFixture() } };
+  const trade = { France: { population: 1, gdp: 1.1, inflation: 0, unemployment: 0, stability: 0.2 } };
+  const plain = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s" });
+  const withTrade = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s", trade });
+  assert.ok(withTrade.state.polities.France.gdpGrowth > plain.state.polities.France.gdpGrowth);
+  assert.ok(withTrade.state.polities.France.stability > plain.state.polities.France.stability);
+  assert.deepEqual(withTrade.state.polities.Spain, plain.state.polities.Spain, "a polity absent from the field is untouched");
+});
+
+test("an empty trade field is byte-for-byte the pre-change advance", () => {
+  const origin = { month: 0, polities: { France: polityFixture() } };
+  const absent = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s" });
+  const empty = advanceEconomy(origin, { startDate: "2026-01-01", months: 6, seed: "s", trade: {} });
+  assert.deepEqual(empty.state, absent.state);
+});
+
 test("the pools ride the same clock as the economy", () => {
   const origin = { month: 0, polities: { France: polityFixture() } };
   const { state } = advanceEconomy(origin, {

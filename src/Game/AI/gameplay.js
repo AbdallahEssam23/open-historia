@@ -325,7 +325,7 @@ import {
 } from "./worldDirection.js";
 import { addGameDays, compareGameDates, diffGameDays, gameDateDayNumber, normalizeGameDate, parseGameDate } from "../../runtime/gameDates.js";
 import { authoredImpactTargets, stampResolvedImpacts, withAuthorImpacts, withoutAuthorImpacts } from "../../runtime/scriptedImpacts.js";
-import { advanceWorldEconomy, buildUpkeepTable } from "../../runtime/economyEngine.js";
+import { advanceWorldEconomy, buildUpkeepTable, describeTradeClimate } from "../../runtime/economyEngine.js";
 import { buildEconomyDigest } from "../../runtime/economyDigest.js";
 import { buildOperationsDigest } from "../../runtime/operationsDigest.js";
 import { DEFAULT_POSTURE } from "../../engine/forcePools.js";
@@ -7702,6 +7702,11 @@ const applySimulationResult = async ({
       scenarioId: nextGame.scenarioId || "",
     });
     nextWorld = economy.world;
+    // The trade field is the engine's, but the model is the narrator: tell it
+    // WHO the diplomatic network favoured and who it cut off, never the share.
+    // A zero-length turn advances nothing, so it says nothing.
+    const tradeClimate = economy.months > 0 ? describeTradeClimate(economy.trade) : "";
+    if (tradeClimate) noteReceipt(receipt, "adjusted", `Trade: ${tradeClimate}.`);
     logDebugEvent("turn", `Economy advanced ${economy.months} month(s) locally.`, {
       steps: economy.journal?.steps ?? 0,
       capped: Boolean(economy.journal?.capped),

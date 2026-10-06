@@ -180,3 +180,15 @@ export const activeMultipliers = (shocks, month) => {
 // Whether a shock names this polity. World scope reaches everyone.
 export const shockAppliesTo = (shock, polityName) =>
   shock.scope === null || shock.scope.includes(String(polityName ?? ""));
+
+// Fold two multiplier vectors into one, on the rule the vectors share: the two
+// multiplicative fields (population, gdp) multiply, the three additive fields
+// (inflation, unemployment, stability) add. A shock and the standing trade field
+// therefore offset each other rather than cancel, exactly as two shocks do.
+export const composeMultipliers = (a, b) => ({
+  population: a.population * b.population,
+  gdp: a.gdp * b.gdp,
+  inflation: a.inflation + b.inflation,
+  unemployment: a.unemployment + b.unemployment,
+  stability: a.stability + b.stability,
+});

@@ -78,3 +78,24 @@ export const ECONOMY_STEP = Object.freeze({
   STAB_UNEMP: 1.1,
   STAB_REVERSION: 0.08,
 });
+
+// Trade is a standing field over the diplomatic network, not a declared shock.
+// The economy clock composes it with the shock vector every month. A polity at
+// full interdependence grows this fraction faster and drifts this many index
+// points steadier each month; a polity cut off by war is dragged by the same
+// amounts. The edge bonuses below are a closed table, so the field is a function
+// of the ledgers alone and nothing here needs a clock or a draw.
+export const TRADE_STEP = Object.freeze({
+  GDP_MAX: 0.15,
+  STABILITY_MAX: 0.25,
+  WAR_EDGE: -1,
+  NOTE_THRESHOLD: 0.15,
+});
+
+export const TRADE_AGREEMENT_BONUS = Object.freeze({
+  trade_economic: 0.35,
+  alliance: 0.25,
+  military_cooperation: 0.15,
+  friendship_consultation: 0.1,
+  non_aggression: 0.05,
+});

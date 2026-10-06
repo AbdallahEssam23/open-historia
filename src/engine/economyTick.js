@@ -16,7 +16,7 @@ import {
   productionTimeMultiplier,
   researchEffectTotalsFor,
 } from "./researchEffects.js";
-import { activeMultipliers, shockAppliesTo } from "./economyShocks.js";
+import { activeMultipliers, composeMultipliers, shockAppliesTo } from "./economyShocks.js";
 import { enqueueOrders, normalizeProductionQueue, stepLineMonth } from "./productionQueue.js";
 
 const num = (value, fallback = 0) => {
@@ -197,7 +197,7 @@ export const stepPolityMonth = (polity, { year, multipliers, growthBonus = 0 }) 
 
 export const advanceEconomy = (
   state,
-  { startDate, months, shocks = [], seed = "", upkeep = {}, posture = {}, orders = [], researchEffects = {} } = {},
+  { startDate, months, shocks = [], seed = "", upkeep = {}, posture = {}, orders = [], researchEffects = {}, trade = {} } = {},
 ) => {
   const requested = Math.trunc(Number(months)) || 0;
   const steps = Math.max(0, Math.min(MAX_STEPS, requested));
@@ -271,9 +271,17 @@ export const advanceEconomy = (
       // The shortfall from LAST month is what drags stability now, so this
       // month's multipliers are a function of committed state, not of the pool
       // step that has not run yet.
-      const multipliers = applyMobilization(activeMultipliers(own, month), postureName, {
-        shortfallPressure: shortfallPressureFor(shortfall?.[name], upkeep?.[name]),
-      });
+      // The standing trade field is composed with the shocks on the vectors'
+      // shared rule, so a shock and the field offset rather than cancel. A
+      // polity absent from the field (neutral, isolated, or no ledgers at all)
+      // hands the month step the shock vector unchanged.
+      const shockMultipliers = activeMultipliers(own, month);
+      const tradeVector = trade?.[name];
+      const multipliers = applyMobilization(
+        tradeVector ? composeMultipliers(shockMultipliers, tradeVector) : shockMultipliers,
+        postureName,
+        { shortfallPressure: shortfallPressureFor(shortfall?.[name], upkeep?.[name]) },
+      );
       const steppedPolity = stepPolityMonth(polities[name], {
         year,
         multipliers,

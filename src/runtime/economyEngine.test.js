@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { advanceWorldEconomy, economySeedFor, extractEconomyState } from "./economyEngine.js";
+import { advanceWorldEconomy, describeTradeClimate, economySeedFor, extractEconomyState } from "./economyEngine.js";
 
 const sheet = (over = {}) => ({
   statsSchemaVersion: 1,
@@ -297,4 +297,29 @@ test("a structure completion with no site is dropped, not emitted as an empty ba
     { world: world(), fromDate: "2026-01-01" },
   );
   assert.equal(batches.length, 0);
+});
+
+test("the trade field is built from the world's diplomatic ledgers", () => {
+  const before = { ...world(), relations: [{ a: "Egypt", b: "Sudan", score: 60, status: "friendly" }] };
+  const result = advanceWorldEconomy(before, { fromDate: "2026-01-01", toDate: "2026-04-01" });
+  assert.ok(result.trade.Egypt, "Egypt is in the field");
+  assert.ok(result.trade.Egypt.gdp > 1);
+  assert.equal(describeTradeClimate(result.trade), "open commerce favoured Egypt and Sudan");
+});
+
+test("an active war severs a warm pair and names them cut off", () => {
+  const before = {
+    ...world(),
+    relations: [{ a: "Egypt", b: "Sudan", score: 80 }],
+    wars: [{ id: "w1", status: "active", sideA: ["Egypt"], sideB: ["Sudan"] }],
+  };
+  const result = advanceWorldEconomy(before, { fromDate: "2026-01-01", toDate: "2026-04-01" });
+  assert.ok(result.trade.Egypt.gdp < 1);
+  assert.equal(describeTradeClimate(result.trade), "hostility cut Egypt and Sudan off");
+});
+
+test("a world with no ledgers has an empty field and says nothing", () => {
+  const result = advanceWorldEconomy(world(), { fromDate: "2026-01-01", toDate: "2026-04-01" });
+  assert.deepEqual(result.trade, {});
+  assert.equal(describeTradeClimate(result.trade), "");
 });
