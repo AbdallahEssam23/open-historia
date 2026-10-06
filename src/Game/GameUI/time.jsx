@@ -559,6 +559,10 @@ const buildTurnRecord = ({ entry, index, history, eventLookup, game, lookups }) 
         // beside the events (runtime/strategicNarration.js). Empty on every turn
         // the gateway recorded none.
         strategicMoves: Array.isArray(entry.strategicMoves) ? entry.strategicMoves : [],
+        // What the engine's trade field did that turn (runtime/economyEngine.js's
+        // clause, stored by gameplay.js). Empty on every turn it found nothing to
+        // say about.
+        tradeClimate: entry.tradeClimate || "",
         summary: entry.summary || "",
         tags: Array.from(tags).slice(0, 10),
         title:
@@ -886,6 +890,29 @@ const StrategicMoveBanner = ({ move, regionLookup }) => {
             ))}
             </div>
         )}
+        </div>
+    );
+};
+
+// The trade clause the engine wrote for a turn, shown as the turn closes. The
+// wording is the engine's own (runtime/economyEngine.js); this is the frame.
+const TradeClimateNote = ({ text }) => {
+    if (!text) return null;
+    return (
+        <div
+        style={{
+            background: "rgba(52,211,153,0.08)",
+            border: "1px solid rgba(52,211,153,0.3)",
+            borderRadius: "12px",
+            padding: "0.5rem 0.7rem",
+        }}
+        >
+        <div style={{ color: "rgba(52,211,153,0.95)", fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase" }}>
+        Trade
+        </div>
+        <div style={{ color: "rgba(255,255,255,0.88)", fontSize: "0.76rem", lineHeight: 1.45, marginTop: "0.2rem" }}>
+        {text}
+        </div>
         </div>
     );
 };
@@ -2156,6 +2183,9 @@ const TimelineHistoryPanel = ({
             {!hasMoreEvents && closingMoves.map((move, index) => (
                 <StrategicMoveBanner key={`closing-${move.kind}-${move.regionId ?? index}`} move={move} regionLookup={lookups?.regionLookup} />
             ))}
+            {/* What the trade field did this turn, held to the close so it reads
+                as the turn's last word rather than an event's. */}
+            {!hasMoreEvents && <TradeClimateNote text={record?.tradeClimate} />}
             </div>
         )}
         {/* Under the cards, so the list reads as a finished turn's would. */}

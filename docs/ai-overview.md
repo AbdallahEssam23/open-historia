@@ -702,6 +702,8 @@ The model's fourth lever is a research programme, and it works the same way: a d
 
 Because the economy does not depend on the provider, a stalled turn is a narration problem, not a simulation one: if a request never reaches a model, the economy still advances and a stalled provider costs prose, not progress.
 
+The economy also carries a **trade field**: `tradeMultipliers` (`src/engine/tradeCore.js`) reads the three diplomatic ledgers and returns a per-polity multiplier the clock composes with the shocks, so open commerce or hostility bends growth and stability without the model stating a share (see [Runtime services](runtime-services.md)). The turn tells the model **who** the network favoured and who it cut off through the pure `describeTradeClimate` clause on the receipt, never the numbers. The same clause is stored on the turn's `simulationHistory` entry as `tradeClimate` (omitted when empty), so the timeline (`GameUI/time.jsx`) shows it as the turn's closing note and the stats panel (`GameUI/stats.jsx`) derives the selected polity's climate straight from `tradeMultipliers` on its current ledgers.
+
 ---
 
 ## Cancellation & timeouts

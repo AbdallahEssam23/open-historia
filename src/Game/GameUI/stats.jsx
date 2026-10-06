@@ -34,6 +34,8 @@ import {
     stripEngineOnlyStatFields,
 } from "../../runtime/countryStats.js";
 import { compareGameDates, formatGameDateReadable, gameDateDayNumber, parseGameDate } from "../../runtime/gameDates.js";
+import { tradeMultipliers } from "../../engine/tradeCore.js";
+import { TRADE_STEP } from "../../engine/economyConstants.js";
 import {
     DEFAULT_STAT_INDEX_ROWS,
     flattenStatSheetRows,
@@ -494,11 +496,38 @@ const DiplomacySection = ({ world, targetCountry }) => {
             .filter(Boolean)
             .sort((left, right) => compareGameDates(right.lastUpdatedDate || right.startedDate || "", left.lastUpdatedDate || left.startedDate || ""));
 
+        // The deterministic trade field the economy clock composes, read straight
+        // off the same canonicalised ledgers this section already built, so the
+        // indicator and the engine cannot disagree. No new state: the same ledgers
+        // in, the selected polity's index out.
+        const tradeField = tradeMultipliers({
+            relations: asArray(world.relations).map((relation) => ({
+                a: canonicalPolityKey(relation?.a, world),
+                b: canonicalPolityKey(relation?.b, world),
+                score: relation?.score,
+            })),
+            agreements: asArray(world.agreements).map((agreement) => ({
+                status: agreement?.status,
+                type: agreement?.type,
+                parties: asArray(agreement?.parties).map((party) => canonicalPolityKey(party, world)).filter(Boolean),
+            })),
+            wars: asArray(world.wars).map((war) => ({
+                status: war?.status,
+                sideA: asArray(war?.sideA).map((party) => canonicalPolityKey(party, world)).filter(Boolean),
+                sideB: asArray(war?.sideB).map((party) => canonicalPolityKey(party, world)).filter(Boolean),
+            })),
+        });
+        const tradeIndex = (Number(tradeField[target]?.stability) || 0) / TRADE_STEP.STABILITY_MAX;
+        const tradeClimate = tradeIndex > 0 ? "Favoured" : tradeIndex < 0 ? "Cut off" : "Neutral";
+        const tradeTone = tradeIndex > 0 ? "#34d399" : tradeIndex < 0 ? "#f87171" : "#94a3b8";
+
         return {
             relations,
             agreements,
             currentWars,
             activeAgreements: agreements.filter((agreement) => lowerText(agreement.status) === "active").length,
+            tradeClimate,
+            tradeTone,
         };
     }, [world, targetCountry]);
 
@@ -511,6 +540,14 @@ const DiplomacySection = ({ world, targetCountry }) => {
         <DiplomacyMetric label="Relations" value={diplomacy.relations.length} tone="#60a5fa" />
         <DiplomacyMetric label="Active agreements" value={diplomacy.activeAgreements} tone="#34d399" />
         <DiplomacyMetric label="Conflicts" value={diplomacy.currentWars.length} tone={diplomacy.currentWars.length ? "#f87171" : "#94a3b8"} />
+        </div>
+        {/* The economic shape the three ledgers add up to, read-only: the trade
+            field the economy clock actually composes for this polity. */}
+        <div style={{ ...cardStyle, alignItems: "center", display: "flex", gap: "0.5rem", justifyContent: "space-between", marginTop: "0.45rem", padding: "0.45rem 0.65rem" }}>
+        <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+        Trade climate
+        </span>
+        <span style={statusBadgeStyle(diplomacy.tradeTone)}>{diplomacy.tradeClimate}</span>
         </div>
 
         <div style={{ ...cardStyle, marginTop: "0.55rem", padding: 0, overflow: "hidden" }}>

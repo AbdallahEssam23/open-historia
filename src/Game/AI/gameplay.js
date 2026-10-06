@@ -7950,6 +7950,19 @@ const applySimulationResult = async ({
       // A zero-length turn advances nothing, so it says nothing.
       const tradeClimate = economy.months > 0 ? describeTradeClimate(economy.trade) : "";
       if (tradeClimate) noteReceipt(receipt, "adjusted", `Trade: ${tradeClimate}.`);
+      // The same clause is stored on the turn it belongs to, so the timeline can
+      // show what the network did in a turn whose world has since moved on. The
+      // key is omitted when the clause is empty, exactly like strategicMoves, so
+      // a turn the engine found nothing to say about is byte-for-byte what it was.
+      if (tradeClimate) {
+        const [newestTurn, ...olderTurns] = normalizeArray(nextWorld.simulationHistory);
+        if (newestTurn) {
+          nextWorld = {
+            ...nextWorld,
+            simulationHistory: [{ ...newestTurn, tradeClimate }, ...olderTurns],
+          };
+        }
+      }
       logDebugEvent("turn", `Economy advanced ${economy.months} month(s) locally.`, {
         steps: economy.journal?.steps ?? 0,
         capped: Boolean(economy.journal?.capped),

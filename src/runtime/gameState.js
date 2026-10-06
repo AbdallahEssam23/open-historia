@@ -3905,15 +3905,20 @@ export const normalizeWorldState = (world, options = {}) => {
         // runtime/strategicNarration.js). Sparse: a turn with none keeps no key,
         // so a save from before this increment reads back byte-for-byte.
         const turnMoves = normalizeTurnMoves(entry.strategicMoves);
+        // What the trade field did that turn (Game/AI/gameplay.js writes it from
+        // the engine's own clause). Sparse like strategicMoves: a turn the network
+        // found nothing to say about keeps no key.
+        const tradeClimate = typeof entry.tradeClimate === "string" ? normalizeOptionalString(entry.tradeClimate) : "";
         // Taken out of the spread so a malformed receipt is dropped, not kept raw;
         // and the scene a time skip used to propose (under either name), which
         // nothing reads since skips stopped proposing them.
-        const { receipt: _storedReceipt, strategicMoves: _storedMoves, interactive: _scene, catalyst: _formerScene, ...rest } = cloneValue(entry);
+        const { receipt: _storedReceipt, strategicMoves: _storedMoves, tradeClimate: _storedTradeClimate, interactive: _scene, catalyst: _formerScene, ...rest } = cloneValue(entry);
 
         return {
           ...rest,
           ...(receipt ? { receipt } : {}),
           ...(turnMoves.length ? { strategicMoves: turnMoves } : {}),
+          ...(tradeClimate ? { tradeClimate } : {}),
           date: normalizeOptionalString(entry.date),
           eventIds: normalizeActionParticipants(entry.eventIds),
           fallbackReason: normalizeOptionalString(entry.fallbackReason),
