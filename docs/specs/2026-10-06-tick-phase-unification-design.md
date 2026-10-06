@@ -122,6 +122,11 @@ The handler subset decides the coverage; the executor still decides the order,
 so the group array's own order does not matter and the schedule stays the single
 source of order.
 
+The four phases already behind the executor keep their bodies byte for byte:
+they stay in the object literal that was already there, now assigned with
+`Object.assign(tickHandlers, { ... })` so no line of those four bodies is
+touched.
+
 Because the assignments are written in `TICK_PHASES` order, the existing
 source-text guard (`orderOk`) keeps passing unchanged: the sixteen anchors remain
 in `gameplay.js` once each, in declared order.
@@ -173,14 +178,14 @@ this increment adds an import.
 
 ## Testing
 
-- `src/Game/AI/tickScheduleWiringArchitecture.test.js`: the existing assertions
-  are unchanged (each anchor once, in `TICK_PHASES` order), plus a new assertion
-  that the union of the seven calls' phase-id lists is exactly `TICK_PHASES` and
-  that no phase is invoked by two calls.
+- `src/Game/AI/tickScheduleWiringArchitecture.test.js`: unchanged, and it keeps
+  passing (each anchor still appears once, in `TICK_PHASES` order, now inside
+  the handlers).
 - `src/runtime/simulationTickWiringArchitecture.test.js`: updated from "called
-  exactly once" to "called once per group, in source order"; it asserts the
-  groups partition `TICK_PHASES`, that every phase id has a `tickHandlers`
-  assignment, and that only the treaty call passes `tickFacts`. The
+  exactly once" to "called once per group"; it asserts the seven call groups
+  partition `TICK_PHASES` (exact union, no phase invoked twice), that every
+  phase id has a handler in the region, that only the treaty call passes
+  `tickFacts`, and that the facts are derived before it. The
   executor-imports-only-the-schedule assertion is unchanged. This guard is
   updated because slice 22 pinned the pilot-only shape this increment is
   designed to supersede; the replacement is stronger (it pins all sixteen

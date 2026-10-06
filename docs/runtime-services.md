@@ -103,45 +103,54 @@ identifies its call and the world facts that make it apply, and
 a set of facts, in declared order, optionally restricted to a passed phase list
 so a caller's handler set and the fact gate decide the same order. The schedule
 is data and imports nothing; the phases
-themselves stay where they are, because they read and write the stored world
-through `src/runtime` adapters and some live in `src/Game/AI`, and those
+bodies live in `applySimulationResult`, because they read and write the stored
+world through `src/runtime` adapters and some live in `src/Game/AI`, and those
 adapters may not import `Game/AI`. A guard
 (`src/Game/AI/tickScheduleWiringArchitecture.test.js`) bounds the
 `applySimulationResult` region in `gameplay.js` and asserts every phase's anchor
 appears once there and in the declared order, so moving a phase across another
-fails the build. The order used to be an implicit property of the function's
-statement sequence, pinned only by pairwise guards; this names it once.
+fails the build.
 
-The declared order now has a runtime executor. `src/runtime/simulationTick.js`
+The declared order has a runtime executor, and now every phase runs behind it.
+`src/runtime/simulationTick.js`
 exports `runSimulationTick({ handlers, facts })`: it derives its plan from
 `TICK_PHASES` and the registered handler keys, so the order is always the
-declared one and never the object's key order, and it awaits each handler in
+declared one and never an object's key order, and it awaits each handler in
 turn so a phase sees the world the one before it wrote. It imports only the
 schedule: the phase bodies read and write the stored world through `src/runtime`
 adapters and some live in `src/Game/AI`, and a runtime module may not import
 `Game/AI`, so `applySimulationResult` hands the bodies in as handlers. The
-first four phases to run behind it are the contiguous treaty run -
-`treatyBreaches`, `casusBelli`, `treatyObligations`, `reparations` - moved
-unchanged into a `tickHandlers` object in `gameplay.js`; the other twelve
-phases and the deterministic steps between them stay inline for later, smaller
-moves.
+sixteen bodies are assigned to one `tickHandlers` object in `gameplay.js`, each
+where its inline statement stood. A local `runTick(ids)` helper hands the
+executor a subset, and seven calls run them in the declared order with the
+deterministic steps that are not phases left between the calls:
+`[engagements, engagementMerge, settlements]` before the impacts,
+`[engagementReserve, supply, reinforcement, reinforcementReserve]` after them,
+`[warLedger]`, the treaty run `[treatyBreaches, casusBelli, treatyObligations,
+reparations]`, `[espionage]`, `[economy, production]` and `[statsHistory]`. A
+phase body is invoked only where its statement stood, so the schedule decides
+the order and the boundaries stay where the turn always had them.
 
 When a `facts` set is handed in, the executor filters its plan by each phase's
 declared `requires`, so a phase whose fact is false is skipped instead of run;
 without a fact set every registered handler runs, which is the pre-gate
-behaviour. `applySimulationResult` derives the three facts once, from the world
-the turn produced and its own records: `treaties` is true when the world holds
-an agreement or the turn declares a breach, `casus` when a just-applied war
-start is judged this turn, and `settlements` when a war settlement is due. Each
-skipped phase is a proven no-op: an empty agreement ledger leaves
-`deriveTreatyObligations` with no joins and `deriveTreatyBreaches` with nothing
-declared, an empty start list makes `readWarCasus` run nothing, and
-`applyWarReparations` returns the same world when nothing is owed. The handlers
-keep their internal guards as a second line of defence. A guard
+behaviour. Only the treaty call passes a fact set: `applySimulationResult`
+derives the three facts from the world the turn produced and its own records -
+`treaties` is true when the world holds an agreement or the turn declares a
+breach, `casus` when a just-applied war start is judged this turn, and
+`settlements` when a war settlement is due. Each skipped phase is a proven
+no-op: an empty agreement ledger leaves `deriveTreatyObligations` with no joins
+and `deriveTreatyBreaches` with nothing declared, an empty start list makes
+`readWarCasus` run nothing, and `applyWarReparations` returns the same world
+when nothing is owed. The handlers keep their internal guards as a second line
+of defence, and the other phases keep the always-run behaviour they had inline
+(each self-gates where it always did, for example espionage on
+`isActiveFeatureEnabled`). A guard
 (`src/runtime/simulationTickWiringArchitecture.test.js`) bounds the
-`applySimulationResult` region, asserts the executor is imported and called
-once there, asserts the four pilot anchors live inside the handler object before
-the call, and asserts the gate facts are derived before it.
+`applySimulationResult` region, asserts the executor is imported and called once
+per group, asserts the seven calls partition `TICK_PHASES` with every phase
+handler defined in the region, and asserts the gate facts are derived before the
+treaty call.
 
 ---
 

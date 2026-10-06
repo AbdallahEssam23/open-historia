@@ -6744,6 +6744,32 @@ const applySimulationResult = async ({
   // catalog the combat-region resolver uses, so a declared goal region is
   // canonicalized at the moment the ledger saves it.
   const regionResolver = buildRegionResolver(getPrimedScenarioRegionCatalog() ?? []);
+  // Every deterministic phase of this turn runs behind one executor
+  // (runtime/simulationTick.js) that walks the declared TICK_PHASES order. Each
+  // body below is assigned to `tickHandlers` where its inline statement stood,
+  // so its text and its position are the ones the turn always had; the calls at
+  // the deterministic boundaries hand the executor a subset, and it decides the
+  // order. `runTick` builds that subset. The bindings a handler assigns are
+  // declared here because the handler closes over them.
+  const tickHandlers = {};
+  let engagementOutcome;
+  let settlementOutcome;
+  let reinforcement;
+  let casusStarts = [];
+  // The warLedger handler keeps its own `const warMerge`, because the schedule
+  // guard pins that exact literal; it publishes the merged ledger through this
+  // carrier so the phases after it read the same value.
+  let warMerge;
+  const carryWarMerge = (merged) => {
+    warMerge = merged;
+  };
+  let espionageOutcome;
+  let economy;
+  const runTick = (ids, facts = null) =>
+    runSimulationTick({
+      handlers: Object.fromEntries(ids.map((id) => [id, tickHandlers[id]])),
+      ...(facts ? { facts } : {}),
+    });
   // Resolve every declared battle against the pre-turn roster, then fold the
   // engine's ops into the very events the model wrote. The engine owns the
   // numbers and the ownership outcome; the model keeps the moves that put
@@ -6752,42 +6778,49 @@ const applySimulationResult = async ({
   // avoids re-normalizing the whole world per event inside the adapter.
   // The same primed catalog the combat-region resolver uses carries each region's
   // declared terrain (typeId), so a landlocked battle withholds naval support.
-  const engagementOutcome = resolveEventEngagements(freshEvents, baseWorldNormalized, {
-    round: nextGame.round,
-    regionCatalog: getPrimedScenarioRegionCatalog() ?? [],
-  });
-  mergeEngagementResults(freshEvents, engagementOutcome.results);
-  for (const result of engagementOutcome.results) {
-    const event = freshEvents[result.eventIndex];
-    if (receipt && event) {
-      // The tactic clause tells the model WHY the battle went as it did; it is
-      // empty for a plain fight, so the note is unchanged there.
-      const tactics = describeEngagementTactics(result);
-      noteReceipt(receipt, "adjusted",
-        `"${normalizeString(event.title)}": the engine resolved the engagement in ${result.controlRegionId}`
-        + ` (${result.casualtyCount - result.destroyedCount} damaged, ${result.destroyedCount} destroyed)`
-        + (result.controlToCode ? `; the region fell to ${result.controlToCode}` : "; the defender held")
-        + (tactics ? `; ${tactics}.` : "."));
+  tickHandlers.engagements = () => {
+    engagementOutcome = resolveEventEngagements(freshEvents, baseWorldNormalized, {
+      round: nextGame.round,
+      regionCatalog: getPrimedScenarioRegionCatalog() ?? [],
+    });
+  };
+  tickHandlers.engagementMerge = () => {
+    mergeEngagementResults(freshEvents, engagementOutcome.results);
+    for (const result of engagementOutcome.results) {
+      const event = freshEvents[result.eventIndex];
+      if (receipt && event) {
+        // The tactic clause tells the model WHY the battle went as it did; it is
+        // empty for a plain fight, so the note is unchanged there.
+        const tactics = describeEngagementTactics(result);
+        noteReceipt(receipt, "adjusted",
+          `"${normalizeString(event.title)}": the engine resolved the engagement in ${result.controlRegionId}`
+          + ` (${result.casualtyCount - result.destroyedCount} damaged, ${result.destroyedCount} destroyed)`
+          + (result.controlToCode ? `; the region fell to ${result.controlToCode}` : "; the defender held")
+          + (tactics ? `; ${tactics}.` : "."));
+      }
     }
-  }
-  for (const entry of engagementOutcome.unresolved) {
-    const event = freshEvents[entry.eventIndex];
-    if (receipt && event) {
-      noteReceipt(receipt, "adjusted",
-        `"${normalizeString(event.title)}": left as narrative; ${entry.reason}.`);
+    for (const entry of engagementOutcome.unresolved) {
+      const event = freshEvents[entry.eventIndex];
+      if (receipt && event) {
+        noteReceipt(receipt, "adjusted",
+          `"${normalizeString(event.title)}": left as narrative; ${entry.reason}.`);
+      }
     }
-  }
+  };
   // War settlement runs once, on the pre-turn world and this turn's battle
   // results, before the impacts land: the peace event it writes must travel
   // through the same door every other territorial change uses, and the war must
   // still be active when the ledger closes it below.
-  const settlementOutcome = resolveWarSettlements({
-    world: baseWorldNormalized,
-    events: freshEvents,
-    engagements: engagementOutcome.results,
-    date: nextGame.gameDate,
-    playerPolity: normalizeString(baseGame.country),
-  });
+  tickHandlers.settlements = () => {
+    settlementOutcome = resolveWarSettlements({
+      world: baseWorldNormalized,
+      events: freshEvents,
+      engagements: engagementOutcome.results,
+      date: nextGame.gameDate,
+      playerPolity: normalizeString(baseGame.country),
+    });
+  };
+  await runTick(["engagements", "engagementMerge", "settlements"]);
   // The adapter reads the pre-turn world, so a war this same turn's warUpdates
   // already ends or ceasefires is still "active" there. The model's own peace
   // must stand, and a ceasefire is not a settlement, so withhold those ids.
@@ -6863,7 +6896,9 @@ const applySimulationResult = async ({
   });
   let nextColors = impactMerge.colors;
   let impactedWorld = impactMerge.world;
-  impactedWorld = applyCombatReserveCost(impactedWorld, engagementOutcome.reserveCost);
+  tickHandlers.engagementReserve = () => {
+    impactedWorld = applyCombatReserveCost(impactedWorld, engagementOutcome.reserveCost);
+  };
   // Supply attrition: a formation worn down by standing on a front or cut off
   // behind one. It runs on the world the battles have already reshaped and
   // BEFORE the economy, so this period's readiness loss is in the roster the
@@ -6871,36 +6906,38 @@ const applySimulationResult = async ({
   // event, exactly as the production completions do: the engine owns the loss,
   // the map shows it, and no narrative event is written. A failure here must
   // never lose a completed turn; a skipped period is lost, not repaired later.
-  try {
-    const supply = readSupplyAttrition(impactedWorld, getPrimedScenarioRegionCatalog() ?? [], {
-      fromDate: baseGame.gameDate || "",
-      toDate: nextGame.gameDate || "",
-    });
-    if (supply.ops.length) {
-      const applied = applyEventImpactsToWorld({
-        colors: nextColors,
-        events: [{
-          id: SUPPLY_ATTRITION_EVENT_ID,
-          date: nextGame.gameDate || "",
-          title: "Supply attrition",
-          description: "",
-          impacts: { unitOps: supply.ops },
-        }],
-        world: impactedWorld,
-        engineSourced: true,
-        boardOnlyEventIds: [SUPPLY_ATTRITION_EVENT_ID],
+  tickHandlers.supply = () => {
+    try {
+      const supply = readSupplyAttrition(impactedWorld, getPrimedScenarioRegionCatalog() ?? [], {
+        fromDate: baseGame.gameDate || "",
+        toDate: nextGame.gameDate || "",
       });
-      impactedWorld = applied.world;
-      nextColors = applied.colors;
-      logDebugEvent("turn", `Supply attrition wore down ${supply.summary.damaged} formation(s), ${supply.summary.destroyed} lost.`, {
-        supplied: supply.summary.supplied,
-        strained: supply.summary.strained,
-        isolated: supply.summary.isolated,
-      });
+      if (supply.ops.length) {
+        const applied = applyEventImpactsToWorld({
+          colors: nextColors,
+          events: [{
+            id: SUPPLY_ATTRITION_EVENT_ID,
+            date: nextGame.gameDate || "",
+            title: "Supply attrition",
+            description: "",
+            impacts: { unitOps: supply.ops },
+          }],
+          world: impactedWorld,
+          engineSourced: true,
+          boardOnlyEventIds: [SUPPLY_ATTRITION_EVENT_ID],
+        });
+        impactedWorld = applied.world;
+        nextColors = applied.colors;
+        logDebugEvent("turn", `Supply attrition wore down ${supply.summary.damaged} formation(s), ${supply.summary.destroyed} lost.`, {
+          supplied: supply.summary.supplied,
+          strained: supply.summary.strained,
+          isolated: supply.summary.isolated,
+        });
+      }
+    } catch (error) {
+      console.warn("[engine] the supply attrition step failed; the completed turn is preserved.", error);
     }
-  } catch (error) {
-    console.warn("[engine] the supply attrition step failed; the completed turn is preserved.", error);
-  }
+  };
   // Reinforcement and consolidation: a formation in supply buys its strength
   // back from its polity's reserves, a worn formation rotates out for a fresh
   // one, and two weak formations of a type fold into one. It runs on the world
@@ -6910,37 +6947,47 @@ const applySimulationResult = async ({
   // a board-only synthetic event, exactly as the attrition and the production
   // completions do. A failure here must never lose a completed turn; a skipped
   // period is lost, not repaired later.
-  try {
-    const reinforcement = readReinforcement(impactedWorld, getPrimedScenarioRegionCatalog() ?? [], {
-      fromDate: baseGame.gameDate || "",
-      toDate: nextGame.gameDate || "",
-      rotations: normalizeArray(result.rotations),
-      merges: normalizeArray(result.merges),
-    });
-    if (reinforcement.ops.length) {
-      const applied = applyEventImpactsToWorld({
-        colors: nextColors,
-        events: [{
-          id: REINFORCEMENT_EVENT_ID,
-          date: nextGame.gameDate || "",
-          title: "Reinforcement and rotation",
-          description: "",
-          impacts: { unitOps: reinforcement.ops },
-        }],
-        world: impactedWorld,
-        engineSourced: true,
-        boardOnlyEventIds: [REINFORCEMENT_EVENT_ID],
+  tickHandlers.reinforcement = () => {
+    try {
+      reinforcement = readReinforcement(impactedWorld, getPrimedScenarioRegionCatalog() ?? [], {
+        fromDate: baseGame.gameDate || "",
+        toDate: nextGame.gameDate || "",
+        rotations: normalizeArray(result.rotations),
+        merges: normalizeArray(result.merges),
       });
-      impactedWorld = applied.world;
-      nextColors = applied.colors;
+      if (reinforcement.ops.length) {
+        const applied = applyEventImpactsToWorld({
+          colors: nextColors,
+          events: [{
+            id: REINFORCEMENT_EVENT_ID,
+            date: nextGame.gameDate || "",
+            title: "Reinforcement and rotation",
+            description: "",
+            impacts: { unitOps: reinforcement.ops },
+          }],
+          world: impactedWorld,
+          engineSourced: true,
+          boardOnlyEventIds: [REINFORCEMENT_EVENT_ID],
+        });
+        impactedWorld = applied.world;
+        nextColors = applied.colors;
+      }
+    } catch (error) {
+      console.warn("[engine] the reinforcement step failed; the completed turn is preserved.", error);
     }
-    impactedWorld = applyCombatReserveCost(impactedWorld, reinforcement.reserveCost);
-    logDebugEvent("turn", `Reinforcement restored ${reinforcement.summary.pointsRestored} point(s) to ${reinforcement.summary.reinforced} formation(s); ${reinforcement.summary.rotations} rotation(s), ${reinforcement.summary.merges} merge(s).`, {
-      rejected: reinforcement.summary.rejected,
-    });
-  } catch (error) {
-    console.warn("[engine] the reinforcement step failed; the completed turn is preserved.", error);
-  }
+  };
+  tickHandlers.reinforcementReserve = () => {
+    try {
+      if (!reinforcement) return;
+      impactedWorld = applyCombatReserveCost(impactedWorld, reinforcement.reserveCost);
+      logDebugEvent("turn", `Reinforcement restored ${reinforcement.summary.pointsRestored} point(s) to ${reinforcement.summary.reinforced} formation(s); ${reinforcement.summary.rotations} rotation(s), ${reinforcement.summary.merges} merge(s).`, {
+        rejected: reinforcement.summary.rejected,
+      });
+    } catch (error) {
+      console.warn("[engine] the reinforcement step failed; the completed turn is preserved.", error);
+    }
+  };
+  await runTick(["engagementReserve", "supply", "reinforcement", "reinforcementReserve"]);
   // A polity renamed this turn — by an event's polityChanges, or a record whose
   // display name still differed from its key — is re-keyed everywhere the world
   // state does not carry: the game's own polity, the queued orders, the chats
@@ -7010,61 +7057,64 @@ const applySimulationResult = async ({
   // counts when the world's services decide whom to spy on; the diplomatic
   // ledger merges after it, so a publicly exposed ring can sour a relation in
   // the same pass. Both are pure: they return a new normalized world.
-  const warMerge = applyWarUpdates({
-    world: worldWithImpacts,
-    updates: warUpdates,
-    events: freshEvents,
-    stopDate: nextGame.gameDate,
-    round: nextGame.round,
-    weariness: settlementOutcome.weariness,
-    resolveRegion: regionResolver.resolve,
-  });
-  worldWithImpacts = warMerge.world;
-  // A record that would close the player's offered war is held at apply time
-  // too, for any path the validator did not reach. It is a deliberate hold, not
-  // a drop, so the turn's receipt names it and the action does not fail.
-  for (const warId of normalizeArray(warMerge.withheldIds)) {
-    if (receipt) {
-      noteReceipt(receipt, "withheld", `The war ${warId} is held open by the player's pending peace offer; the engine did not apply the record that would close it.`);
+  tickHandlers.warLedger = () => {
+    const warMerge = applyWarUpdates({
+      world: worldWithImpacts,
+      updates: warUpdates,
+      events: freshEvents,
+      stopDate: nextGame.gameDate,
+      round: nextGame.round,
+      weariness: settlementOutcome.weariness,
+      resolveRegion: regionResolver.resolve,
+    });
+    worldWithImpacts = warMerge.world;
+    // A record that would close the player's offered war is held at apply time
+    // too, for any path the validator did not reach. It is a deliberate hold, not
+    // a drop, so the turn's receipt names it and the action does not fail.
+    for (const warId of normalizeArray(warMerge.withheldIds)) {
+      if (receipt) {
+        noteReceipt(receipt, "withheld", `The war ${warId} is held open by the player's pending peace offer; the engine did not apply the record that would close it.`);
+      }
     }
-  }
-  if (normalizeArray(warMerge.withheldIds).length) {
-    logDebugEvent("turn", `Held war operations awaiting the player's peace decision: ${normalizeArray(warMerge.withheldIds).join(", ")}.`);
-    // The player sees the war still on the map but not why. Say it, once per
-    // turn that actually withheld a record; the offer itself is the durable
-    // fact and this notice is transient.
-    const heldWarIds = normalizeArray(warMerge.withheldIds);
-    const message = buildWarHoldNotice({ warIds: heldWarIds });
-    if (message && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(WAR_HELD_EVENT, { detail: { message, warIds: heldWarIds } }));
+    if (normalizeArray(warMerge.withheldIds).length) {
+      logDebugEvent("turn", `Held war operations awaiting the player's peace decision: ${normalizeArray(warMerge.withheldIds).join(", ")}.`);
+      // The player sees the war still on the map but not why. Say it, once per
+      // turn that actually withheld a record; the offer itself is the durable
+      // fact and this notice is transient.
+      const heldWarIds = normalizeArray(warMerge.withheldIds);
+      const message = buildWarHoldNotice({ warIds: heldWarIds });
+      if (message && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(WAR_HELD_EVENT, { detail: { message, warIds: heldWarIds } }));
+      }
     }
-  }
+    // A war begun this turn is judged for a recorded warrant: a claim on land a
+    // defender holds, or a breach by a defender against the aggressor. Reading the
+    // start records, not the war records, is what keeps a later joiner from being
+    // judged an aggressor. Only the starts the ledger actually applied are judged,
+    // and each war once, so a re-issued or duplicated start cannot charge twice.
+    const appliedWarIds = new Set(normalizeArray(warMerge.appliedIds));
+    const judgedWarIds = new Set();
+    casusStarts = warUpdates
+      .filter((update) => normalizeString(update?.op).toLowerCase() === "start")
+      .filter((update) => appliedWarIds.has(normalizeString(update?.id)))
+      .map((update) => ({
+        warId: normalizeString(update?.id),
+        aggressors: normalizeArray(update?.actors),
+        defenders: normalizeArray(update?.opponents),
+      }))
+      .filter((start) => {
+        if (!start.warId || judgedWarIds.has(start.warId)) return false;
+        judgedWarIds.add(start.warId);
+        return true;
+      });
+    carryWarMerge(warMerge);
+  };
+  await runTick(["warLedger"]);
   // The facts the declared schedule gates on, derived once from the world this
   // turn produced and from this turn's own records. A phase whose facts are all
   // false has nothing to do this turn, so the executor skips its handler instead
   // of running a body that would only no-op; the handlers keep their internal
   // guards as a second line of defence.
-  //
-  // A war begun this turn is judged for a recorded warrant: a claim on land a
-  // defender holds, or a breach by a defender against the aggressor. Reading the
-  // start records, not the war records, is what keeps a later joiner from being
-  // judged an aggressor. Only the starts the ledger actually applied are judged,
-  // and each war once, so a re-issued or duplicated start cannot charge twice.
-  const appliedWarIds = new Set(normalizeArray(warMerge.appliedIds));
-  const judgedWarIds = new Set();
-  const casusStarts = warUpdates
-    .filter((update) => normalizeString(update?.op).toLowerCase() === "start")
-    .filter((update) => appliedWarIds.has(normalizeString(update?.id)))
-    .map((update) => ({
-      warId: normalizeString(update?.id),
-      aggressors: normalizeArray(update?.actors),
-      defenders: normalizeArray(update?.opponents),
-    }))
-    .filter((start) => {
-      if (!start.warId || judgedWarIds.has(start.warId)) return false;
-      judgedWarIds.add(start.warId);
-      return true;
-    });
   const tickFacts = {
     treaties: normalizeArray(worldWithImpacts.agreements).length > 0 || breachUpdates.length > 0,
     casus: casusStarts.length > 0,
@@ -7072,8 +7122,8 @@ const applySimulationResult = async ({
   };
   // The four phases below are run by one executor that walks the declared
   // schedule (runtime/simulationTick.js). Each handler holds the phase's code
-  // unchanged, so the executed order is TICK_PHASES, not this object's key order.
-  const tickHandlers = {
+  // unchanged, so the executed order is TICK_PHASES, not an object's key order.
+  Object.assign(tickHandlers, {
     treatyBreaches: () => {
       try {
         const breachOutcome = readTreatyBreaches(worldWithImpacts, {
@@ -7184,8 +7234,8 @@ const applySimulationResult = async ({
       // the peace event's transfers have already landed.
       worldWithImpacts = applyWarReparations(worldWithImpacts, dueSettlements);
     },
-  };
-  await runSimulationTick({ handlers: tickHandlers, facts: tickFacts });
+  });
+  await runTick(["treatyBreaches", "casusBelli", "treatyObligations", "reparations"], tickFacts);
 
   // Espionage resolves on the world the whole turn produced - after the standing
   // orders above have advanced, so an agent's round is decided against where the
@@ -7232,32 +7282,36 @@ const applySimulationResult = async ({
     }
     return { polity, hostility, hostile: hostility >= 0.75 };
   });
-  // With espionage switched off for this game nothing is rolled: the agents
-  // already in the world stay where they are, silent, and no new one arrives.
-  const espionage = isActiveFeatureEnabled("espionage")
-    ? resolveEspionage(worldWithImpacts, {
-      round: nextGame.round,
-      date: nextGame.gameDate,
-      playerPolity: normalizeString(baseGame.country),
-      candidates: espionageCandidates,
-    })
-    : { spies: normalizeArray(worldWithImpacts.spies), events: [], notices: [] };
-  worldWithImpacts.spies = espionage.spies;
-  // A spy in the world needs a seal for what it will report under.
-  if (!isSeal(worldWithImpacts.spySeal) && espionage.spies.length) worldWithImpacts.spySeal = newSeal();
+  tickHandlers.espionage = () => {
+    // With espionage switched off for this game nothing is rolled: the agents
+    // already in the world stay where they are, silent, and no new one arrives.
+    const espionage = isActiveFeatureEnabled("espionage")
+      ? resolveEspionage(worldWithImpacts, {
+        round: nextGame.round,
+        date: nextGame.gameDate,
+        playerPolity: normalizeString(baseGame.country),
+        candidates: espionageCandidates,
+      })
+      : { spies: normalizeArray(worldWithImpacts.spies), events: [], notices: [] };
+    worldWithImpacts.spies = espionage.spies;
+    // A spy in the world needs a seal for what it will report under.
+    if (!isSeal(worldWithImpacts.spySeal) && espionage.spies.length) worldWithImpacts.spySeal = newSeal();
+    espionageOutcome = espionage;
+  };
+  await runTick(["espionage"]);
   const espionageEventIds = [];
   // A PUBLIC exposure is not just prose: it lands in the relation ledger as an
   // event-linked deterioration of the pair, the same way ordinary diplomacy does.
   // Secret discoveries and turns stay secret and move nothing.
   const espionageRelationUpdates = [];
-  espionage.events.forEach((event, espionageIndex) => {
+  espionageOutcome.events.forEach((event, espionageIndex) => {
     const entry = normalizeEventEntry({ ...event, id: "espionage-" + nextGame.round + "-" + freshEvents.length }, freshEvents.length);
     if (!entry) return;
     freshEvents.push(entry);
     espionageEventIds.push(entry.id);
-    const notice = espionage.notices?.[espionageIndex] || null;
+    const notice = espionageOutcome.notices?.[espionageIndex] || null;
     const spy = notice?.kind === "exposed" && notice.spyId
-      ? espionage.spies.find((candidate) => candidate?.id === notice.spyId)
+      ? espionageOutcome.spies.find((candidate) => candidate?.id === notice.spyId)
       : null;
     if (!spy) return;
     const owner = canonicalEspionagePolity(spy.owner);
@@ -7679,111 +7733,125 @@ const applySimulationResult = async ({
   // A failure here must never lose a completed turn: the events and the date are
   // already correct, and the economy is simply one period behind, which the
   // clock on the world then reports honestly.
-  try {
-    const economy = advanceWorldEconomy(nextWorld, {
-      fromDate: baseGame.gameDate || "",
-      toDate: nextGame.gameDate || "",
-      // This turn's shocks run NEXT period, so the period the model just
-      // narrated is not rewritten by the shock it declared for it.
-      declaredShocks: normalizeArray(result.economicShocks),
-      // Declared mobilizations run NEXT period, exactly like the shocks.
-      declaredMobilization: normalizeArray(result.mobilization),
-      // Declared reinforcement policies run NEXT period, exactly like the
-      // posture and the shocks.
-      declaredReinforcement: normalizeArray(result.reinforcement),
-      declaredProduction: normalizeArray(result.productionOrders),
-      upkeep: buildUpkeepTable(baseWorld),
-      // Canonicalised for the same reason as the digest dry run: the engine keys
-      // its result by the countryStats name, and a blank-owner programme is the
-      // player's only when the two spell the player the same way.
-      playerPolity: toCountryName(nextGame.country || ""),
-      tracked: Object.keys(nextWorld.countryStats ?? {}),
-      campaignId,
-      scenarioId: nextGame.scenarioId || "",
-    });
-    nextWorld = economy.world;
-    // The trade field is the engine's, but the model is the narrator: tell it
-    // WHO the diplomatic network favoured and who it cut off, never the share.
-    // A zero-length turn advances nothing, so it says nothing.
-    const tradeClimate = economy.months > 0 ? describeTradeClimate(economy.trade) : "";
-    if (tradeClimate) noteReceipt(receipt, "adjusted", `Trade: ${tradeClimate}.`);
-    logDebugEvent("turn", `Economy advanced ${economy.months} month(s) locally.`, {
-      steps: economy.journal?.steps ?? 0,
-      capped: Boolean(economy.journal?.capped),
-      shockedMonths: economy.journal?.shockedMonths ?? 0,
-    });
-
-    // The engine's completed items become real units and markers through the SAME
-    // path every narrated op takes: place them, then apply them. The core never
-    // touches the map, and the boundary reuses the resolver and the applier that
-    // already handle an unresolvable place or a sea placement.
-    const batches = normalizeArray(economy.completionBatches);
-    if (batches.length) {
-      const containers = batches.map((batch) => {
-        const impacts = { unitOps: batch.unitOps, markerOps: batch.markerOps };
-        return {
-          // The title is not decoration: normalizeEvents drops an event with no
-          // title AND no description, which would silently discard the completed
-          // units and structures this whole block exists to apply.
-          event: { date: batch.date, title: "Production completed", description: "", impacts },
-          impacts,
-          path: "$.production",
-        };
+  tickHandlers.economy = () => {
+    try {
+      economy = advanceWorldEconomy(nextWorld, {
+        fromDate: baseGame.gameDate || "",
+        toDate: nextGame.gameDate || "",
+        // This turn's shocks run NEXT period, so the period the model just
+        // narrated is not rewritten by the shock it declared for it.
+        declaredShocks: normalizeArray(result.economicShocks),
+        // Declared mobilizations run NEXT period, exactly like the shocks.
+        declaredMobilization: normalizeArray(result.mobilization),
+        // Declared reinforcement policies run NEXT period, exactly like the
+        // posture and the shocks.
+        declaredReinforcement: normalizeArray(result.reinforcement),
+        declaredProduction: normalizeArray(result.productionOrders),
+        upkeep: buildUpkeepTable(baseWorld),
+        // Canonicalised for the same reason as the digest dry run: the engine keys
+        // its result by the countryStats name, and a blank-owner programme is the
+        // player's only when the two spell the player the same way.
+        playerPolity: toCountryName(nextGame.country || ""),
+        tracked: Object.keys(nextWorld.countryStats ?? {}),
+        campaignId,
+        scenarioId: nextGame.scenarioId || "",
       });
-      // A completion the map cannot place (a named site that no longer resolves)
-      // must leave the same receipt note any narrated op would, not vanish after
-      // the player already paid for it. The receipt may be null, exactly as the
-      // other resolvePlacements callers allow.
-      await resolvePlacements(containers, nextWorld, { receipt });
-      const applied = applyEventImpactsToWorld({
-        colors: {},
-        events: containers.map((container) => container.event),
-        world: nextWorld,
+      nextWorld = economy.world;
+      // The trade field is the engine's, but the model is the narrator: tell it
+      // WHO the diplomatic network favoured and who it cut off, never the share.
+      // A zero-length turn advances nothing, so it says nothing.
+      const tradeClimate = economy.months > 0 ? describeTradeClimate(economy.trade) : "";
+      if (tradeClimate) noteReceipt(receipt, "adjusted", `Trade: ${tradeClimate}.`);
+      logDebugEvent("turn", `Economy advanced ${economy.months} month(s) locally.`, {
+        steps: economy.journal?.steps ?? 0,
+        capped: Boolean(economy.journal?.capped),
+        shockedMonths: economy.journal?.shockedMonths ?? 0,
       });
-      nextWorld = applied.world;
-      for (const rename of normalizeArray(applied.renamedPolities)) {
-        renamedPolities.push(rename);
-      }
+    } catch (error) {
+      console.warn("[engine] the economy step failed; the completed turn is preserved.", error);
     }
-
-    // Research progress and completion are the ENGINE's writes: they go through the
-    // event path as a synthetic event with the engine flag, exactly as the
-    // production completions above do. The flag is what let applyProjectOps tell an
-    // engine completion from a narrated one; without it the guard refuses this
-    // close and the programme would sit at 100 percent forever.
-    const researchOps = normalizeArray(economy.researchOps);
-    if (researchOps.length) {
-      const applied = applyEventImpactsToWorld({
-        colors: nextColors,
-        events: [{ id: RESEARCH_EVENT_ID, date: nextGame.gameDate || "", title: "Research completed", description: "", impacts: { projectOps: researchOps } }],
-        world: nextWorld,
-        engineSourced: true,
-        boardOnlyEventIds: [RESEARCH_EVENT_ID],
-      });
-      nextWorld = applied.world;
-      nextColors = applied.colors;
-      const researchRenames = normalizeArray(applied.renamedPolities);
-      if (researchRenames.length) {
-        const propagated = await propagateRenames({
-          world: nextWorld, game: nextGame, actions: nextActions, flags: renamedFlags, renames: researchRenames,
+  };
+  tickHandlers.production = async () => {
+    try {
+      // A failure in the economy leaves no outcome, so production and research
+      // are skipped exactly as the shared try/catch used to skip them.
+      if (!economy) return;
+      // The engine's completed items become real units and markers through the SAME
+      // path every narrated op takes: place them, then apply them. The core never
+      // touches the map, and the boundary reuses the resolver and the applier that
+      // already handle an unresolvable place or a sea placement.
+      const batches = normalizeArray(economy.completionBatches);
+      if (batches.length) {
+        const containers = batches.map((batch) => {
+          const impacts = { unitOps: batch.unitOps, markerOps: batch.markerOps };
+          return {
+            // The title is not decoration: normalizeEvents drops an event with no
+            // title AND no description, which would silently discard the completed
+            // units and structures this whole block exists to apply.
+            event: { date: batch.date, title: "Production completed", description: "", impacts },
+            impacts,
+            path: "$.production",
+          };
         });
-        nextWorld = propagated.world;
-        nextGame = propagated.game;
-        nextActions = propagated.actions;
-        renamedFlags = propagated.flags;
-        renamedPolities.push(...researchRenames);
+        // A completion the map cannot place (a named site that no longer resolves)
+        // must leave the same receipt note any narrated op would, not vanish after
+        // the player already paid for it. The receipt may be null, exactly as the
+        // other resolvePlacements callers allow.
+        await resolvePlacements(containers, nextWorld, { receipt });
+        const applied = applyEventImpactsToWorld({
+          colors: {},
+          events: containers.map((container) => container.event),
+          world: nextWorld,
+        });
+        nextWorld = applied.world;
+        for (const rename of normalizeArray(applied.renamedPolities)) {
+          renamedPolities.push(rename);
+        }
       }
+
+      // Research progress and completion are the ENGINE's writes: they go through the
+      // event path as a synthetic event with the engine flag, exactly as the
+      // production completions above do. The flag is what let applyProjectOps tell an
+      // engine completion from a narrated one; without it the guard refuses this
+      // close and the programme would sit at 100 percent forever.
+      const researchOps = normalizeArray(economy.researchOps);
+      if (researchOps.length) {
+        const applied = applyEventImpactsToWorld({
+          colors: nextColors,
+          events: [{ id: RESEARCH_EVENT_ID, date: nextGame.gameDate || "", title: "Research completed", description: "", impacts: { projectOps: researchOps } }],
+          world: nextWorld,
+          engineSourced: true,
+          boardOnlyEventIds: [RESEARCH_EVENT_ID],
+        });
+        nextWorld = applied.world;
+        nextColors = applied.colors;
+        const researchRenames = normalizeArray(applied.renamedPolities);
+        if (researchRenames.length) {
+          const propagated = await propagateRenames({
+            world: nextWorld, game: nextGame, actions: nextActions, flags: renamedFlags, renames: researchRenames,
+          });
+          nextWorld = propagated.world;
+          nextGame = propagated.game;
+          nextActions = propagated.actions;
+          renamedFlags = propagated.flags;
+          renamedPolities.push(...researchRenames);
+        }
+      }
+    } catch (error) {
+      console.warn("[engine] the production step failed; the completed turn is preserved.", error);
     }
-  } catch (error) {
-    console.warn("[engine] the economy step failed; the completed turn is preserved.", error);
-  }
+  };
+  await runTick(["economy", "production"]);
 
   // Permanent compact Stats history: snapshots only the numeric sheets that
   // already exist, so it adds no AI work when tracking is off or not due.
-  nextWorld = captureCountryStatsHistory(nextWorld, {
-    date: nextGame.gameDate || nextGame.startDate || "",
-    round: nextGame.round || 0,
-  });
+  tickHandlers.statsHistory = () => {
+    nextWorld = captureCountryStatsHistory(nextWorld, {
+      date: nextGame.gameDate || nextGame.startDate || "",
+      round: nextGame.round || 0,
+    });
+  };
+  await runTick(["statsHistory"]);
 
   // Re-read the chat list instead of writing the pre-turn snapshot back over it.
   // Turns take a while, and anything the player did to the list while one ran —
