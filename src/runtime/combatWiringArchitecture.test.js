@@ -34,6 +34,11 @@ test("the adapter reads the region terrain and the turn passes the catalog", () 
   assert.match(gameplay, /regionCatalog: getPrimedScenarioRegionCatalog\(\) \?\? \[\]/);
 });
 
+test("the turn tells the model why the battle went as it did", () => {
+  assert.match(adapter, /export const describeEngagementTactics/);
+  assert.match(gameplay, /describeEngagementTactics\(result\)/);
+});
+
 test("the turn runs the adapter before applying impacts", () => {
   assert.ok(normalizeAt > 0, "the pre-turn world normalization is not found");
   assert.ok(resolveAt > 0, "the adapter is not called");

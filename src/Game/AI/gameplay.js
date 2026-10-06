@@ -22,6 +22,7 @@ import {
 } from "../../runtime/applicationReceipt.js";
 import {
   applyCombatReserveCost,
+  describeEngagementTactics,
   mergeEngagementResults,
   resolveEventEngagements,
 } from "../../runtime/combatEngagements.js";
@@ -6759,10 +6760,14 @@ const applySimulationResult = async ({
   for (const result of engagementOutcome.results) {
     const event = freshEvents[result.eventIndex];
     if (receipt && event) {
+      // The tactic clause tells the model WHY the battle went as it did; it is
+      // empty for a plain fight, so the note is unchanged there.
+      const tactics = describeEngagementTactics(result);
       noteReceipt(receipt, "adjusted",
         `"${normalizeString(event.title)}": the engine resolved the engagement in ${result.controlRegionId}`
         + ` (${result.casualtyCount - result.destroyedCount} damaged, ${result.destroyedCount} destroyed)`
-        + (result.controlToCode ? `; the region fell to ${result.controlToCode}.` : "; the defender held."));
+        + (result.controlToCode ? `; the region fell to ${result.controlToCode}` : "; the defender held")
+        + (tactics ? `; ${tactics}.` : "."));
     }
   }
   for (const entry of engagementOutcome.unresolved) {

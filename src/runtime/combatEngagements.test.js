@@ -6,6 +6,7 @@ import {
   COMBAT_POOL_FACTOR,
   applyCombatReserveCost,
   buildEngagement,
+  describeEngagementTactics,
   mergeEngagementResults,
   regionCoastal,
   resolveEventEngagements,
@@ -218,4 +219,71 @@ test("an inland region withholds naval shore support from the resolved battle", 
     coastal.results[0].sideA.power > inland.results[0].sideA.power,
     "shore support raises the fleet holder's power only on the coast",
   );
+});
+
+// A battle between the given Prussian (side A) and French (side B) units, at a
+// fixed key. Explicit lists so every tactic edge is exactly attributable.
+const duel = (unitsA, unitsB, regionCatalog = []) => {
+  const w = world();
+  w.units = [
+    ...unitsA.map((unit, i) => ({ ownerCode: "Prussia", regionId: "ALSACE", id: `a${i}`, ...unit })),
+    ...unitsB.map((unit, i) => ({ ownerCode: "France", regionId: "ALSACE", id: `b${i}`, ...unit })),
+  ];
+  return resolveEventEngagements([battle()], w, { round: 7, regionCatalog }).results[0];
+};
+
+const INF = { type: "infantry", strength: 80 };
+
+test("a resolved battle forwards the tactic breakdown and each side's polity", () => {
+  const result = duel([INF, { type: "air", strength: 60 }], [INF]);
+  for (const field of ["airEdge", "navalEdge", "antiEdge", "coastal"]) {
+    assert.ok(field in result, `the result carries ${field}`);
+  }
+  assert.equal(result.sideA.polity, "Prussia");
+  assert.equal(result.sideB.polity, "France");
+  for (const side of [result.sideA, result.sideB]) {
+    for (const field of ["airPower", "navalPower", "antiPower"]) {
+      assert.equal(typeof side[field], "number", field);
+    }
+  }
+});
+
+test("describeEngagementTactics names the side that held the air", () => {
+  const result = duel([INF, { type: "air", strength: 60 }], [INF]);
+  assert.ok(result.airEdge > 0);
+  const clause = describeEngagementTactics(result);
+  assert.match(clause, /Prussia held the air/);
+  assert.doesNotMatch(clause, /France held the air/);
+});
+
+test("describeEngagementTactics names the sea holder on a coast and withholds it inland", () => {
+  const coastalCatalog = [{ id: "ALSACE", type: "coastal" }];
+  const inlandCatalog = [{ id: "ALSACE", type: "land" }, { id: "COAST", type: "coastal" }];
+  const coastal = duel([INF, { type: "naval", strength: 60 }], [INF], coastalCatalog);
+  assert.match(describeEngagementTactics(coastal), /Prussia held the sea/);
+
+  const inland = duel([INF, { type: "naval", strength: 60 }], [INF], inlandCatalog);
+  const inlandClause = describeEngagementTactics(inland);
+  assert.match(inlandClause, /shore support was withheld \(the region is inland\)/);
+  assert.doesNotMatch(inlandClause, /held the sea/);
+});
+
+test("describeEngagementTactics names the counter edge", () => {
+  const result = duel([{ type: "artillery", strength: 80 }], [{ type: "armor", strength: 80 }]);
+  assert.ok(result.antiEdge > 0);
+  assert.match(describeEngagementTactics(result), /Prussia had the counter edge/);
+});
+
+test("describeEngagementTactics says nothing about a plain battle", () => {
+  const result = duel([INF], [INF]);
+  assert.equal(result.airEdge, 0);
+  assert.equal(result.navalEdge, 0);
+  assert.equal(result.antiEdge, 0);
+  assert.equal(describeEngagementTactics(result), "");
+});
+
+test("describeEngagementTactics is deterministic", () => {
+  const result = duel([INF, { type: "air", strength: 60 }, { type: "naval", strength: 40 }],
+    [INF, { type: "artillery", strength: 70 }], [{ id: "ALSACE", type: "coastal" }]);
+  assert.equal(describeEngagementTactics(result), describeEngagementTactics(result));
 });

@@ -22,6 +22,16 @@ const list = (value) => (Array.isArray(value) ? value : []);
 const canonicalPolity = (value) => toCountryName(name(value)) || name(value);
 const ownerOf = (unit) => canonicalPolity(unit?.ownerCode);
 
+// The side's leading polity: the first entry with units, the same one the core
+// credits a province to, so a tactic clause names a side the way the region line
+// does. Both sides are resolved in the war's declared order, so this is stable.
+const leadingPolity = (side) => {
+  for (const entry of list(side)) {
+    if (list(entry?.units).length > 0) return name(entry.polity);
+  }
+  return "";
+};
+
 // A region's declared terrain, as a tri-state: `true` when the catalog says the
 // region is coastal, `false` when it declares another terrain in a world that
 // declares at least one coastal region, and `undefined` when there is no coastal
@@ -133,6 +143,23 @@ const casualtyOps = (casualties) => casualties.map((entry) => (
     : { op: "strength", unitId: entry.unitId, strength: entry.nextStrength }
 ));
 
+// One clause naming WHO benefited from the tactics the core computed, never by
+// how much: the engine owns the numbers, the model owns the telling. Empty when
+// nothing tactical happened, so the battle note is unchanged for a plain fight.
+export const describeEngagementTactics = (result) => {
+  const parts = [];
+  const holder = (edge) => (edge > 0 ? name(result?.sideA?.polity) : name(result?.sideB?.polity));
+  if (Number(result?.airEdge)) parts.push(`${holder(result.airEdge)} held the air`);
+  const hasNaval = Number(result?.sideA?.navalPower) > 0 || Number(result?.sideB?.navalPower) > 0;
+  if (result?.coastal === false && hasNaval) {
+    parts.push("shore support was withheld (the region is inland)");
+  } else if (Number(result?.navalEdge)) {
+    parts.push(`${holder(result.navalEdge)} held the sea`);
+  }
+  if (Number(result?.antiEdge)) parts.push(`${holder(result.antiEdge)} had the counter edge`);
+  return parts.join("; ");
+};
+
 const addCost = (reserveCost, polity, type, lostPoints) => {
   const upkeep = UNIT_UPKEEP[type] ?? UNIT_UPKEEP.infantry;
   const row = reserveCost[polity] ?? { manpower: 0, materiel: 0 };
@@ -198,8 +225,30 @@ export const resolveEventEngagements = (events, world, { round = 0, regionCatalo
       casualtyCount: outcome.casualties.length,
       destroyedCount: outcome.casualties.filter((entry) => entry.destroyed).length,
       winner: outcome.winner,
-      sideA: { adjustedPower: outcome.sideA.adjustedPower, lossFraction: outcome.sideA.lossFraction, power: outcome.sideA.power },
-      sideB: { adjustedPower: outcome.sideB.adjustedPower, lossFraction: outcome.sideB.lossFraction, power: outcome.sideB.power },
+      // The tactical breakdown the core computed, forwarded so the receipt can
+      // tell the model why the battle went as it did.
+      airEdge: outcome.airEdge,
+      navalEdge: outcome.navalEdge,
+      antiEdge: outcome.antiEdge,
+      coastal: outcome.coastal,
+      sideA: {
+        polity: leadingPolity(input.sideA) || input.sideAPolities[0] || "",
+        power: outcome.sideA.power,
+        adjustedPower: outcome.sideA.adjustedPower,
+        lossFraction: outcome.sideA.lossFraction,
+        airPower: outcome.sideA.airPower,
+        navalPower: outcome.sideA.navalPower,
+        antiPower: outcome.sideA.antiPower,
+      },
+      sideB: {
+        polity: leadingPolity(input.sideB) || input.sideBPolities[0] || "",
+        power: outcome.sideB.power,
+        adjustedPower: outcome.sideB.adjustedPower,
+        lossFraction: outcome.sideB.lossFraction,
+        airPower: outcome.sideB.airPower,
+        navalPower: outcome.sideB.navalPower,
+        antiPower: outcome.sideB.antiPower,
+      },
     });
   });
 
