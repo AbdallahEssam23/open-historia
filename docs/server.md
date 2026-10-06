@@ -227,7 +227,7 @@ Upload assets are written straight from the raw request buffer (`uploadScenarioA
 
 `world` gets `normalizeRuntimeWorld` applied on the way out (`server/libraryStore.js:2073-2078`): if `world.customRegions` is unset it is injected `true` in the *served* payload (never written to disk), so old/fresh worlds still render with the custom style.
 
-`writeRuntimeJsonAsset(assetKey, value)` (`server/libraryStore.js:2314-2369`) always writes to the **active game** (auto-creating a session from the selected scenario if there is no active game), canonicalizes owner references first (`world` → `canonicalizeWorldCountryRefs`, `game` → `canonicalizeGameCountry`, `colors` → `canonicalizeColorKeys`), writes via `writeJsonFile`, bumps game meta, and returns the freshly re-read asset.
+`writeRuntimeJsonAsset(assetKey, value)` (`server/libraryStore.js`) is **async** and always writes to the **active game** (auto-creating a session from the selected scenario if there is no active game), canonicalizes owner references first (`world` → `canonicalizeWorldCountryRefs`, `game` → `canonicalizeGameCountry`, `colors` → `canonicalizeColorKeys`), writes via `writeJsonFileAsync` — the async sibling of `writeJsonFile`, built on `atomicWrite` (`server/atomicWrite.js`) so a multi-megabyte save (the rollback archive runs to 8-21 MB) does not hold the event loop the UI's five-second poll shares — bumps game meta, and returns the freshly re-read asset. `PUT /api/runtime/json/:assetKey` (`server/server.js`) awaits it. The meta and manifest writes keep the synchronous `writeJsonFile`; they are small and user-driven.
 
 ---
 

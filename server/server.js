@@ -819,7 +819,7 @@ app.get("/api/runtime/json/:assetKey", (req, res) => {
   }
 });
 
-app.put("/api/runtime/json/:assetKey", jsonParser, (req, res) => {
+app.put("/api/runtime/json/:assetKey", jsonParser, async (req, res) => {
   try {
     // express.json() hands us {} when the body was absent or unparseable, which is
     // indistinguishable from a genuine {} — and for an object-shaped asset like
@@ -832,7 +832,7 @@ app.put("/api/runtime/json/:assetKey", jsonParser, (req, res) => {
     // record back. The rollback archive asks for this — reading it back and
     // sending all of it every turn cost this process and the page a copy each.
     const minimal = /\breturn=minimal\b/i.test(String(req.get("prefer") ?? ""));
-    const asset = writeRuntimeJsonAsset(req.params.assetKey, req.body, { readBack: !minimal });
+    const asset = await writeRuntimeJsonAsset(req.params.assetKey, req.body, { readBack: !minimal });
     res.setHeader("Cache-Control", "no-store");
     if (minimal) {
       res.setHeader("Preference-Applied", "return=minimal");

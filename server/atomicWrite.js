@@ -41,6 +41,30 @@ const fsyncDirectory = (target) => {
   }
 };
 
+// The same best-effort durability for the rename entry, without blocking the
+// loop. The save path writes a multi-megabyte payload on a single-loop server,
+// so the file fsync and the directory fsync must not run on the loop the UI's
+// five-second world poll shares.
+const fsyncDirectoryAsync = async (target) => {
+  let handle;
+  try {
+    handle = await fs.promises.open(path.dirname(target), "r");
+  } catch {
+    return;
+  }
+  try {
+    await handle.sync();
+  } catch {
+    // EINVAL/ENOTSUP/EPERM on directories: nothing more this platform offers.
+  } finally {
+    try {
+      await handle.close();
+    } catch {
+      // A close error must not fail a write that already completed its rename.
+    }
+  }
+};
+
 // Replace `target` with `data` atomically. `data` is a string or a Buffer, as
 // fs.writeFileSync takes. The parent directory is created if missing, matching
 // what every caller already arranged for itself before the write.
@@ -52,6 +76,17 @@ export const atomicWriteSync = (target, data, options = {}) => {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   writeFileAtomic.sync(target, data, { fsync: true, ...normalized });
   fsyncDirectory(target);
+};
+
+// The async sibling of atomicWriteSync, for the save path. write-file-atomic's
+// default export is the callback-free promise form; its .sync sibling is what
+// atomicWriteSync calls. Same temporary file, file fsync, rename and directory
+// fsync, so the stored bytes are identical and only the scheduling differs.
+export const atomicWrite = async (target, data, options = {}) => {
+  const normalized = typeof options === "string" ? { encoding: options } : options;
+  await fs.promises.mkdir(path.dirname(target), { recursive: true });
+  await writeFileAtomic(target, data, { fsync: true, ...normalized });
+  await fsyncDirectoryAsync(target);
 };
 
 // Create `target` only if it does not exist - the one O_EXCL write this server

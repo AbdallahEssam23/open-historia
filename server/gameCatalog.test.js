@@ -62,7 +62,7 @@ const probe = (root) => {
   const script = `
     const store = await import(${JSON.stringify(STORE_URL)});
     const catalog = store.getGameCatalog();
-    const written = store.writeRuntimeJsonAsset("snapshots", [{ id: "probe" }]);
+    const written = await store.writeRuntimeJsonAsset("snapshots", [{ id: "probe" }]);
     process.stdout.write(JSON.stringify({
       activeGameId: catalog.activeGameId,
       listed: catalog.games.map((game) => game.id),
@@ -178,7 +178,7 @@ const probeGeometryWrite = (root) => {
     const store = await import(${JSON.stringify(STORE_URL)});
     let error = "";
     try {
-      store.writeRuntimeJsonAsset("citiesGeojson", { type: "FeatureCollection", features: [] });
+      await store.writeRuntimeJsonAsset("citiesGeojson", { type: "FeatureCollection", features: [] });
     } catch (caught) {
       error = String(caught?.message || caught);
     }

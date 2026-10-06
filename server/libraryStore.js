@@ -1,6 +1,6 @@
 /*! Open Historia — portions (regions.geojson scenario asset + custom-map seeding) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 import fs from "fs";
-import { atomicWriteSync } from "./atomicWrite.js";
+import { atomicWrite, atomicWriteSync } from "./atomicWrite.js";
 import { normalizeFeatureOverrides, normalizeFeatureSettings } from "./gameFeatures.js";
 import path from "path";
 import url from "url";
@@ -576,6 +576,16 @@ const writeJsonFile = (targetPath, value) => {
   // one choke point every meta and manifest write goes through — including
   // create and delete, which rewrite the manifest — so hooking it here is what
   // makes the cache safe without touching 43 call sites individually.
+  invalidateCatalogs();
+};
+
+// The async sibling of writeJsonFile, for the runtime save path. A payload that
+// can run to tens of megabytes (the rollback archive) must not hold the event
+// loop while it reaches disk; the catalog invalidation is the same, so a reader
+// that races the write never sees a stale catalog.
+const writeJsonFileAsync = async (targetPath, value) => {
+  ensureDirectory(path.dirname(targetPath));
+  await atomicWrite(targetPath, JSON.stringify(value, null, 2), "utf-8");
   invalidateCatalogs();
 };
 
@@ -3086,7 +3096,7 @@ const readRuntimeJsonAsset = (assetKey) => {
 // `readBack: false` skips reading the stored record back for the reply (the
 // route's Prefer: return=minimal): the rollback archive is written whole every
 // turn, 8-21 MB on a long game, and nothing on the page needs it echoed.
-const writeRuntimeJsonAsset = (assetKey, value, { readBack = true } = {}) => {
+const writeRuntimeJsonAsset = async (assetKey, value, { readBack = true } = {}) => {
   ensureGameStore();
 
   // Custom region/city geometry is scenario-scoped, and readRuntimeJsonAsset
@@ -3131,7 +3141,7 @@ const writeRuntimeJsonAsset = (assetKey, value, { readBack = true } = {}) => {
     }
     const targetPath = getScenarioUploadPath(scenario.id, assetKey);
     ensureDirectory(path.dirname(targetPath));
-    atomicWriteSync(targetPath, JSON.stringify(value), "utf-8");
+    await atomicWrite(targetPath, JSON.stringify(value), "utf-8");
     writeScenarioMeta(scenario.id, {});
     return {
       contentType: "application/json; charset=utf-8",
@@ -3221,7 +3231,7 @@ const writeRuntimeJsonAsset = (assetKey, value, { readBack = true } = {}) => {
   }
 
   const targetPath = getGameJsonPath(activeGameId, assetKey);
-  writeJsonFile(targetPath, canonical);
+  await writeJsonFileAsync(targetPath, canonical);
   // From the array already in hand, so a turn never reparses to stay in step.
   if (assetKey === "snapshots") {
     try {

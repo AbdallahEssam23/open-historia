@@ -54,7 +54,7 @@ test("runtime Stats definition follows the linked scenario, not a stale game sna
     store.createScenario({ id: "vinland", name: "Vinland", setActive: true });
     store.uploadScenarioAsset("vinland", "stats", Buffer.from(JSON.stringify(a)), "application/json");
     store.createGame({ id: "campaign", name: "Campaign", scenarioId: "vinland", setActive: true });
-    store.writeRuntimeJsonAsset("stats", stale);
+    await store.writeRuntimeJsonAsset("stats", stale);
     const before = store.readRuntimeJsonAsset("stats").data;
     store.uploadScenarioAsset("vinland", "stats", Buffer.from(JSON.stringify(b)), "application/json");
     const after = store.readRuntimeJsonAsset("stats").data;

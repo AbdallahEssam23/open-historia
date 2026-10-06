@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { atomicExclusiveWriteSync, atomicWriteSync } from "./atomicWrite.js";
+import { atomicExclusiveWriteSync, atomicWrite, atomicWriteSync } from "./atomicWrite.js";
 
 const tempDir = () => fs.mkdtempSync(path.join(os.tmpdir(), "oh-atomic-"));
 
@@ -40,6 +40,37 @@ test("a string encoding option is honored, as fs.writeFileSync does", () => {
   const target = path.join(dir, "latin1.txt");
   atomicWriteSync(target, "\u00e9", "latin1");
   assert.deepEqual(fs.readFileSync(target), Buffer.from([0xe9]));
+});
+
+test("atomicWrite writes new content and replaces existing content", async () => {
+  const dir = tempDir();
+  const target = path.join(dir, "save.json");
+  await atomicWrite(target, "first");
+  assert.equal(fs.readFileSync(target, "utf-8"), "first");
+  await atomicWrite(target, "second");
+  assert.equal(fs.readFileSync(target, "utf-8"), "second");
+
+  const binary = path.join(dir, "asset.bin");
+  await atomicWrite(binary, Buffer.from([0x00, 0x01, 0xff]));
+  assert.deepEqual(fs.readFileSync(binary), Buffer.from([0x00, 0x01, 0xff]));
+});
+
+test("an async write leaves no temporary file behind and creates the directory", async () => {
+  const dir = tempDir();
+  const nested = path.join(dir, "a", "b", "save.json");
+  await atomicWrite(nested, "deep");
+  assert.equal(fs.readFileSync(nested, "utf-8"), "deep");
+  assert.deepEqual(fs.readdirSync(path.join(dir, "a", "b")), ["save.json"]);
+});
+
+test("the async and sync helpers write identical bytes", async () => {
+  const dir = tempDir();
+  const payload = JSON.stringify({ a: [1, 2, 3], b: "\u00e9" }, null, 2);
+  const asyncTarget = path.join(dir, "async.json");
+  const syncTarget = path.join(dir, "sync.json");
+  await atomicWrite(asyncTarget, payload, "utf-8");
+  atomicWriteSync(syncTarget, payload, "utf-8");
+  assert.deepEqual(fs.readFileSync(asyncTarget), fs.readFileSync(syncTarget));
 });
 
 test("atomicExclusiveWriteSync creates once and refuses the second create", () => {
