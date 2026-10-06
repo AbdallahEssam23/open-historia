@@ -72,13 +72,14 @@ entry field by field. `tradeClimate` is taken out of the spread (so a malformed
 save's raw value is dropped, not kept) and re-emitted only when non-empty:
 
 ```
-const tradeClimate = normalizeOptionalString(entry.tradeClimate);
+const tradeClimate = typeof entry.tradeClimate === "string" ? normalizeOptionalString(entry.tradeClimate) : "";
 ...
 ...(tradeClimate ? { tradeClimate } : {}),
 ```
 
-Absent and empty both leave no key, so the polled world file is unchanged for
-every campaign the engine found nothing to say about.
+Absent, non-string and empty all leave no key, so a malformed save is dropped
+rather than kept raw, and the polled world file is unchanged for every campaign
+the engine found nothing to say about.
 
 ## The timeline
 
