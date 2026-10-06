@@ -28,6 +28,7 @@ Related pages: [World state](world-state.md) · [Game state](world-state.md) · 
 | Settlement | `src/runtime/warSettlement.js` (+ the pure core `src/engine/warSettlement.js`) | derives each active war's peace - goal progress, weariness and terms - and executes it through the narrated peace event and the reparations transfer | `src/Game/AI/gameplay.js` (the turn) |
 | Peace offer | `src/runtime/peaceOffer.js` | chooses and normalizes the peace the engine offers the player on their own due war (the interactive-peace increment) | `src/Game/AI/gameplay.js` (the turn), `src/Game/GameUI/peaceOffer.jsx`, with a held-war notice from `src/runtime/warHoldNotice.js` |
 | War facts | `src/runtime/warFacts.js` | renders the four engine war digests (standing obligations, a recorded breach, the casus verdict, the player's pending peace) as one block for a narrated scene or a Game Master transaction | `src/Game/AI/gameplay.js` (the interactive event prompts and the GM preview) |
+| Opponent context | `src/runtime/opponentContext.js` (+ the pure core `src/engine/opponentPersonality.js`) | reads the world's standing facts into one derived profile per polity in play (the strategic report a decision will read); it decides nothing | the decision gateway (slice 30b), `src/Game/AI/gameplay.js` |
 
 ---
 
@@ -151,6 +152,44 @@ of defence, and the other phases keep the always-run behaviour they had inline
 per group, asserts the seven calls partition `TICK_PHASES` with every phase
 handler defined in the region, and asserts the gate facts are derived before the
 treaty call.
+
+---
+
+## Opponent character - `src/engine/opponentPersonality.js` and `src/runtime/opponentContext.js`
+
+An opponent has no stored mind. The core `src/engine/opponentPersonality.js`
+imports only `./economyMath.js` and stays pure: `derivePersonality(facts)` reads
+a compact fact set - the polity's defining tags, its international reputation,
+its standing regional claims, its active wars, the breaches it committed and
+suffered, its mobilization posture and its share of the strongest power's
+manpower - and returns five axes (`aggression`, `patience`, `honor`,
+`opportunism`, `grievance`), each an integer in 0..100, plus one single-line
+`character` from a closed vocabulary and `source: "derived"`. Every axis starts
+at `NEUTRAL_AXIS` (50) and is moved by the facts; an unknown tag is inert on
+purpose, so the map-maker's open tag list can never move a number.
+`normalizePersonality(value)` returns a clamped profile or `null` when the value
+carries no finite axis, and never throws. The profile decides nothing the engine
+computes: it is an interpretive lens the narrator reads, never a filter on what
+is legal, and the menu of legal choices is a separate, later concern (slice 30b).
+
+The adapter `src/runtime/opponentContext.js` imports no `Game/AI` module.
+`worldFactsFor(world, polity)` reads one polity's facts,
+`aggregateWorldContext(world, polity)` pairs them with the derived profile, and
+`buildStrategicReport(world, { playerPolity, limit })` normalizes the world once
+and returns one context per polity in play, in a stable order: the player first,
+then the belligerents of active wars, the player's relation and agreement
+partners, the holders and claimants around the player's claims, and the
+strongest by force, capped at `DEFAULT_REPORT_LIMIT` (12). `powerShare` is a
+polity's manpower over the strongest power in the pools, never over a sum, so it
+cannot drift with how many powers the world models; an empty pool set reads 0.
+The report and the facts are pure reads: the adapter stores nothing and makes no
+decision.
+
+Tests: `src/engine/opponentPersonality.test.js` pins determinism, the 0..100
+integer bounds, the tag directions, the inert unknown tag and the clamped
+normalizer; `src/runtime/opponentContext.test.js` pins the fact reads, the power
+share, the stable capped report and the absence of a `Game/AI` import.
+`src/engine/enginePurity.test.js` covers the core.
 
 ---
 
