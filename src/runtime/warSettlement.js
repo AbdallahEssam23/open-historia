@@ -149,9 +149,10 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
   const offers = [];
   const weariness = {};
   const unresolved = [];
-  // The terms a power could get by suing for peace, for every AI-vs-AI war
-  // nothing forced this turn. Read only when the gateway accepted a seek_peace,
-  // so an intent-less turn never touches it.
+  // The terms a power could get by suing for peace, for every war nothing
+  // forced this turn. Read only when the gateway accepted a seek_peace, so an
+  // intent-less turn never touches it. A player's war carries the side and the
+  // pressure so a seek against the player can become an offer.
   const peaceTermsByWarId = {};
   const eventList = list(events);
   const battles = Array.isArray(engagements) ? engagements : list(engagements?.results);
@@ -245,13 +246,15 @@ export const resolveWarSettlements = ({ world, events, engagements, date, player
     };
     const settlement = settleWar(settlementInputs);
     if (!settlement) {
-      // Not due, and the actor is not the player: this is a war a power could
-      // end by asking. Derive the very terms a forced peace would give, so a
-      // sought peace is priced by the same solver. A player's war is left to the
-      // offer path and gets no entry.
-      if (!party) {
-        peaceTermsByWarId[warId] = { settlement: settlementTerms(settlementInputs), belligerents: sides };
-      }
+      // Not due. Derive the very terms a forced peace would give, so a sought
+      // peace is priced by the same solver. An AI-vs-AI war is settled on them
+      // directly; a player's war is offered to the player, carrying the side the
+      // player is on and the war's pressure, the same two fields a due offer
+      // carries.
+      const terms = settlementTerms(settlementInputs);
+      peaceTermsByWarId[warId] = party
+        ? { settlement: terms, belligerents: sides, side: sideAHasPlayer ? "a" : "b", pressure: Math.max(nextA, nextB) }
+        : { settlement: terms, belligerents: sides };
       // Not due. A player's open war is still reported, as it was when the
       // party check skipped it; a non-party war stays silent as before.
       if (party) unresolved.push({ warId, reason: `the player is a party to ${warId}` });

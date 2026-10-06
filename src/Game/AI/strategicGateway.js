@@ -232,7 +232,7 @@ export const applyStrategicIntents = ({
         rejected.push({ op: "seek_peace", polity: intent.polity, warId, reason: "not a war it may seek peace in this turn" });
         continue;
       }
-      accepted.seekPeace.push({ actor: menu.polity, target: option.opponent, warId: option.warId });
+      accepted.seekPeace.push({ actor: menu.polity, target: option.opponent, warId: option.warId, party: option.party === true });
       continue;
     }
 

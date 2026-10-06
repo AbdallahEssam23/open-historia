@@ -113,12 +113,31 @@ test("a weary, not-ahead war is offered to sue for peace", () => {
       { warId: "war-ruritania-syldavia", opponent: "Syldavia", weariness: 0.62, ahead: false, party: false },
       { warId: "war-fresh", opponent: "Borduria", weariness: 0.1, ahead: false, party: false },
       { warId: "war-won", opponent: "Genovia", weariness: 0.7, ahead: true, party: false },
-      { warId: "war-player", opponent: "Player", weariness: 0.9, ahead: false, party: true },
     ],
   });
   assert.deepEqual(menu.seekPeace, [
-    { warId: "war-ruritania-syldavia", opponent: "Syldavia", weariness: 0.62 },
+    { warId: "war-ruritania-syldavia", opponent: "Syldavia", weariness: 0.62, party: false },
   ]);
+});
+
+test("a non-player actor may seek on a war the player is in, and says so", () => {
+  const menu = deriveIntentMenu({
+    actor: { polity: "Syldavia" },
+    playerPolity: "Ruritania",
+    wars: [{ warId: "war-ruritania-syldavia", opponent: "Ruritania", weariness: 0.66, ahead: false, party: true }],
+  });
+  assert.deepEqual(menu.seekPeace, [
+    { warId: "war-ruritania-syldavia", opponent: "Ruritania", weariness: 0.66, party: true },
+  ]);
+});
+
+test("the player's own menu never offers a seek, however weary its wars", () => {
+  const menu = deriveIntentMenu({
+    actor: { polity: "Ruritania" },
+    playerPolity: "Ruritania",
+    wars: [{ warId: "war-ruritania-syldavia", opponent: "Syldavia", weariness: 0.95, ahead: false, party: true }],
+  });
+  assert.deepEqual(menu.seekPeace, []);
 });
 
 test("the peace seeks are bounded and a repeated war is offered once", () => {

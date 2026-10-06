@@ -73,7 +73,7 @@ test("peaceTermsByWarId holds terms for an AI-vs-AI war nothing forces", () => {
   assert.deepEqual(entry.belligerents, ["Ruritania", "Syldavia"]);
 });
 
-test("peaceTermsByWarId leaves out a due war and a player's war", () => {
+test("peaceTermsByWarId leaves out a due war but prices a player's war to offer", () => {
   const due = resolveWarSettlements({
     world: world({ wars: [war({ weariness: { a: 0.7, b: 0.2, throughDate: "1915-01-01" } })] }),
     events: [],
@@ -83,8 +83,12 @@ test("peaceTermsByWarId leaves out a due war and a player's war", () => {
   assert.equal(due.settlements.length, 1, "the war is forced");
   assert.deepEqual(due.peaceTermsByWarId, {}, "a forced war is no power's to seek");
 
-  const party = resolveWarSettlements({ world: world(), events: [], engagements: [], date: "1915-01-01", playerPolity: "Ruritania" });
-  assert.deepEqual(party.peaceTermsByWarId, {}, "the player's war is the player's decision");
+  const player = resolveWarSettlements({ world: world(), events: [], engagements: [], date: "1915-01-01", playerPolity: "Ruritania" });
+  const entry = player.peaceTermsByWarId["war-1"];
+  assert.ok(entry, "a seek against the player has terms ready");
+  assert.equal(entry.side, "a", "the player sits on side A");
+  assert.equal(entry.pressure, 0.2, "the war's exhaustion travels with the offer");
+  assert.deepEqual(player.offers, [], "not due, so no offer is forced yet");
 });
 
 test("an intent-less turn's settlements are exactly what the automatic path gives", () => {

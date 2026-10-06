@@ -32,15 +32,18 @@ test("the pure law splits the terms from the gate and guards the seek", () => {
   assert.match(engine, /PEACE_REQUEST_WEARINESS = 0\.5/);
 });
 
-test("the menu offers a seek only for a weary, not-ahead, non-player war", () => {
+test("the menu offers a seek to a weary, not-ahead actor that is not the player", () => {
   assert.match(menu, /canSeekPeace\(\{ weariness: war\?\.weariness, ahead: war\?\.ahead \}\)/);
-  assert.match(menu, /if \(war\?\.party === true\) continue;/);
+  assert.match(menu, /const actorIsPlayer = Boolean\(key\(playerPolity\)\) && actorKey === key\(playerPolity\);/);
+  assert.match(menu, /if \(!actorIsPlayer\) \{/);
+  assert.match(menu, /party: war\?\.party === true/);
   assert.match(menu, /MAX_PEACE_SEEKS = 6/);
 });
 
 test("the adapter derives the seekable terms from the same inputs the solver reads", () => {
   assert.match(adapter, /export const seekPeaceFacts = /);
-  assert.match(adapter, /peaceTermsByWarId\[warId\] = \{ settlement: settlementTerms\(settlementInputs\), belligerents: sides \}/);
+  assert.match(adapter, /const terms = settlementTerms\(settlementInputs\);/);
+  assert.match(adapter, /side: sideAHasPlayer \? "a" : "b", pressure: Math\.max\(nextA, nextB\)/);
   assert.match(adapter, /const settlement = settleWar\(settlementInputs\);/);
 });
 
@@ -65,4 +68,13 @@ test("the timeline is told only the seeks the engine honored", () => {
   assert.match(gameplay, /const honoredSeeks = \[\];/);
   assert.match(gameplay, /honoredSeeks\.push\(peace\);/);
   assert.match(gameplay, /accepted: \{ \.\.\.strategicOutcome\.accepted, seekPeace: honoredSeeks \}/);
+});
+
+test("a seek against the player becomes an offer, not a settlement", () => {
+  const offerAt = gameplay.indexOf("duePeaceOffers.push({");
+  const settleAt = gameplay.indexOf("dueSettlements.push({ ...entry.settlement, belligerents: entry.belligerents });");
+  assert.ok(offerAt > 0, "the player-war seek is not routed to an offer");
+  assert.ok(settleAt > offerAt, "the offer branch must precede the settle branch");
+  assert.match(gameplay, /if \(peace\.party === true\) \{/);
+  assert.match(gameplay, /side: entry\.side,\n\s+pressure: entry\.pressure,/);
 });

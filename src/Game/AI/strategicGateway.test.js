@@ -181,7 +181,7 @@ test("a weary power may sue for peace: accepted, and no war record is written", 
   });
   assert.deepEqual(outcome.rejected, []);
   assert.deepEqual(outcome.accepted.seekPeace, [
-    { actor: "Ruritania", target: "Syldavia", warId: "war-ruritania-syldavia" },
+    { actor: "Ruritania", target: "Syldavia", warId: "war-ruritania-syldavia", party: false },
   ]);
   assert.deepEqual(outcome.warUpdates, warUpdates, "the ledger records are untouched");
   assert.deepEqual(outcome.claimOps, []);
@@ -201,7 +201,7 @@ test("a seek on a war the menu does not offer, or with no war named, is refused"
   assert.equal(nameless.rejected[0].reason, "no war named");
 });
 
-test("a fresh war, an ahead power and the player's war are not offers", () => {
+test("a fresh war and an ahead power are not offers", () => {
   const fresh = applyStrategicIntents({
     world: wearyWorld({
       wars: [{
@@ -227,15 +227,33 @@ test("a fresh war, an ahead power and the player's war are not offers", () => {
     intents: "seek_peace~Ruritania~war-ruritania-syldavia~~~",
   });
   assert.deepEqual(ahead.accepted.seekPeace, [], "a power ahead may not freeze the win");
+});
 
-  const player = applyStrategicIntents({
+test("a seek against the player is accepted and marked as the player's decision", () => {
+  const outcome = applyStrategicIntents({
     world: wearyWorld(),
     regions: REGIONS,
     events: [],
     playerPolity: "Syldavia",
     intents: "seek_peace~Ruritania~war-ruritania-syldavia~~~",
   });
-  assert.deepEqual(player.accepted.seekPeace, [], "the player's war is the player's decision");
+  assert.deepEqual(outcome.rejected, []);
+  assert.deepEqual(outcome.accepted.seekPeace, [
+    { actor: "Ruritania", target: "Syldavia", warId: "war-ruritania-syldavia", party: true },
+  ]);
+  assert.deepEqual(outcome.warUpdates, [], "the gateway applies nothing");
+});
+
+test("the player's own polity may not seek its own war", () => {
+  const outcome = applyStrategicIntents({
+    world: wearyWorld(),
+    regions: REGIONS,
+    events: [],
+    playerPolity: "Ruritania",
+    intents: "seek_peace~Ruritania~war-ruritania-syldavia~~~",
+  });
+  assert.deepEqual(outcome.accepted.seekPeace, []);
+  assert.equal(outcome.rejected[0].reason, "not a war it may seek peace in this turn");
 });
 
 test("the inert path reports an empty seekPeace list", () => {

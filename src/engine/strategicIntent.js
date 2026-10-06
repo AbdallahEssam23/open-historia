@@ -43,10 +43,15 @@ export const warIdFor = (actor, target, existingIds = []) => {
 // `targets` are the other polities in play, each carrying whether it is already
 // at war with the actor, whether it holds land the actor claims, and whether it
 // is recorded as having breached an agreement against the actor. `regions` are
-// the regions the actor could claim, each with its present owner.
-export const deriveIntentMenu = ({ actor = {}, targets = [], regions = [], wars = [] } = {}) => {
+// the regions the actor could claim, each with its present owner. `wars` are the
+// active wars the actor may sue to leave, each with its weariness, whether the
+// actor is ahead and whether the player is a party. `playerPolity` names the
+// player, so the player's own menu never offers a seek: the player's decision is
+// the offer, not an intent.
+export const deriveIntentMenu = ({ actor = {}, targets = [], regions = [], wars = [], playerPolity = "" } = {}) => {
   const polity = asName(actor.polity);
   const actorKey = key(polity);
+  const actorIsPlayer = Boolean(key(playerPolity)) && actorKey === key(playerPolity);
   const existingWarIds = asList(actor.existingWarIds).map(asName).filter(Boolean);
   const declareWar = [];
   const pressClaim = [];
@@ -85,18 +90,26 @@ export const deriveIntentMenu = ({ actor = {}, targets = [], regions = [], wars 
     if (pressClaim.length >= MAX_CLAIMS) break;
   }
 
-  // A war the actor may sue to leave. The player's wars are the player's
-  // decision (offered through peaceOffer.js), never an opponent's, so a war the
-  // player is a party to is refused here however weary the actor is.
-  const seenWars = new Set();
-  for (const war of asList(wars)) {
-    const warId = asName(war?.warId);
-    if (!warId || seenWars.has(warId)) continue;
-    if (war?.party === true) continue;
-    if (!canSeekPeace({ weariness: war?.weariness, ahead: war?.ahead })) continue;
-    seenWars.add(warId);
-    seekPeace.push({ warId, opponent: asName(war?.opponent), weariness: Number(war?.weariness) || 0 });
-    if (seekPeace.length >= MAX_PEACE_SEEKS) break;
+  // A war the actor may sue to leave. The player's own wars are the player's
+  // decision (offered through peaceOffer.js), never a player-authored intent, so
+  // the player's own menu is empty however weary its wars are. An opponent on a
+  // war the player is in may seek: `party` rides the entry so the application
+  // offers the terms to the player instead of settling them.
+  if (!actorIsPlayer) {
+    const seenWars = new Set();
+    for (const war of asList(wars)) {
+      const warId = asName(war?.warId);
+      if (!warId || seenWars.has(warId)) continue;
+      if (!canSeekPeace({ weariness: war?.weariness, ahead: war?.ahead })) continue;
+      seenWars.add(warId);
+      seekPeace.push({
+        warId,
+        opponent: asName(war?.opponent),
+        weariness: Number(war?.weariness) || 0,
+        party: war?.party === true,
+      });
+      if (seekPeace.length >= MAX_PEACE_SEEKS) break;
+    }
   }
 
   return { polity, declareWar, pressClaim, seekPeace };

@@ -258,6 +258,8 @@ const menuInputsFromNormalized = (world, polity, regions, { playerPolity = "" } 
     },
     targets,
     regions: actorRegions,
+    // Named so the pure law can exclude the player's own menu from seeking.
+    playerPolity: canonical(playerPolity),
     // The wars this actor may sue to leave, each with the weariness and the
     // progress comparison the pure law reads (engine/strategicIntent.js).
     wars: asList(world?.wars)
