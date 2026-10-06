@@ -29,6 +29,11 @@ test("the adapter resolves against the ledger and the roster", () => {
   assert.match(adapter, /economyEngine\?\.mobilization/);
 });
 
+test("the adapter reads the region terrain and the turn passes the catalog", () => {
+  assert.match(adapter, /regionCoastal\(regionId, regionCatalog\)/);
+  assert.match(gameplay, /regionCatalog: getPrimedScenarioRegionCatalog\(\) \?\? \[\]/);
+});
+
 test("the turn runs the adapter before applying impacts", () => {
   assert.ok(normalizeAt > 0, "the pre-turn world normalization is not found");
   assert.ok(resolveAt > 0, "the adapter is not called");

@@ -16,6 +16,12 @@
 // artillery arm plus a land triangle. This is a raw-power factor beside naval
 // support, and it is inert unless a matchup in the table actually connects the
 // two sides.
+//
+// Naval support is the one rule that knows the ground: a fleet gives shore
+// support in a coastal region and none in a landlocked one, so the region's
+// declared terrain reaches this core as a value. A world with no coastal data
+// leaves the gate open, so reading the terrain never changes a scenario that
+// does not classify its regions.
 
 // How much a formation of this type is worth per point of strength. Ordered so
 // heavier formations weigh more; first-draft calibration, and the tests assert
@@ -251,6 +257,7 @@ export const resolveEngagement = ({
   regionId = "",
   date = "",
   round = 0,
+  coastal,
   sideA = [],
   sideB = [],
   controllerPolity = "",
@@ -261,7 +268,9 @@ export const resolveEngagement = ({
   const navalA = domainPower(sideA, "naval");
   const navalB = domainPower(sideB, "naval");
   const airEdge = domainEdge(airA, airB);
-  const navalEdge = domainEdge(navalA, navalB);
+  // A landlocked region withholds shore support: only an explicit `false` gates,
+  // so `true` (coastal) and `undefined` (no terrain data) keep today's rule.
+  const navalEdge = coastal === false ? 0 : domainEdge(navalA, navalB);
   const byTypeA = powerByType(sideA);
   const byTypeB = powerByType(sideB);
   const antiA = counterScore(byTypeA, byTypeB);
@@ -309,6 +318,7 @@ export const resolveEngagement = ({
     controlChange,
     airEdge,
     navalEdge,
+    coastal: coastal === true ? true : coastal === false ? false : null,
     antiEdge,
     sideA: { power: powerA, adjustedPower: adjustedA, lossFraction: lossA, airPower: airA, navalPower: navalA, antiPower: antiA, units: a.units },
     sideB: { power: powerB, adjustedPower: adjustedB, lossFraction: lossB, airPower: airB, navalPower: navalB, antiPower: antiB, units: b.units },

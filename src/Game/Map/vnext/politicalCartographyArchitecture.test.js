@@ -46,6 +46,12 @@ test("Pipeline v2 discards obsolete worker revisions rather than publishing them
   assert.match(nations, /const request = completion\.request/);
 });
 
+test("the map worker records the declared region terrain from typeId", () => {
+  // The catalog and the worker must read the same field, or the combat terrain
+  // gate and the map's own records would disagree about a region's coast.
+  assert.match(worker, /type: props\.typeId \? String\(props\.typeId\)/);
+});
+
 test("catalog metadata stays early while scenario readiness waits for safe geometry and initial PTR first paint", () => {
   const catalogPost = worker.indexOf('messageType: "catalog-ready"');
   const initializeDerivation = worker.indexOf("initializePoliticalCartography");

@@ -7,6 +7,7 @@ import {
   applyCombatReserveCost,
   buildEngagement,
   mergeEngagementResults,
+  regionCoastal,
   resolveEventEngagements,
 } from "./combatEngagements.js";
 import { UNIT_DOMAIN } from "../engine/combat.js";
@@ -175,4 +176,46 @@ test("an active-war declaration with no region draws an unresolved note", () => 
   assert.equal(out.results.length, 0);
   assert.equal(out.unresolved.length, 1);
   assert.match(out.unresolved[0].reason, /region/i);
+});
+
+test("regionCoastal reads the declared terrain as a tri-state", () => {
+  const catalog = [
+    { id: "COAST", type: "coastal" },
+    { id: "INLAND", type: "land" },
+  ];
+  assert.equal(regionCoastal("COAST", catalog), true);
+  assert.equal(regionCoastal("INLAND", catalog), false);
+  // A world with no coastal region anywhere carries no coastal data to apply.
+  assert.equal(regionCoastal("INLAND", []), undefined);
+  assert.equal(regionCoastal("INLAND", [{ id: "X", type: "land" }]), undefined);
+  // An unknown id, or an empty one, is unknown terrain.
+  assert.equal(regionCoastal("MISSING", catalog), undefined);
+  assert.equal(regionCoastal("", catalog), undefined);
+});
+
+test("the engagement carries the battle's terrain from the catalog", () => {
+  const coastalCatalog = [{ id: "ALSACE", type: "coastal" }];
+  const inlandCatalog = [{ id: "ALSACE", type: "land" }, { id: "COAST", type: "coastal" }];
+  assert.equal(buildEngagement(battle(), world(), { round: 7, regionCatalog: coastalCatalog }).coastal, true);
+  assert.equal(buildEngagement(battle(), world(), { round: 7, regionCatalog: inlandCatalog }).coastal, false);
+  assert.equal(buildEngagement(battle(), world(), { round: 7 }).coastal, undefined);
+});
+
+test("an inland region withholds naval shore support from the resolved battle", () => {
+  const w = world();
+  // A Prussian fleet joins the two armoured formations; only a coastal province
+  // lets it add shore support.
+  w.units.push({ id: "p3", ownerCode: "Prussia", type: "naval", strength: 80, regionId: "ALSACE" });
+  const coastal = resolveEventEngagements([battle()], w, {
+    round: 7,
+    regionCatalog: [{ id: "ALSACE", type: "coastal" }],
+  });
+  const inland = resolveEventEngagements([battle()], w, {
+    round: 7,
+    regionCatalog: [{ id: "ALSACE", type: "land" }, { id: "COAST", type: "coastal" }],
+  });
+  assert.ok(
+    coastal.results[0].sideA.power > inland.results[0].sideA.power,
+    "shore support raises the fleet holder's power only on the coast",
+  );
 });

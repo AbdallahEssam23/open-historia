@@ -348,3 +348,56 @@ test("every anti-type case is deterministic", () => {
   };
   assert.deepEqual(resolveEngagement(input), resolveEngagement(input));
 });
+
+// One French formation (infantry plus a fleet) against one Prussian formation,
+// with the battle's declared terrain varied. Coastal and omitted are the two
+// inert readings; only an explicit inland region withholds shore support.
+const seaBattle = (coastal) => resolveEngagement({
+  warId: "war-a-b", regionId: "alsace", date: "1870-07-19", round: 0,
+  controllerPolity: "France", coastal,
+  sideA: [side("France", "peacetime", [unit("f1", "infantry", 80), unit("f2", "naval", 60)])],
+  sideB: [side("Prussia", "peacetime", [unit("p1", "infantry", 80)])],
+});
+
+test("a landlocked region withholds naval shore support", () => {
+  const coastal = seaBattle(true);
+  const landlocked = seaBattle(false);
+  const rawA = unitCombatPower(unit("f1", "infantry", 80))
+    + unitCombatPower(unit("f2", "naval", 60));
+  assert.equal(coastal.navalEdge, 1);
+  assert.equal(landlocked.navalEdge, 0);
+  assert.equal(coastal.coastal, true);
+  assert.equal(landlocked.coastal, false);
+  assert.equal(coastal.sideA.power, rawA * (1 + NAVAL_SUPPORT_MAX));
+  assert.equal(landlocked.sideA.power, rawA);
+});
+
+test("only an explicit inland region gates, coastal and unknown stay inert", () => {
+  const coastal = seaBattle(true);
+  const unknown = seaBattle(undefined);
+  assert.equal(unknown.navalEdge, coastal.navalEdge);
+  assert.equal(unknown.sideA.power, coastal.sideA.power);
+  assert.equal(unknown.sideB.power, coastal.sideB.power);
+  assert.equal(unknown.coastal, null);
+});
+
+test("the coastal gate withholds the edge from both sides", () => {
+  const input = {
+    warId: "war-a-b", regionId: "alsace", date: "1870-07-19", round: 0,
+    controllerPolity: "France", coastal: false,
+    sideA: [side("France", "peacetime", [unit("f1", "infantry", 80), unit("f2", "naval", 60)])],
+    sideB: [side("Prussia", "peacetime", [unit("p1", "infantry", 80), unit("p2", "naval", 20)])],
+  };
+  const result = resolveEngagement(input);
+  assert.equal(result.navalEdge, 0);
+  assert.equal(
+    result.sideA.power,
+    unitCombatPower(unit("f1", "infantry", 80)) + unitCombatPower(unit("f2", "naval", 60)),
+  );
+  assert.equal(
+    result.sideB.power,
+    unitCombatPower(unit("p1", "infantry", 80)) + unitCombatPower(unit("p2", "naval", 20)),
+  );
+  // Without the gate the two fleets are unequal, so the edge would not be zero.
+  assert.notEqual(resolveEngagement({ ...input, coastal: true }).navalEdge, 0);
+});

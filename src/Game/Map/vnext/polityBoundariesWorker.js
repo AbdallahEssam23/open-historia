@@ -246,7 +246,8 @@ const buildMetadata = (regions) => {
       bounds: geometryBox(feature?.geometry),
       territoryWeight: territoryWeight > 1e-12 ? territoryWeight : 1,
       tags: toStringArray(props.tags),
-      type: props.type ? String(props.type) : "",
+      // `typeId` is the declared terrain the editor writes; `type` is legacy.
+      type: props.typeId ? String(props.typeId) : props.type ? String(props.type) : "",
       adjacencies: toStringArray(props.adjacencies),
     });
   }

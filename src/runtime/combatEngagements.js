@@ -22,6 +22,21 @@ const list = (value) => (Array.isArray(value) ? value : []);
 const canonicalPolity = (value) => toCountryName(name(value)) || name(value);
 const ownerOf = (unit) => canonicalPolity(unit?.ownerCode);
 
+// A region's declared terrain, as a tri-state: `true` when the catalog says the
+// region is coastal, `false` when it declares another terrain in a world that
+// declares at least one coastal region, and `undefined` when there is no coastal
+// data to apply (no coastal region anywhere, or an unknown id). The undefined
+// case is what keeps the gate inert where the data does not exist.
+export const regionCoastal = (regionId, catalog) => {
+  const id = name(regionId);
+  if (!id) return undefined;
+  const rows = list(catalog);
+  if (!rows.some((row) => name(row?.type).toLowerCase() === "coastal")) return undefined;
+  const match = rows.find((row) => name(row?.id) === id);
+  if (!match) return undefined;
+  return name(match?.type).toLowerCase() === "coastal";
+};
+
 const findActiveWar = (warId, world) =>
   list(world?.wars).find(
     (entry) => name(entry?.id) === warId && name(entry?.status).toLowerCase() === "active",
@@ -30,12 +45,16 @@ const findActiveWar = (warId, world) =>
 // Build the neutral engagement description, or null when the event is not a
 // resolvable declaration (no war, no active war, no region, or a side absent
 // from the field is left to the caller as an unresolved note).
-export const buildEngagement = (event, world, { round = 0 } = {}) => {
+export const buildEngagement = (event, world, { round = 0, regionCatalog = [] } = {}) => {
   const warId = name(event?.warId);
   const regionId = name(event?.combatRegion);
   if (!warId || !regionId) return null;
   const war = findActiveWar(warId, world);
   if (!war) return null;
+
+  // The terrain the battle is fought on, forwarded to the core as a value. Only
+  // an explicit `false` withholds naval shore support.
+  const coastal = regionCoastal(regionId, regionCatalog);
 
   const sideAKeys = new Set(list(war.sideA).map(foldKey));
   const sideBKeys = new Set(list(war.sideB).map(foldKey));
@@ -97,6 +116,7 @@ export const buildEngagement = (event, world, { round = 0 } = {}) => {
   return {
     warId,
     regionId,
+    coastal,
     date: name(event?.date),
     round: Number(round) || 0,
     controllerPolity,
@@ -123,13 +143,13 @@ const addCost = (reserveCost, polity, type, lostPoints) => {
 
 // Resolve every declared battle in a turn. Reads the world it is given and
 // returns ops and a cost; it never mutates the world.
-export const resolveEventEngagements = (events, world, { round = 0 } = {}) => {
+export const resolveEventEngagements = (events, world, { round = 0, regionCatalog = [] } = {}) => {
   const results = [];
   const unresolved = [];
   const reserveCost = {};
 
   list(events).forEach((event, eventIndex) => {
-    const input = buildEngagement(event, world, { round });
+    const input = buildEngagement(event, world, { round, regionCatalog });
     if (!input) {
       // An active-war declaration with no region is still a battle declaration:
       // it stays narrative and draws a note explaining what was missing.

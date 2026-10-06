@@ -6749,7 +6749,12 @@ const applySimulationResult = async ({
   // forces on the map.
   // baseWorldNormalized is the pre-turn world normalized just above; passing it
   // avoids re-normalizing the whole world per event inside the adapter.
-  const engagementOutcome = resolveEventEngagements(freshEvents, baseWorldNormalized, { round: nextGame.round });
+  // The same primed catalog the combat-region resolver uses carries each region's
+  // declared terrain (typeId), so a landlocked battle withholds naval support.
+  const engagementOutcome = resolveEventEngagements(freshEvents, baseWorldNormalized, {
+    round: nextGame.round,
+    regionCatalog: getPrimedScenarioRegionCatalog() ?? [],
+  });
   mergeEngagementResults(freshEvents, engagementOutcome.results);
   for (const result of engagementOutcome.results) {
     const event = freshEvents[result.eventIndex];

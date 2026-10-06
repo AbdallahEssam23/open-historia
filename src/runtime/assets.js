@@ -1629,7 +1629,9 @@ export const primeCustomRegionCatalog = (
       lng: Array.isArray(centroid) ? centroid[0] : props?.lng ?? props?.longitude,
       lat: Array.isArray(centroid) ? centroid[1] : props?.lat ?? props?.latitude,
       tags: Array.isArray(props?.tags) ? props.tags : [],
-      type: props?.type ?? "",
+      // `typeId` is what the editor writes (exportPreset/regionImport) and what
+      // the scenario geojson carries (coastal/land); `type` is the legacy name.
+      type: props?.typeId ?? props?.type ?? "",
       adjacencies: Array.isArray(props?.adjacencies) ? props.adjacencies : [],
       bounds: geometryBounds(feature?.geometry),
     });
