@@ -4,27 +4,24 @@ Copyright (C) 2026 Open Historia
 
 This project is licensed under the terms of the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See the [LICENSE](LICENSE) file for details.
 
-Contributions are accepted under the [Contributor Copyright Assignment Agreement](CLA.md), which assigns the copyright in contributions to the Open Historia Organisation. CLA Assistant asks you to sign it on your first pull request; see [CONTRIBUTING.md](CONTRIBUTING.md).
+## About this fork
+
+**Historia Nova** is a modified fork of **[Open Historia](https://github.com/Open-Historia/open-historia)**, distributed under the same license, **AGPL-3.0-or-later**. The upstream copyright, attribution and license notices are kept unchanged throughout the source tree. This fork's complete source is at **[AbdallahEssam23/open-historia](https://github.com/AbdallahEssam23/open-historia)**, which is the source link offered to every network user under AGPL section 13. Upstream's contributor agreement applies to contributions made to the upstream project, not here.
 
 <!-- Open Historia — portions (install, Android app, hub & preset docs) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). -->
-<h1 align="center">Open Historia</h1>
+<h1 align="center">Historia Nova</h1>
 
 <div align="center">
-  <strong>An open-source, better alternative to <a href="https://www.paxhistoria.co/games">Pax Historia</a>.</strong>
+  <strong>An open-source, AI-driven alternate-history strategy game — a fork of <a href="https://github.com/Open-Historia/open-historia">Open Historia</a>, an alternative to <a href="https://www.paxhistoria.co/games">Pax Historia</a>.</strong>
 </div>
 
 <br />
 
 <div align="center">
-  <!-- Discord -->
-  <a href="https://discord.gg/QaqAK7fQAg">
-    <img src="https://img.shields.io/badge/discord-join-5865F2.svg?style=flat-square&logo=discord&logoColor=white"
-      alt="Discord" />
-  </a>
-  <!-- Reddit -->
-  <a href="https://www.reddit.com/r/OpenHistoria">
-    <img src="https://img.shields.io/badge/reddit-r%2FOpenHistoria-FF4500.svg?style=flat-square&logo=reddit&logoColor=white"
-      alt="Reddit" />
+  <!-- Source -->
+  <a href="https://github.com/AbdallahEssam23/open-historia">
+    <img src="https://img.shields.io/badge/source-GitHub-181717.svg?style=flat-square&logo=github&logoColor=white"
+      alt="Source code" />
   </a>
   <!-- License -->
   <a href="LICENSE">
@@ -39,13 +36,13 @@ Contributions are accepted under the [Contributor Copyright Assignment Agreement
 </div>
 
 <div align="center">
-  <sub>Built with ❤︎ by <a href="https://github.com/Open-Historia/open-historia/graphs/contributors">contributors</a>.
+  <sub>Built on <a href="https://github.com/Open-Historia/open-historia">Open Historia</a> by <a href="https://github.com/Open-Historia/open-historia/graphs/contributors">its contributors</a>; rebranded as Historia Nova.
 </div>
 
 <br />
 <br />
 
-![](https://github.com/Open-Historia/open-historia/blob/main/public/screenshots/screenshot.webp?raw=true)
+![](https://github.com/AbdallahEssam23/open-historia/blob/main/public/screenshots/screenshot.webp?raw=true)
 ---
 
 ## ✨ Features
@@ -65,21 +62,22 @@ Contributions are accepted under the [Contributor Copyright Assignment Agreement
 
 ### In your browser
 
-**[openhistoria.com](https://openhistoria.com)** — nothing to install. Games are saved in
-your browser, and you bring your own AI key (it goes straight to your provider, never to
-us). The world map is served by the community [content-node network](https://github.com/Open-Historia/open-historia-node).
+Host the web build yourself — nothing to install for the player. Games are saved in the
+browser, and each player brings their own AI key (it goes straight to the provider, never to
+the host).
 
 Local AI (Ollama, LM Studio) needs one extra step in the browser: the server has to allow
-the site's origin, e.g. start Ollama with `OLLAMA_ORIGINS=https://openhistoria.com`. The
-desktop app below needs no such setup.
+the site's origin, e.g. start Ollama with `OLLAMA_ORIGINS=https://your-host`. The desktop
+app below needs no such setup.
 
 ### Desktop (offline, single-player)
 
-Download **[`Open-Historia.zip`](https://github.com/Open-Historia/open-historia/releases/tag/app-stable)**
+Download the latest desktop build from the
+[**releases page**](https://github.com/AbdallahEssam23/open-historia/releases)
 (~186 MB — code *and* all map data), unzip it anywhere, then:
 
-- **Windows:** run **`Open-Historia-Setup.exe`**, then open Open Historia from the Start Menu
-- **macOS:** unzip and drag **Open Historia** to Applications (first run: right-click -> *Open*)
+- **Windows:** run the setup `.exe`, then open **Historia Nova** from the Start Menu
+- **macOS:** unzip and drag **Historia Nova** to Applications (first run: right-click -> *Open*)
 - **Linux:** `chmod +x Open-Historia-x86_64.AppImage` and run it
 
 The launcher checks Node.js, downloads the map data, installs dependencies, builds,
@@ -95,9 +93,8 @@ while preserving your saves, scenarios, and map data.
 
 #### Android app
 
-Download **`open-historia.apk`** from the
-[**Android release**](https://github.com/Open-Historia/open-historia/releases/tag/android)
-and open it to install (allow installs from your browser when Android asks).
+Build the APK from this source (see below); the release asset name is still
+`open-historia.apk` for now, a deliberately frozen download contract.
 Everything is on the phone: your saves and scenarios, the scenario workshop and
 the world map — it plays in airplane mode from the first launch. The community
 hub and your own AI provider are the only things that use the network. A model
@@ -129,7 +126,7 @@ release APK — run it after changing `mobile/` or the client. See
 Prerequisites: [Git](https://git-scm.com/) and [Node.js](https://nodejs.org/en) 22 LTS or newer (minimum 20.19 / 22.12 — the client build runs on Vite 7, which requires it). Building the **desktop app** needs 22.12+, which is what Electron 44 requires; the server and the web client still run on 20.19.
 
 ```bash
-git clone https://github.com/Open-Historia/open-historia.git
+git clone https://github.com/AbdallahEssam23/open-historia.git
 cd open-historia
 node scripts/fetch-map-assets.mjs  # Download the world map data (see note below)
 npm install                        # Install dependencies (includes OpenLayers etc. for the editor)
@@ -200,11 +197,10 @@ OH_HOST=192.168.1.20 node server/server.js # one interface only
 
 ## 🌍 Scenarios
 
-**Modern Day** is the only built-in scenario. All other official presets — *World War II — 1939*,
+**Modern Day** is the only built-in scenario. Additional presets — *World War II — 1939*,
 *Medieval — 1200 AD*, *Rome — 117 AD*, *Mongol World — 1300 AD*, *New World — 1650*, and
-*Bronze Age — 1200 BC* — live on the
-[**Scenario Hub**](https://github.com/Open-Historia/Open-historia-scenarios), pinned at the top of
-the in-game **Community** tab. Import any of them with one click, or publish your own.
+*Bronze Age — 1200 BC* — can be rebuilt from the specs in `scripts/presets/` (see below) or
+imported as scenario bundles.
 
 To rebuild an official preset from source (specs live in `scripts/presets/`):
 
@@ -232,8 +228,6 @@ the game's map data to nearby players so everyone loads faster. It's a one-click
 and deliberately safe — a node only ever serves **read-only, checksum-verified** map
 files, and never touches anyone's games, accounts, AI keys, or code.
 
-➡️ **[Set up a node → Open-Historia/open-historia-node](https://github.com/Open-Historia/open-historia-node)**
-
-Your node registers itself and starts serving players once an admin accepts it. See the
-[node README](https://github.com/Open-Historia/open-historia-node#readme) for the full
-walkthrough (including a free Cloudflare Tunnel to put it online).
+The content-node network is part of upstream Open Historia; this fork does not run or
+operate any node registry. If you want to serve map data to nearby players, build the web
+or desktop app and host it yourself.

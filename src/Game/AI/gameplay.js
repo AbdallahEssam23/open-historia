@@ -2189,7 +2189,7 @@ const resolvePlacements = async (containers, world, { receipt = null } = {}) => 
 // A scenario's own stats sheet, or its own strategic indices, as every task that
 // authors stats is told them.
 const scenarioStatSheetDirective = (statSheetDefinition) => `[Scenario National Stats Sheet — LIVE]
-This scenario REPLACES Open Historia's standard modern National Stats sheet with a scenario-defined sheet. Do not invent or maintain hidden modern GDP, unemployment, debt, population, stability, or strategic-index fields unless they are explicitly defined below. Every listed value is persistent campaign canon and uses its exact machine key. Values are ABSOLUTE, never deltas. On ordinary turns update only values that genuinely changed; for the countryStatSheet task return every defined value.
+This scenario REPLACES Historia Nova's standard modern National Stats sheet with a scenario-defined sheet. Do not invent or maintain hidden modern GDP, unemployment, debt, population, stability, or strategic-index fields unless they are explicitly defined below. Every listed value is persistent campaign canon and uses its exact machine key. Values are ABSOLUTE, never deltas. On ordinary turns update only values that genuinely changed; for the countryStatSheet task return every defined value.
 
 ${describeStatSheetDefinition(statSheetDefinition)}
 
@@ -10253,7 +10253,7 @@ const refreshTrackedCustomStatsIfDue = async ({ bundle, signal, definition } = {
   }, { playerCountry: game?.country });
   if (!due.length) return world;
 
-  const systemPrompt = `You are Open Historia's bounded periodic scenario-defined National Stats auditor.
+  const systemPrompt = `You are Historia Nova's bounded periodic scenario-defined National Stats auditor.
 
 The scenario owns the entire Stats vocabulary. The current values are campaign canon. Update conservatively from that baseline using ONLY supplied campaign evidence and the exact machine keys below. Absence of evidence means continuity. Values are absolute, not deltas. Never invent hidden modern GDP, unemployment, debt, population, or strategic-index fields that the scenario did not define. Return plain JSON numbers; prefixes/suffixes are display metadata.
 
@@ -10426,7 +10426,7 @@ const refreshTrackedCountryStatsIfDue = async ({
     return world;
   }
 
-  const systemPrompt = `You are Open Historia's bounded periodic national-statistics auditor.
+  const systemPrompt = `You are Historia Nova's bounded periodic national-statistics auditor.
 
 You are refreshing EXISTING persistent country stat sheets for a running alternate-history campaign. This is a continuity update, NOT a fresh historical lookup and NOT a territorial rebase.
 
