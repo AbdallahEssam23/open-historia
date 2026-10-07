@@ -5,34 +5,47 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const basemaps = fs.readFileSync(path.resolve(here, "../src/Editor/basemaps.js"), "utf8");
-const picker = fs.readFileSync(path.resolve(here, "../src/Editor/BasemapPicker.jsx"), "utf8");
-const olMap = fs.readFileSync(path.resolve(here, "../src/Editor/OlMap.jsx"), "utf8");
-const doc = fs.readFileSync(path.resolve(here, "../src/Editor/useMapDocument.js"), "utf8");
-const assets = fs.readFileSync(path.resolve(here, "../src/runtime/assets.js"), "utf8");
+const read = (rel) => fs.readFileSync(path.resolve(here, rel), "utf8");
 
-test("the editor exposes both dark physical basemaps", () => {
-  assert.match(basemaps, /id: "ocean-dark"/);
-  assert.match(basemaps, /label: "Ocean - Dark"/);
-  assert.match(basemaps, /id: "atlas-relief-dark"/);
-  assert.match(basemaps, /label: "Atlas Relief - Dark"/);
+const basemaps = read("../src/Editor/basemaps.js");
+const picker = read("../src/Editor/BasemapPicker.jsx");
+const olMap = read("../src/Editor/OlMap.jsx");
+const doc = read("../src/Editor/useMapDocument.js");
+const assets = read("../src/runtime/assets.js");
+const olVector = read("../src/runtime/vectorBasemapOpenLayers.js");
+const pickerMap = read("../src/Game/GameUI/CountryPickerMap.jsx");
+
+test("the editor offers only the drawn, free-vector basemaps", () => {
+  assert.match(basemaps, /id: "parchment"/);
+  assert.match(basemaps, /id: "modern-tactical"/);
+  assert.match(basemaps, /label: "Parchment \(historical\)"/);
+  assert.match(basemaps, /label: "Modern Tactical"/);
+  // No ArcGIS tile helper survives in the editor's basemap module.
+  assert.doesNotMatch(basemaps, /arcgisonline\.com|MapServer|esriXyzUrl|esriPreviewUrl|service:/);
 });
 
-test("dark basemap cards visibly preview their grade", () => {
-  assert.match(basemaps, /previewFilter:/);
-  assert.match(picker, /imageFilter=\{b\.previewFilter\}/);
-  assert.match(picker, /filter: imageFilter \|\| "none"/);
+test("built-in basemap cards preview a colour swatch, not a fetched thumbnail", () => {
+  assert.match(basemaps, /swatch:/);
+  assert.match(picker, /swatch=\{b\.swatch\}/);
+  assert.match(picker, /const BasemapCard = \(\{ title, imageUrl, swatch/);
 });
 
-test("OpenLayers editor gives dark variants a dark physical presentation", () => {
-  assert.match(basemaps, /editorOpacity:/);
-  assert.match(basemaps, /editorBackground:/);
-  assert.match(olMap, /opacity: Number\.isFinite\(esri\.editorOpacity\) \? esri\.editorOpacity : 1/);
-  assert.match(olMap, /esri\?\.editorBackground \|\| BASEMAP_BG\[basemap\]/);
+test("OpenLayers draws the reference basemap from vector tiles, not ESRI XYZ", () => {
+  assert.match(olVector, /import VectorTileLayer from "ol\/layer\/VectorTile"/);
+  assert.match(olVector, /new MVT\(/);
+  assert.match(olVector, /vectorTileTemplate\(\)/);
+  assert.match(olMap, /vectorOlLayer\(\{ theme \}\)/);
+  assert.doesNotMatch(olMap, /esriXyzUrl|arcgisonline/i);
+  assert.doesNotMatch(olVector, /arcgisonline\.com|MapServer/);
 });
 
-test("Ocean remains the default without overriding authored scenarios", () => {
-  assert.match(doc, /basemap: "ocean"/);
+test("the country picker paints the drawn basemap too, not ArcGIS", () => {
+  assert.match(pickerMap, /vectorOlLayer\(\{ theme: "modern" \}\)/);
+  assert.doesNotMatch(pickerMap, /ESRI_DARK_GRAY_TILES|arcgisonline|MapServer/);
+});
+
+test("the editor opens on a drawn basemap while the game default stays ocean", () => {
+  assert.match(doc, /basemap: "parchment"/);
   assert.match(assets, /export const DEFAULT_BASEMAP_ID = "ocean"/);
   assert.match(assets, /if \(isBuiltinBasemapId\(scenarioId\)\) return scenarioId/);
 });

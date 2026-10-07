@@ -176,7 +176,10 @@ test("dark promotional basemaps have dedicated runtime paths instead of bright r
   assert.match(world, /getLayer\?\.\("polity-text-renderer"\)/);
   assert.match(world, /noteBasemapTransitionProgress\(94\)/);
   assert.match(runtimeAssets, /id: "natgeo-dark"/);
-  assert.match(editorBasemaps, /id: "natgeo-dark"/);
+  // The editor no longer lists ESRI raster presets; it draws the free-vector
+  // basemaps, so natgeo-dark is a runtime path only.
+  assert.match(editorBasemaps, /id: "modern-tactical"/);
+  assert.doesNotMatch(editorBasemaps, /id: "natgeo-dark"/);
 });
 
 test("label geometry is worker-owned and Nations never fits live polity polygons on the main thread", () => {

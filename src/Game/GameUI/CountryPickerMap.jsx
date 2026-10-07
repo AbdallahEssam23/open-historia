@@ -20,6 +20,7 @@ import { isBrowserOnline } from "../../runtime/networkStatus.js";
 import { SCREEN_HEIGHT, isTouchPrimary, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { markUiInteraction } from "../../runtime/uiStalls.js";
+import { vectorOlLayer } from "../../runtime/vectorBasemapOpenLayers.js";
 
 const codeToColor = (code) => {
   let h = 0;
@@ -82,8 +83,6 @@ const parseGeoJSONFeatures = (geojson, { stock = false } = {}) => {
   return features;
 };
 
-// The ESRI dark canvas the picker has always drawn on.
-const ESRI_DARK_GRAY_TILES = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
 // The whole Web Mercator world - where World.jsx pins an uploaded image
 // (WORLD_IMAGE_COORDS_FLAT) - in this map's projection.
 const WORLD_IMAGE_EXTENT = transformExtent([-180, -85.0511, 180, 85.0511], "EPSG:4326", "EPSG:3857");
@@ -93,8 +92,9 @@ const CUSTOM_SEA = "#0b1a2b";
 // What the regions are drawn over. A scenario with its own basemap gets that
 // basemap, placed and coloured as the game map places it (World.jsx
 // buildWorldStyle): an uploaded image stretched across the whole world, or the
-// vector biomes each carrying its own `fill`. Every other scenario keeps the
-// ESRI canvas, exactly as before.
+// vector biomes each carrying its own `fill`. Every other scenario gets the
+// drawn Modern Tactical basemap (runtime/vectorBasemapOpenLayers.js), the same
+// free-vector canvas the game and the editor use, instead of the old raster gray.
 const buildBaseLayer = (customBackground) => {
   if (customBackground?.kind === "image" && customBackground.imageUrl) {
     return new ImageLayer({
@@ -117,7 +117,7 @@ const buildBaseLayer = (customBackground) => {
   if (!isBrowserOnline()) {
     return new TileLayer({ source: new XYZ({ url: "/offline-relief/{z}/{y}/{x}.jpg", maxZoom: 3, wrapX: false }), opacity: 0.4 });
   }
-  return new TileLayer({ source: new XYZ({ url: ESRI_DARK_GRAY_TILES, maxZoom: 16, wrapX: false }) });
+  return vectorOlLayer({ theme: "modern" });
 };
 
 const CountryPickerMap = ({
@@ -141,7 +141,8 @@ const CountryPickerMap = ({
   // The scenario's own basemap, when it has one: { kind: "image", imageUrl } or
   // { kind: "vector", geojson } - world.background plus the background.json
   // payload, the same pair the game map reads through useCustomBackground.
-  // Null means the scenario draws on ESRI, and so does this map.
+  // Null means the scenario has no basemap of its own; this map draws the
+  // Modern Tactical canvas under the regions.
   customBackground = null,
 }) => {
   const containerRef = useRef(null);

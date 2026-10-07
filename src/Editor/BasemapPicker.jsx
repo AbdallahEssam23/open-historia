@@ -4,12 +4,12 @@
  */
 
 // A Netflix-style overlay (matching the game's Community hub look) for choosing
-// the editor basemap: a "Built-in maps" shelf of ESRI presets (previewed by their
-// whole-world z0 tile), a "Your basemaps" shelf of the user's uploaded basemaps
-// (server-side library, thumbnailed), and a Community tab (filled in Phase 2).
+// the editor basemap: a "Built-in maps" shelf of the drawn free-vector basemaps
+// (previewed by a colour swatch), a "Your basemaps" shelf of the user's uploaded
+// basemaps (server-side library, thumbnailed), and a Community tab.
 
 import { useEffect, useState } from "react";
-import { EDITOR_BASEMAPS, esriPreviewUrl } from "./basemaps.js";
+import { EDITOR_BASEMAPS } from "./basemaps.js";
 import { BACKGROUND_ACCEPT } from "./customBackground.js";
 import { listBasemaps, deleteBasemap as deleteBasemapApi, getBasemapPayload } from "../runtime/basemapLibrary.js";
 import { basemapPostInstallable, fetchCommunityBasemaps, installCommunityBasemap, publishBasemap } from "../runtime/communityBasemaps.js";
@@ -101,14 +101,18 @@ const closeBtn = {
   width: "2rem",
 };
 
-const BasemapCard = ({ title, imageUrl, imageFilter, active, badge, onClick, onDelete, onPublish }) => (
+const BasemapCard = ({ title, imageUrl, swatch, imageFilter, active, badge, onClick, onDelete, onPublish }) => (
   <div
     style={{ ...cardSurface, outline: active ? "2px solid rgba(255,255,255,0.22)" : "none", outlineOffset: "-2px" }}
     onClick={onClick}
     title={title}
   >
     <div style={{ position: "relative", aspectRatio: "3 / 2", background: "#111113" }}>
-      {imageUrl ? (
+      {swatch ? (
+        // A drawn basemap has no thumbnail to fetch; a two-stop swatch in its
+        // own ink is the preview, and costs no request.
+        <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${swatch[0]} 0%, ${swatch[0]} 52%, ${swatch[1]} 100%)` }} />
+      ) : imageUrl ? (
         <img
           src={imageUrl}
           alt=""
@@ -282,8 +286,7 @@ const BasemapPicker = ({
                     <BasemapCard
                       key={b.id}
                       title={b.label}
-                      imageUrl={esriPreviewUrl(b.service)}
-                      imageFilter={b.previewFilter}
+                      swatch={b.swatch}
                       active={!currentCustomId && currentBasemap === b.id}
                       onClick={() => { onSelectBuiltin(b.id); onClose(); }}
                     />

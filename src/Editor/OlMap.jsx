@@ -14,9 +14,9 @@ import { useEffect, useRef } from "react";
 import Map from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
-import OSM from "ol/source/OSM";
 import XYZ from "ol/source/XYZ";
-import { editorBasemapById, esriXyzUrl } from "./basemaps.js";
+import { editorThemeForBasemap } from "./basemaps.js";
+import { VECTOR_OL_MAX_ZOOM, vectorOlLayer } from "../runtime/vectorBasemapOpenLayers.js";
 import { UI_FONT_STACK } from "../runtime/fontStacks.js";
 import { useBrowserOnline } from "../runtime/networkStatus.js";
 import VectorLayer from "ol/layer/Vector";
@@ -68,8 +68,10 @@ const BASEMAP_BG = {
   black: "#000000",
   white: "#ffffff",
   grayscale: "#3a3a3f",
-  osm: "#131315",
-  light: "#131315",
+  // The drawn basemaps paint their own full-canvas colour; these are the
+  // fallbacks shown while their first tiles load.
+  parchment: "#efe3c8",
+  "modern-tactical": "#0b1017",
 };
 
 // Web-Mercator world extent (±180° lon, ±85.0511° lat) — a custom image
@@ -2901,7 +2903,7 @@ const OlMap = ({
     pointLayerRef.current?.changed();
   }, [featureSelectionIds]);
 
-  // No network at all: the ESRI services cannot answer, so the editor draws the
+  // No network at all: the tile host cannot answer, so the editor draws the
   // game's bundled relief instead (public/offline-relief, levels 0-3).
   const online = useBrowserOnline();
 
@@ -2913,22 +2915,19 @@ const OlMap = ({
       baseLayerRef.current = null;
     }
     // A custom uploaded map (image or vector) replaces the basemap — don't load
-    // any ESRI tiles at all while it's active, to save the requests.
+    // any reference tiles at all while it's active, to save the requests.
     const customActive = customBackground?.kind === "image" || customBackground?.kind === "vector";
-    const esri = customActive ? null : editorBasemapById(basemap);
+    const theme = editorThemeForBasemap(basemap);
     let base = null;
-    if (esri && !online) {
+    if (!customActive && !online) {
       base = new TileLayer({
         source: new XYZ({ url: "/offline-relief/{z}/{y}/{x}.jpg", maxZoom: 3 }),
         opacity: 0.72,
       });
-    } else if (esri) {
-      base = new TileLayer({
-        source: new XYZ({ url: esriXyzUrl(esri.service), maxZoom: esri.maxZoom, crossOrigin: "anonymous" }),
-        opacity: Number.isFinite(esri.editorOpacity) ? esri.editorOpacity : 1,
-      });
-    } else if (!customActive && (basemap === "osm" || basemap === "light")) {
-      base = new TileLayer({ source: new OSM(), opacity: basemap === "light" ? 0.85 : 1 });
+    } else if (!customActive) {
+      // Drawn OpenMapTiles over the shared free source, in the theme's palette.
+      base = vectorOlLayer({ theme });
+      base.setMaxZoom(VECTOR_OL_MAX_ZOOM);
     }
     if (base) {
       base.setZIndex(0);
@@ -2939,7 +2938,7 @@ const OlMap = ({
     if (el) {
       el.style.background = customActive
         ? "#0b1a2b"
-        : esri?.editorBackground || BASEMAP_BG[basemap] || "#131315";
+        : BASEMAP_BG[theme] || BASEMAP_BG[basemap] || "#131315";
     }
   }, [basemap, customBackground, online]);
 

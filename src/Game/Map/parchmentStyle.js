@@ -36,6 +36,12 @@ import {
   lineLayer,
   symbolLayer,
 } from "./vectorStyleKit.js";
+import { PARCHMENT_PALETTE } from "./vectorPalettes.js";
+
+// The palette lives in vectorPalettes.js so the editor can paint in the game's
+// ink without importing this module (and assets.js) into its bundle. Re-exported
+// here because this is where callers and the style test expect to find it.
+export { PARCHMENT_PALETTE };
 
 // The tiles and their source id come from the shared free-vector module; the
 // names below are kept for the style's own callers and tests.
@@ -48,29 +54,6 @@ export const isParchmentBasemap = (id) => id === PARCHMENT_BASEMAP_ID;
 
 // Aged paper and sepia ink. Names read as "what the material is", not "where it
 // is used", so a shade can be reused across water, landcover and labels.
-export const PARCHMENT_PALETTE = Object.freeze({
-  paper: "#efe3c8",
-  paperShade: "#e4d5b3",
-  paperEdge: "#d8c69f",
-  ink: "#4a3c29",
-  inkSoft: "#6b5a41",
-  halo: "#f5ecd6",
-  water: "#c9d7d2",
-  waterLine: "#9fb8b3",
-  waterLabel: "#5d7570",
-  forest: "#ccd2a8",
-  grass: "#d9dcb6",
-  sand: "#e9dcae",
-  rock: "#ddd2bb",
-  wetland: "#c4d2c2",
-  park: "#ced6a6",
-  building: "#ddcda8",
-  boundary: "#8a734f",
-  roadCasing: "#b39a6d",
-  roadMajor: "#cbae7c",
-  roadMinor: "#d9c69c",
-});
-
 const P = PARCHMENT_PALETTE;
 const glyph = GLYPH_REGULAR;
 const glyphBold = GLYPH_BOLD;
@@ -97,7 +80,7 @@ const parchmentLayers = () => [
       "fill-color": [
         "match",
         ["get", "class"],
-        "ice", "#e9eef0",
+        "ice", P.ice,
         "wood", P.forest,
         "grass", P.grass,
         "farmland", P.grass,

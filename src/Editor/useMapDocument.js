@@ -67,7 +67,10 @@ export const createDocument = ({ name = "Untitled Map", kind = "import-world" } 
       name,
       kind,
       author: "",
-      basemap: "ocean",
+      // The editor draws on a free-vector basemap now (basemaps.js); the game's
+      // neutral ocean default is unchanged, this is only the canvas a new map
+      // opens on before the author picks one.
+      basemap: "parchment",
       view: { center: [0, 20], zoom: 2, rotation: 0 },
       reference: { image: null },
       createdAt: now,

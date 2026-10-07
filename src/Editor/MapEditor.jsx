@@ -221,7 +221,7 @@ const MapEditor = ({ onClose, scenarioName, onApplyToScenario, initialMap, revie
     return null;
   };
 
-  // Pick a built-in ESRI preset: drop any custom background so the preset shows.
+  // Pick a built-in drawn basemap: drop any custom background so it shows.
   const selectBuiltinBasemap = (id) => {
     d.setBasemap(id);
     setCustomBg(null);

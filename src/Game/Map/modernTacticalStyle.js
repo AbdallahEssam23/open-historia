@@ -30,35 +30,16 @@ import {
   lineLayer,
   symbolLayer,
 } from "./vectorStyleKit.js";
+import { MODERN_TACTICAL_PALETTE } from "./vectorPalettes.js";
+
+// The palette lives in vectorPalettes.js so the editor can paint in the game's
+// ink without importing this module (and assets.js) into its bundle. Re-exported
+// here because this is where callers and the style test expect to find it.
+export { MODERN_TACTICAL_PALETTE };
 
 export const MODERN_TACTICAL_SOURCE_ID = OPENMAPTILES_SOURCE_ID;
 export const MODERN_TACTICAL_ATTRIBUTION = VECTOR_BASEMAP_ATTRIBUTION;
 export const isModernTacticalBasemap = (id) => id === MODERN_BASEMAP_ID;
-
-// Cool dark ground, cyan-slate ink.
-export const MODERN_TACTICAL_PALETTE = Object.freeze({
-  ground: "#0b1017",
-  groundShade: "#111a24",
-  groundEdge: "#16212c",
-  text: "#c2d0dc",
-  textSoft: "#8ea3b3",
-  halo: "#04080c",
-  water: "#0d1c28",
-  waterLine: "#1f3a4a",
-  waterLabel: "#7ba3b8",
-  forest: "#12241d",
-  grass: "#16241a",
-  sand: "#2a2620",
-  rock: "#1b242c",
-  ice: "#243039",
-  wetland: "#12241f",
-  park: "#15251d",
-  building: "#1a2632",
-  boundary: "#4d7186",
-  roadCasing: "#0a0f15",
-  roadMajor: "#31485a",
-  roadMinor: "#22323f",
-});
 
 const P = MODERN_TACTICAL_PALETTE;
 const fill = fillLayer;
