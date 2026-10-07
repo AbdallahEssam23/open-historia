@@ -43,6 +43,13 @@ import {
     statSheetKeys,
 } from "../../runtime/statsSheet.js";
 import { onMemoryPressure } from "../../runtime/memoryPressure.js";
+import { UI_FONT_STACK } from "../../runtime/fontStacks.js";
+import { Chart, registerables } from "chart.js";
+import { polityMetricCatalog, rankPolities } from "../../engine/polityAnalytics.js";
+
+// chart.js is already used by the advisor panel; registering here is idempotent
+// and keeps the deterministic World analytics view on the same renderer.
+Chart.register(...registerables);
 
 // Sheets are regenerated when the game date moves; within a date they persist
 // across reloads so flipping between countries stays instant.
@@ -936,6 +943,245 @@ const AdvancedLineChart = ({ samples, metricKeys, metricsByKey, compact = false,
                 </div>
             )}
         </div>
+    );
+};
+
+// ---------------------------------------------------------------------------
+// 8B.4 - World analytics
+// ---------------------------------------------------------------------------
+// The palette the advisor's charts already use, so a World chart and an advisor
+// chart of the same thing read as the same colours.
+const POLITY_CHART_COLORS = ["#60a5fa", "#34d399", "#f472b6", "#fbbf24", "#94a3b8", "#f87171", "#38bdf8"];
+
+const formatPolityMetric = (metric, value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "—";
+    switch (metric?.unit) {
+        case "currency":
+            return metric.key === "gdpPerCapita" ? formatEuroPerCapita(number) : formatEuroTotal(number);
+        case "population":
+            return formatPopulation(number);
+        case "percent":
+            return formatPercent(number, { signed: metric.key === "gdpGrowth" || metric.key === "budgetBalance" });
+        case "index":
+            return `${Math.round(number)}`;
+        default:
+            return formatCompactNumber(number);
+    }
+};
+
+const chartAxisTick = { color: "rgba(255,255,255,0.45)", font: { size: 10, family: UI_FONT_STACK } };
+const chartAxisGrid = { color: "rgba(255,255,255,0.06)" };
+const chartAxisBorder = { color: "rgba(255,255,255,0.08)" };
+
+// A ranked horizontal bar chart. One dataset, one colour per row, so the
+// longest bar is easy to pick out without a legend.
+const PolityBarChart = ({ labels, values, format }) => {
+    const canvasRef = useRef(null);
+    const chartRef = useRef(null);
+    useEffect(() => {
+        if (!canvasRef.current) return undefined;
+        chartRef.current?.destroy();
+        const ctx = canvasRef.current.getContext("2d");
+        chartRef.current = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: labels.map((_, index) => POLITY_CHART_COLORS[index % POLITY_CHART_COLORS.length]),
+                    borderRadius: 5,
+                    borderWidth: 0,
+                }],
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: "rgba(17,17,19,0.95)",
+                        borderColor: "rgba(255,255,255,0.12)",
+                        borderWidth: 1,
+                        titleColor: "rgba(255,255,255,0.85)",
+                        bodyColor: "rgba(255,255,255,0.6)",
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: { label: (item) => ` ${format(item.parsed.x)}` },
+                    },
+                },
+                scales: {
+                    x: { ticks: chartAxisTick, grid: chartAxisGrid, border: chartAxisBorder },
+                    y: { ticks: chartAxisTick, grid: { display: false }, border: chartAxisBorder },
+                },
+            },
+        });
+        return () => {
+            chartRef.current?.destroy();
+            chartRef.current = null;
+        };
+    }, [labels, values, format]);
+    return (
+        <div style={{ height: `${Math.max(180, labels.length * 26)}px`, position: "relative", width: "100%" }}>
+            <canvas ref={canvasRef} />
+        </div>
+    );
+};
+
+// Share of world as a doughnut. Only offered for a metric whose values can be
+// summed, because a share of an average is not a share of anything.
+const PolityShareChart = ({ labels, shares }) => {
+    const canvasRef = useRef(null);
+    const chartRef = useRef(null);
+    useEffect(() => {
+        if (!canvasRef.current) return undefined;
+        chartRef.current?.destroy();
+        const ctx = canvasRef.current.getContext("2d");
+        chartRef.current = new Chart(ctx, {
+            type: "doughnut",
+            data: {
+                labels,
+                datasets: [{
+                    data: shares.map((share) => share * 100),
+                    backgroundColor: labels.map((_, index) => POLITY_CHART_COLORS[index % POLITY_CHART_COLORS.length]),
+                    borderWidth: 0,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                cutout: "62%",
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: "rgba(17,17,19,0.95)",
+                        borderColor: "rgba(255,255,255,0.12)",
+                        borderWidth: 1,
+                        titleColor: "rgba(255,255,255,0.85)",
+                        bodyColor: "rgba(255,255,255,0.6)",
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: { label: (item) => ` ${item.label}: ${item.parsed.toFixed(1)}%` },
+                    },
+                },
+            },
+        });
+        return () => {
+            chartRef.current?.destroy();
+            chartRef.current = null;
+        };
+    }, [labels, shares]);
+    return (
+        <div style={{ height: "260px", position: "relative", width: "100%" }}>
+            <canvas ref={canvasRef} />
+        </div>
+    );
+};
+
+const WORLD_ANALYTICS_LIMIT = 12;
+
+const WorldAnalyticsSection = ({ world, playerCountry, indexRows = INDEX_ROWS }) => {
+    const groups = useMemo(() => polityMetricCatalog(indexRows), [indexRows]);
+    const metricsByKey = useMemo(
+        () => Object.fromEntries(groups.flatMap((group) => group.metrics.map((metric) => [metric.key, metric]))),
+        [groups],
+    );
+    const [metricKey, setMetricKey] = useState("gdp");
+    const firstKey = groups.flatMap((group) => group.metrics)[0]?.key;
+    const metric = metricsByKey[metricKey] || metricsByKey[firstKey] || null;
+
+    const result = useMemo(
+        () => rankPolities({ sheets: world?.countryStats, metric, limit: WORLD_ANALYTICS_LIMIT }),
+        [world, metric],
+    );
+
+    const rows = useMemo(() => result.rows.map((row) => ({
+        key: row.polity,
+        name: polityDisplayName(world, row.polity),
+        value: row.value,
+        share: row.share,
+        isPlayer: lowerText(row.polity) === lowerText(playerCountry),
+    })), [result, world, playerCountry]);
+
+    const labels = useMemo(() => rows.map((row) => row.name), [rows]);
+    const values = useMemo(() => rows.map((row) => row.value), [rows]);
+    const shares = useMemo(() => rows.map((row) => row.share), [rows]);
+    const formatValue = useCallback((value) => formatPolityMetric(metric, value), [metric]);
+
+    return (
+        <>
+            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.08em", margin: "1.1rem 0 0.6rem", textTransform: "uppercase" }}>Ranked by</div>
+            {groups.map((group) => (
+                <div key={group.key} style={{ marginBottom: "0.55rem" }}>
+                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.64rem", fontWeight: 800, marginBottom: "0.3rem" }}>{group.icon} {group.label}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                        {group.metrics.map((item) => {
+                            const selected = item.key === metric?.key;
+                            return (
+                                <button
+                                    key={item.key}
+                                    type="button"
+                                    className="oh-tap-row"
+                                    aria-pressed={selected}
+                                    onClick={() => setMetricKey(item.key)}
+                                    style={advancedRangeStyle(selected)}
+                                >
+                                    {item.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+
+            {!rows.length ? (
+                <p style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.76rem", marginTop: "1rem" }}>
+                    No polity has a recorded {metric?.label || "value"} yet.
+                </p>
+            ) : (
+                <>
+                    <div style={{ ...cardStyle, marginTop: "0.4rem", padding: "0.7rem 0.75rem" }}>
+                        <div style={{ color: "rgba(255,255,255,0.86)", fontSize: "0.82rem", fontWeight: 850 }}>{metric.label}</div>
+                        <div style={{ color: "rgba(255,255,255,0.34)", fontSize: "0.64rem", marginTop: "0.15rem" }}>
+                            Top {rows.length} of {Object.keys(world?.countryStats || {}).length} recorded polities
+                        </div>
+                        <div style={{ marginTop: "0.4rem" }}>
+                            <PolityBarChart labels={labels} values={values} format={formatValue} />
+                        </div>
+                    </div>
+
+                    {result.additive && (
+                        <div style={{ ...cardStyle, marginTop: "0.6rem", padding: "0.7rem 0.75rem" }}>
+                            <div style={{ color: "rgba(255,255,255,0.86)", fontSize: "0.82rem", fontWeight: 850 }}>Share of world {metric.label}</div>
+                            <div style={{ color: "rgba(255,255,255,0.34)", fontSize: "0.64rem", marginTop: "0.15rem" }}>
+                                Across the {rows.length} ranked polities, {formatValue(result.total)} in total
+                            </div>
+                            <div style={{ marginTop: "0.4rem" }}>
+                                <PolityShareChart labels={labels} shares={shares} />
+                            </div>
+                        </div>
+                    )}
+
+                    <div style={{ ...cardStyle, marginTop: "0.6rem", padding: 0, overflow: "hidden" }}>
+                        <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.72rem", fontWeight: 800, padding: "0.55rem 0.65rem" }}>Table</div>
+                        {rows.map((row, index) => (
+                            <div key={row.key} style={{ alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.07)", display: "grid", gap: "0.5rem", gridTemplateColumns: "1.4rem minmax(0, 1fr) auto auto", padding: "0.45rem 0.65rem" }}>
+                                <span style={{ color: "rgba(255,255,255,0.32)", fontSize: "0.66rem", fontWeight: 800 }}>{index + 1}</span>
+                                <span style={{ alignItems: "center", display: "flex", gap: "0.35rem", minWidth: 0 }}>
+                                    <span style={{ backgroundColor: POLITY_CHART_COLORS[index % POLITY_CHART_COLORS.length], borderRadius: "999px", flexShrink: 0, height: "7px", width: "7px" }} />
+                                    <span style={{ color: row.isPlayer ? "#bfdbfe" : "rgba(255,255,255,0.82)", fontSize: "0.74rem", fontWeight: row.isPlayer ? 850 : 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</span>
+                                </span>
+                                <span data-no-translate style={{ color: "#e7e7e9", fontSize: "0.74rem", fontWeight: 800 }}>{formatValue(row.value)}</span>
+                                <span data-no-translate style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.66rem", textAlign: "end", width: "3.2rem" }}>{result.additive ? `${(row.share * 100).toFixed(1)}%` : ""}</span>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+        </>
     );
 };
 
@@ -2061,6 +2307,12 @@ const StatsPaneBody = ({ active }) => {
             onClick={() => setStatsView("economy")}
             style={statsSubtabStyle(statsView === "economy", touch)}
             >{statSheetDefinition.custom ? "📊 National" : "📈 Economy"}</button>
+            <button
+            type="button"
+            aria-pressed={statsView === "world"}
+            onClick={() => setStatsView("world")}
+            style={statsSubtabStyle(statsView === "world", touch)}
+            >🌐 World</button>
             </div>
 
             {statsView === "economy" && statSheetDefinitionError && (
@@ -2094,6 +2346,16 @@ const StatsPaneBody = ({ active }) => {
                 <p style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.76rem", marginTop: "1rem" }}>
                 Loading diplomatic state…
                 </p>
+            )}
+
+            {statsView === "world" && (
+                worldSnapshot ? (
+                    <WorldAnalyticsSection world={worldSnapshot} playerCountry={player.code} indexRows={indexRows} />
+                ) : (
+                    <p style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.76rem", marginTop: "1rem" }}>
+                    Loading world statistics…
+                    </p>
+                )
             )}
 
             {statsView === "economy" && !statSheetDefinitionError && sheet && state.status === "ready" && (
