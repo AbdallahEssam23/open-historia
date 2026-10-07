@@ -30,6 +30,8 @@ import { isSceneInProgress } from "../AI/interactiveRewind.js";
 import { offeredEvent } from "../../runtime/interactiveOffer.js";
 import { normalizeMarkdown } from "./markdownText.js";
 import { useUnseenEventIds } from "./useUnseenEvents.js";
+import { HUD_ICON_BUTTON } from "./hudKit.js";
+import { HudIconButton } from "./hudKit.jsx";
 import { isMainMenuOpen, useMainMenuOpen } from "./mainMenu.js";
 import {
     applyEventImpactsToWorld,
@@ -209,23 +211,8 @@ const widgetSurface = {
     zIndex: 9999,
 };
 
-const buttonStyle = {
-    alignItems: "center",
-    background: "none",
-    border: "none",
-    borderRadius: "6px",
-    color: "rgba(255,255,255,0.7)",
-    cursor: "pointer",
-    display: "flex",
-    flexShrink: 0,
-    fontSize: "1.5rem",
-    fontWeight: "900",
-    height: "2rem",
-    justifyContent: "center",
-    lineHeight: 1,
-    transition: "all 0.15s ease",
-    width: "2rem",
-};
+// The date widget's icon buttons come from hudKit.js.
+const buttonStyle = HUD_ICON_BUTTON;
 
 const formatDate = (value, pattern = "MMM D, YYYY") => {
     if (!value) {
@@ -3397,14 +3384,10 @@ const DateWidget = ({
                 : null),
         }}
         >
-        <button
-        type="button"
+        <HudIconButton
         className="oh-tap"
         aria-label="Events"
-        style={{
-            ...buttonStyle,
-            color: openPanel === "history" ? "#bfdbfe" : buttonStyle.color,
-        }}
+        style={{ color: openPanel === "history" ? "#bfdbfe" : buttonStyle.color }}
         onClick={() => togglePanel("history")}
         onMouseEnter={(event) => {
             if (openPanel !== "history") {
@@ -3418,7 +3401,7 @@ const DateWidget = ({
         }}
         >
         {"\u00AB"}
-        </button>
+        </HudIconButton>
 
         <div style={{ alignItems: "center", display: "flex", flex: 1, flexDirection: "column", justifyContent: "center", minWidth: 0 }}>
         {playerCountry ? (
@@ -3457,14 +3440,10 @@ const DateWidget = ({
         )}
         </div>
 
-        <button
-        type="button"
+        <HudIconButton
         className="oh-tap"
         aria-label="Timeline"
-        style={{
-            ...buttonStyle,
-            color: openPanel === "skip" ? "#e4e4e7" : buttonStyle.color,
-        }}
+        style={{ color: openPanel === "skip" ? "#e4e4e7" : buttonStyle.color }}
         onClick={() => {
             if (isLoading) {
                 setPanel("skip");
@@ -3485,7 +3464,7 @@ const DateWidget = ({
         }}
         >
         {isLoading ? <SpinnerRing size={15} tone="rgba(255,255,255,0.28)" /> : "\u00BB"}
-        </button>
+        </HudIconButton>
         </div>
         </>
     );

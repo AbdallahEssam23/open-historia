@@ -91,21 +91,10 @@ import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { usePresenceLeaving } from "./presence.jsx";
 import { BUILTIN_BASEMAP_CHOICES, isBuiltinBasemapId } from "../../runtime/assets.js";
 import { ERA_THEME_CHOICES, isEraThemeOverride } from "../../runtime/mapEraTheme.js";
+import { HUD_BASE } from "./hudKit.js";
 
-const baseStyle = {
-    position: "fixed",
-    backgroundColor: "var(--oh-hud-bg)",
-    backdropFilter: "var(--oh-hud-blur)",
-    zIndex: 9999,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "white",
-    fontFamily: "var(--oh-font-ui)",
-    borderRadius: "14px",
-    border: "1px solid var(--oh-hud-border)",
-    boxShadow: "var(--oh-hud-shadow-soft)",
-};
+// The fixed glass panel's base comes from hudKit.js.
+const baseStyle = HUD_BASE;
 
 const labelStyle = {
     display: "block",

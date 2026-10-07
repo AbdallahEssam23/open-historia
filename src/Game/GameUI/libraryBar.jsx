@@ -4,6 +4,7 @@ import { BRAND_NAME } from "../../runtime/brand.js";
 import { APP_HEIGHT, SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP, SCREEN_HEIGHT, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
 import { TOP_BAR_OFFSET } from "./hudDock.js";
+import { HUD_ACTION, HUD_SURFACE, hudTouchFit } from "./hudKit.js";
 import { isMainMenuOpen, setMainMenuOpen, setOpenLibraryTabHandler } from "./mainMenu.js";
 import { Presence } from "./presence.jsx";
 import {
@@ -123,41 +124,11 @@ const TECHNICAL_OWNER_CODES = new Set([
 
 const DEFAULT_SCENARIO_COVER = "/scenario-placeholder.webp";
 
-const surfaceStyle = {
-  background:
-    "linear-gradient(180deg, rgba(50, 50, 55, 0.58) 0%, rgba(17, 17, 19, 0.48) 100%)",
-  border: "1px solid var(--oh-hud-border)",
-  boxShadow: "var(--oh-hud-shadow-soft)",
-  backdropFilter: "var(--oh-hud-blur)",
-  WebkitBackdropFilter: "var(--oh-hud-blur)",
-};
-
-const actionButtonStyle = {
-  alignItems: "center",
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: "999px",
-  color: "rgba(246,246,248,0.92)",
-  cursor: "pointer",
-  display: "inline-flex",
-  fontSize: "0.82rem",
-  fontWeight: 600,
-  gap: "0.4rem",
-  justifyContent: "center",
-  minHeight: "2.1rem",
-  padding: "0 0.95rem",
-  transition: "background 0.18s ease, border-color 0.18s ease, transform 0.18s ease",
-};
-
-// On a touch screen .oh-tap / .oh-tap-row (styles.css) make a control a
-// finger's 44 px, but a min-height written inline beats a class, and every pill
-// in this file writes one. So where a finger is the pointer the inline floor is
-// left out and the class sets it (an icon button's min-width too); with a mouse
-// the style is returned untouched.
-const touchFit = (style, touch, { icon = false } = {}) => {
-  if (!touch) return style;
-  return icon ? { ...style, minHeight: undefined, minWidth: undefined } : { ...style, minHeight: undefined };
-};
+// The glass finish and the pill come from hudKit.js, so the shell, the menu and
+// the timeline cannot drift apart; touchFit's touch rule lives there too.
+const surfaceStyle = HUD_SURFACE;
+const actionButtonStyle = HUD_ACTION;
+const touchFit = hudTouchFit;
 
 // A shelf card, never wider than the phone it is on: at 320 px a 21rem card ran
 // past the edge of the screen and took the game card's ⋮ with it.

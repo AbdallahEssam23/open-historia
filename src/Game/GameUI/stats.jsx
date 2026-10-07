@@ -47,6 +47,8 @@ import { UI_FONT_STACK } from "../../runtime/fontStacks.js";
 import { Chart, registerables } from "chart.js";
 import { polityMetricCatalog, rankPolities } from "../../engine/polityAnalytics.js";
 import { chronicleStats, chronicleTurnRows } from "../../engine/eventChronicle.js";
+import { HUD_CARD } from "./hudKit.js";
+import { HudTabButton } from "./hudKit.jsx";
 
 // chart.js is already used by the advisor panel; registering here is idempotent
 // and keeps the deterministic World analytics view on the same renderer.
@@ -180,12 +182,8 @@ const sectionTitleStyle = {
     textTransform: "uppercase",
 };
 
-const cardStyle = {
-    backgroundColor: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: "10px",
-    padding: "0.6rem 0.7rem",
-};
+// The stats cards and the view's sub-tabs come from hudKit.js.
+const cardStyle = HUD_CARD;
 
 const Bar = ({ value, color }) => (
     <div style={{ backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "999px", height: "6px", overflow: "hidden" }}>
@@ -653,24 +651,6 @@ const DiplomacySection = ({ world, targetCountry }) => {
         </>
     );
 };
-
-// `touch`: a thumb-sized tab. The inline minHeight would beat the tap class.
-const statsSubtabStyle = (selected, touch = false) => ({
-    alignItems: "center",
-    backgroundColor: selected ? "rgba(0,0,0,0.42)" : "rgba(255,255,255,0.03)",
-    border: `1px solid ${selected ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.09)"}`,
-    borderRadius: "8px",
-    color: selected ? "#f4f4f5" : "rgba(255,255,255,0.58)",
-    cursor: "pointer",
-    display: "flex",
-    flex: 1,
-    fontSize: "0.72rem",
-    fontWeight: 800,
-    justifyContent: "center",
-    minHeight: touch ? "2.75rem" : "2.45rem",
-    padding: "0.45rem 0.55rem",
-    transition: "background-color 0.15s, border-color 0.15s, color 0.15s",
-});
 
 // A statistics sheet on a phone: exactly the screen, clear of the notch and the
 // home indicator. The cards' minimum heights (580 and 520 px) go, as on any
@@ -2378,30 +2358,10 @@ const StatsPaneBody = ({ active }) => {
             </div>
 
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.9rem" }}>
-            <button
-            type="button"
-            aria-pressed={statsView === "diplomacy"}
-            onClick={() => setStatsView("diplomacy")}
-            style={statsSubtabStyle(statsView === "diplomacy", touch)}
-            >🤝 Diplomacy</button>
-            <button
-            type="button"
-            aria-pressed={statsView === "economy"}
-            onClick={() => setStatsView("economy")}
-            style={statsSubtabStyle(statsView === "economy", touch)}
-            >{statSheetDefinition.custom ? "📊 National" : "📈 Economy"}</button>
-            <button
-            type="button"
-            aria-pressed={statsView === "world"}
-            onClick={() => setStatsView("world")}
-            style={statsSubtabStyle(statsView === "world", touch)}
-            >🌐 World</button>
-            <button
-            type="button"
-            aria-pressed={statsView === "chronicle"}
-            onClick={() => setStatsView("chronicle")}
-            style={statsSubtabStyle(statsView === "chronicle", touch)}
-            >📜 Chronicle</button>
+            <HudTabButton selected={statsView === "diplomacy"} touch={touch} onClick={() => setStatsView("diplomacy")}>🤝 Diplomacy</HudTabButton>
+            <HudTabButton selected={statsView === "economy"} touch={touch} onClick={() => setStatsView("economy")}>{statSheetDefinition.custom ? "📊 National" : "📈 Economy"}</HudTabButton>
+            <HudTabButton selected={statsView === "world"} touch={touch} onClick={() => setStatsView("world")}>🌐 World</HudTabButton>
+            <HudTabButton selected={statsView === "chronicle"} touch={touch} onClick={() => setStatsView("chronicle")}>📜 Chronicle</HudTabButton>
             </div>
 
             {statsView === "economy" && statSheetDefinitionError && (
