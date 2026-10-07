@@ -1,6 +1,6 @@
 # HUD Kit: One Source for the Outer Shell's Buttons, Menus and Timeline
 
-> Status: designed. A UI-consistency change across the outer shell (the HUD
+> Status: delivered. A UI-consistency change across the outer shell (the HUD
 > chrome a player always has on screen), prompted by the roadmap work that added
 > the heatmap toggle, the Stats World and Chronicle sub-tabs and the local
 > model hints.
@@ -143,7 +143,21 @@ styles.css tokens (--oh-hud-*)
 
 ## TODO
 
-- [ ] Write `hudKit.js` + `hudKit.test.js` (TDD).
-- [ ] Write `hudKit.jsx`.
-- [ ] Migrate the shell files and add the architecture guard.
-- [ ] Run `npm test`, `npm run build` and eslint; confirm no pixel change.
+- [x] Write `hudKit.js` + `hudKit.test.js` (TDD).
+- [x] Write `hudKit.jsx`.
+- [x] Migrate the shell files and add the architecture guard.
+- [x] Run `npm test`, `npm run build` and eslint; confirm no pixel change.
+
+## Delivered
+
+- `src/Game/GameUI/hudKit.js` and `hudKit.jsx` (new); `hudKit.test.js` (9 tests)
+  and `hudKitArchitecture.test.js` (3 tests) are green.
+- Migrated: `libraryBar.jsx` (surface/pill/touchFit), `time.jsx`
+  (`HudIconButton` for the date widget's buttons), `stats.jsx` (`HUD_CARD` and
+  `HudTabButton` for the Diplomacy/Economy/World/Chronicle sub-tabs),
+  `settings.jsx` (`HUD_BASE`) and `chat.jsx` (`hudDockStyle`).
+- `npm test`: 3375 pass, 0 fail, 2 todo. `npm run build` green. eslint reports
+  no new errors (the remaining warnings pre-date this change).
+- No browser in this environment, so the no-pixel-change claim rests on each
+  factory returning the exact object it replaced (pinned by `hudKit.test.js`);
+  the committed `visual/` job covers the Stats sub-tabs and the map in CI.
