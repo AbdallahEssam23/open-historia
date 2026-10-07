@@ -14,6 +14,10 @@ on:
     branches:
       - beta
       - main
+  # A push builds the report for any branch: the job is advisory and a diff is a
+  # page someone reads, so gating it behind a PR into beta/main would leave the
+  # feature branches with no visual signal at all.
+  push:
   workflow_dispatch:
 
 permissions:

@@ -98,7 +98,9 @@ for an advisory job and is called out in `docs/wiki.md`.
 
 ### CI: `.github/workflows/visual-regression.yml`
 
-- Triggers on `pull_request` to `beta`/`main` and `workflow_dispatch`.
+- Triggers on `pull_request` to `beta`/`main`, on `push` (any branch, so a
+  feature branch gets the advisory report without waiting for a PR) and on
+  `workflow_dispatch`.
 - `npm ci`, then `npx playwright install --with-deps chromium`.
 - The visual step carries `continue-on-error: true`, so a diff cannot block.
 - The HTML report and `test-results/` (actual/expected/diff PNGs) upload as the
