@@ -1,10 +1,14 @@
 # Native Heatmap Layer: Engine Data as a Map Gradient
 
-> Status: approved for implementation. Wave 2, item 7 of
+> Status: delivered. Wave 2, item 7 of
 > `docs/specs/2026-10-07-grand-strategy-roadmap-design.md`. Verdict there:
 > "Build small on MapLibre; no dependency." This spec expands the original
 > "end-of-era conflict map" into three selectable gradients, because the pure
-> data that drives them already exists.
+> data that drives them already exists. Implemented as `src/engine/heatmapModel.js`
+> (pure), `src/runtime/heatmapData.js` (adapter) and `src/Game/Map/HeatmapLayer.jsx`
+> (native MapLibre `heatmap` layer), with the two Settings keys and the layer id
+> registered in `mapLayerOrder.js`. Suite: 3345 tests, 0 failing; `npm run build`
+> succeeds.
 
 ## Problem
 
@@ -212,9 +216,9 @@ The overlay is a leaf: it reads and renders, and writes nothing.
 
 ## TODO
 
-- [ ] Implement `heatmapModel.js` + tests (TDD).
-- [ ] Implement `heatmapData.js` + tests.
-- [ ] Add `HeatmapLayer.jsx`, mount it, register the layer id, and extend the
+- [x] Implement `heatmapModel.js` + tests (TDD).
+- [x] Implement `heatmapData.js` + tests.
+- [x] Add `HeatmapLayer.jsx`, mount it, register the layer id, and extend the
       order test.
-- [ ] Add the two settings and the `settingsLog.js` snapshot lines.
-- [ ] Run `npm test` and `npm run build`.
+- [x] Add the two settings and the `settingsLog.js` snapshot lines.
+- [x] Run `npm test` and `npm run build`.

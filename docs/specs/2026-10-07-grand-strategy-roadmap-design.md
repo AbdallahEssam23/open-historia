@@ -126,6 +126,11 @@ in place. Record them as Done so future reviews stop re-proposing them.
    drift and per-polity collapse; `src/engine/balanceHarness.test.js` pins the
    balanced, snowball and debt-crisis cases.
 7. **Native heatmap layer** for the end-of-era conflict map.
+   Delivered: `src/engine/heatmapModel.js` normalizes per-region weights into a
+   GeoJSON FeatureCollection, `src/runtime/heatmapData.js` feeds it the country
+   sheets, the derived plans and the front lines, and `HeatmapLayer.jsx` draws it
+   with MapLibre's native `heatmap` layer in three modes (wealth, strategy,
+   tension), off by default and selectable in Settings. No new dependency.
 
 ### Wave 3 - evaluate only, explicit opt-in
 
