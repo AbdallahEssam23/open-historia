@@ -153,11 +153,12 @@ reads back from it.
 `chat.jsx` keeps its per-thread sound toggle, but its switch now calls the host
 instead of owning a context: the two-note `playDiplomaticNotificationSound`
 body is deleted and replaced with `playCue("notification")`, and
-`ensureNotificationAudioContext` / `notificationAudioContext` go away. On first
-run the host seeds `audioMuted` from the old `oh:chat-notification-sound-v1` key
-when the new key is absent, so a player who had turned that sound off is not made
-to hear the game; after that the old key is not written. This is the one piece of
-back-compat, and it exists because the old value is already on players' devices.
+`ensureNotificationAudioContext` / `notificationAudioContext` go away. The old
+`oh:chat-notification-sound-v1` key is left as the chat panel's own gate - it
+still decides whether that cue plays - and is deliberately not seeded into the
+global `audioMuted`. A chat-specific preference should not silence the new UI and
+paper clicks the player never turned off; the global mute is the one switch for
+"silence everything", and it starts off.
 
 ## Testing
 

@@ -62,6 +62,7 @@ import {
     setStoredLanguage,
 } from "../../runtime/i18n.js";
 import { LABEL_FONT_SUGGESTIONS, MAP_SETTING_KEYS, getMapSetting, getMapSettingDefaultOn, setMapSetting, setMapSettingValue, useMapSettingValue } from "../../runtime/mapSettings.js";
+import { playCue as playAudioCue, warmUpAudio } from "../../runtime/audioManager.js";
 import { getLibraryState } from "../../runtime/library.js";
 import { BRAND_NAME, SOURCE_URL } from "../../runtime/communityLinks.js";
 import { copyToClipboard } from "../../runtime/clipboard.js";
@@ -1822,6 +1823,7 @@ const SETTINGS_SECTIONS = [
     { key: "general", label: "General", icon: "◫", description: "Language, display and accessibility" },
     { key: "map", label: "Map", icon: "◇", description: "Basemap, labels, globe and camera" },
     { key: "ai", label: "AI", icon: "✦", description: "Models, backups, keys and reasoning" },
+    { key: "audio", label: "Audio", icon: "~", description: "Cues, volume and the music bed" },
     { key: "advanced", label: "Advanced", icon: "⌘", description: "Per-task models and expert controls" },
 ];
 
@@ -1887,6 +1889,8 @@ const SettingsWorkspace = ({
     updateEraTheme,
     labelFont,
     updateLabelFont,
+    audioVolume,
+    updateAudioVolume,
     telemetryOn,
     onToggleTelemetry,
     ratingOn,
@@ -2070,6 +2074,41 @@ const SettingsWorkspace = ({
                     <div style={{ ...settingsHelper, marginBottom: 0 }}>
                     Anthropic only. On: history consolidation runs through the Message Batches API at about half the price and lands a little later, applied between turns. Off (default): every task answers in the same call. Other providers are unaffected either way.
                     </div>
+                </SettingsSection>
+                </>
+            )}
+
+            {activeSection === "audio" && (
+                <>
+                <SettingsSection title="Sound" description="Cues and the music bed. Audio is presentation only and never changes world state.">
+                    <Toggle label="Mute all audio" enabled={mapSettings.audioMuted} onToggle={() => updateMapSetting("audioMuted", MAP_SETTING_KEYS.audioMuted, !mapSettings.audioMuted)} />
+                    <div style={fieldGroupStyle}>
+                        <label style={labelStyle} htmlFor="game-audio-volume">Volume</label>
+                        <input
+                        id="game-audio-volume"
+                        data-no-translate
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={audioVolume}
+                        onChange={(event) => updateAudioVolume(event.target.value)}
+                        style={{ ...inputStyle, cursor: "pointer" }}
+                        />
+                        <div style={helperStyle}>Master level for cues and music. The middle of the slider is a middle loudness.</div>
+                    </div>
+                    <Toggle label="Music" enabled={mapSettings.audioMusic} onToggle={() => updateMapSetting("audioMusic", MAP_SETTING_KEYS.audioMusic, !mapSettings.audioMusic)} />
+                    <div style={settingsHelper}>
+                    Off by default. A slow synthesised bed that follows the war state (peace, tension, war), behind the mute switch. Cues stay on either way.
+                    </div>
+                    <button
+                    type="button"
+                    className="oh-tap-row"
+                    onClick={() => { warmUpAudio(); playAudioCue("notification"); }}
+                    style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(96,165,250,0.24)", borderRadius: "8px", color: "#bfdbfe", cursor: "pointer", fontSize: "0.72rem", fontWeight: 750, padding: "0.45rem 0.65rem" }}
+                    >
+                    Test sound
+                    </button>
                 </SettingsSection>
                 </>
             )}
@@ -2288,6 +2327,10 @@ const SettingsMenu = ({
         // Ships ON too.
         liveSkipEvents: getMapSettingDefaultOn(MAP_SETTING_KEYS.liveSkipEvents),
         batchBackgroundTasks: getMapSetting(MAP_SETTING_KEYS.batchBackgroundTasks),
+        // Both off by default: a fresh install hears cues, not music (see
+        // mapSettings.js and runtime/audioManager.js).
+        audioMuted: getMapSetting(MAP_SETTING_KEYS.audioMuted),
+        audioMusic: getMapSetting(MAP_SETTING_KEYS.audioMusic),
     }));
 
     const updateMapSetting = (stateKey, settingKey, value) => {
@@ -2296,6 +2339,8 @@ const SettingsMenu = ({
     };
     const updateBasemapStyle = (value) => setMapSettingValue(MAP_SETTING_KEYS.basemapStyle, value);
     const updateEraTheme = (value) => setMapSettingValue(MAP_SETTING_KEYS.mapEraTheme, value);
+    const audioVolume = useMapSettingValue(MAP_SETTING_KEYS.audioVolume, "0.7");
+    const updateAudioVolume = (value) => setMapSettingValue(MAP_SETTING_KEYS.audioVolume, String(value));
     const labelFont = useMapSettingValue(MAP_SETTING_KEYS.labelFont);
     // The field shows the keystrokes; the setting stores them trimmed. Storing
     // on every keystroke through setMapSettingValue's trim and echoing the
@@ -2374,6 +2419,8 @@ const SettingsMenu = ({
             updateEraTheme={updateEraTheme}
             labelFont={labelFontShown}
             updateLabelFont={updateLabelFont}
+            audioVolume={audioVolume}
+            updateAudioVolume={updateAudioVolume}
             telemetryOn={telemetryOn}
             onToggleTelemetry={toggleTelemetry}
             ratingOn={ratingOn}

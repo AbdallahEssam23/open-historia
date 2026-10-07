@@ -68,6 +68,12 @@ registerSettingsSnapshot("Map", () => [
     ["Disable camera movement during events", onOff(getMapSetting(MAP_SETTING_KEYS.disableEventCamera))],
 ]);
 
+registerSettingsSnapshot("Audio", () => [
+    ["Mute all audio", onOff(getMapSetting(MAP_SETTING_KEYS.audioMuted))],
+    ["Music", onOff(getMapSetting(MAP_SETTING_KEYS.audioMusic))],
+    ["Volume", getMapSettingValue(MAP_SETTING_KEYS.audioVolume, "0.7")],
+]);
+
 // Every entry of the Fallback list, in order, with the state it is in: "which
 // model was it trying to use?" has as many answers as the list has entries.
 const describeStatus = (entry) => {

@@ -22,6 +22,7 @@ import { dismissUnitPopup } from "../Selection/Units.jsx";
 import { dismissFeaturePopup } from "../Selection/Features.jsx";
 import { openCountryPanel } from "../Selection/CountryPanel.jsx";
 import { logDebugEvent, logSettingChange } from "../../runtime/debugLog.js";
+import { warmUpAudio } from "../../runtime/audioManager.js";
 import {
   describeProviderSetupNeed,
   getProviderMeta,
@@ -303,6 +304,19 @@ const Main = ({
 
   useEffect(() => {
     if (!checkWebGL()) setShowWebGLWarning(true);
+  }, []);
+
+  // Audio may not start until a user gesture; the first pointer or key anywhere
+  // in the game builds and resumes the one AudioContext. Idempotent, so the
+  // chat panel's own unlock (and every later click) is harmless.
+  useEffect(() => {
+    const unlock = () => warmUpAudio();
+    document.addEventListener("pointerdown", unlock, true);
+    document.addEventListener("keydown", unlock, true);
+    return () => {
+      document.removeEventListener("pointerdown", unlock, true);
+      document.removeEventListener("keydown", unlock, true);
+    };
   }, []);
 
   // Where the player was looking, in detailed mode only.

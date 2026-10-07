@@ -12,6 +12,7 @@ import { eventsFromLegacyChat, projectChatThread } from "../../runtime/chatThrea
 import { CHAT_REVEAL_PAUSE_MS, describeChatCutIn, planChatReveal } from "../AI/chatActions.js";
 import { logForNextStep, startChatReveal } from "./chatReveal.js";
 import { campaignChanged } from "../../runtime/campaignGuard.js";
+import { playCue as playAudioCue, warmUpAudio } from "../../runtime/audioManager.js";
 import { isChatGenerationLikely, subscribeChatGeneration } from "../AI/simulationStatus.js";
 import {
     MAX_ACTIVE_SPIES, activeSpies, deploySpy, expelSpy, foreignSpies, intelligenceOf, normalizeIntercepts, normalizeSpies,
@@ -1545,7 +1546,6 @@ const NOTIFICATION_VISIBLE_POLL_MS = 0; // event-driven; external safety runs on
 const NOTIFICATION_HIDDEN_POLL_MS = 0; // event-driven
 
 let activeDiplomaticChatId = "";
-let notificationAudioContext = null;
 const recentOutgoingByChat = new Map();
 
 // Fingerprint only the immutable-ish tail fields needed to detect an in-place
@@ -1611,62 +1611,8 @@ const writeNotificationSoundEnabled = (enabled) => {
     try { localStorage.setItem(NOTIFICATION_SOUND_KEY, enabled ? "1" : "0"); } catch { /* noop */ }
 };
 
-const ensureNotificationAudioContext = () => {
-    if (typeof window === "undefined") return null;
-    const AudioCtor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtor) return null;
-
-    if (!notificationAudioContext || notificationAudioContext.state === "closed") {
-        try {
-            notificationAudioContext = new AudioCtor();
-        } catch {
-            return null;
-        }
-    }
-
-    if (notificationAudioContext.state === "suspended") {
-        notificationAudioContext.resume().catch(() => {});
-    }
-    return notificationAudioContext;
-};
-
-const playDiplomaticNotificationSound = () => {
-    const ctx = ensureNotificationAudioContext();
-    if (!ctx || ctx.state !== "running") return false;
-
-    try {
-        const now = ctx.currentTime;
-        const master = ctx.createGain();
-        master.gain.setValueAtTime(0.0001, now);
-        master.gain.exponentialRampToValueAtTime(0.028, now + 0.008);
-        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
-        master.connect(ctx.destination);
-
-        for (const note of [
-            { frequency: 740, delay: 0.000, duration: 0.115 },
-            { frequency: 988, delay: 0.082, duration: 0.145 },
-        ]) {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            const start = now + note.delay;
-            const stop = start + note.duration;
-
-            osc.type = "sine";
-            osc.frequency.setValueAtTime(note.frequency, start);
-            gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.exponentialRampToValueAtTime(0.72, start + 0.006);
-            gain.gain.exponentialRampToValueAtTime(0.0001, stop);
-            osc.connect(gain);
-            gain.connect(master);
-            osc.start(start);
-            osc.stop(stop + 0.01);
-        }
-        return true;
-    } catch {
-        return false;
-    }
-};
-
+// The two-note chime now lives in the shared Web Audio host as the
+// "notification" cue; this panel keeps only its own per-thread on/off.
 const recordRecentDiplomaticOutgoing = (chatId) => {
     if (chatId == null) return;
     recentOutgoingByChat.set(String(chatId), Date.now());
@@ -2773,7 +2719,7 @@ const Chat = ({ hovered, setHovered, isOpen, onToggle }) => {
 
     useEffect(() => {
         const timers = toastTimersRef.current;
-        const unlock = () => ensureNotificationAudioContext();
+        const unlock = () => warmUpAudio();
         document.addEventListener("pointerdown", unlock, true);
         document.addEventListener("keydown", unlock, true);
         return () => {
@@ -2819,7 +2765,7 @@ const Chat = ({ hovered, setHovered, isOpen, onToggle }) => {
         const timer = setTimeout(() => removeToast(item.id), 12000);
         toastTimersRef.current.set(item.id, timer);
 
-        if (soundEnabled) playDiplomaticNotificationSound();
+        if (soundEnabled) playAudioCue("notification");
 
         try {
             if (
@@ -3077,8 +3023,8 @@ const Chat = ({ hovered, setHovered, isOpen, onToggle }) => {
         setSoundEnabled(next);
         writeNotificationSoundEnabled(next);
         if (next) {
-            ensureNotificationAudioContext();
-            playDiplomaticNotificationSound();
+            warmUpAudio();
+            playAudioCue("notification");
         }
     };
 
@@ -3111,13 +3057,13 @@ const Chat = ({ hovered, setHovered, isOpen, onToggle }) => {
                     typeof Notification === "undefined"
                         ? "unsupported"
                         : Notification.permission,
-                audioState: notificationAudioContext?.state || "not-created",
+                audioState: soundEnabled ? "host-managed" : "off",
                 pollVisibleMs: NOTIFICATION_VISIBLE_POLL_MS,
                 pollHiddenMs: NOTIFICATION_HIDDEN_POLL_MS,
                 scanMode: "per-chat-cursor",
                 lastPoll: { ...notificationPollStatsRef.current },
             }),
-            testSound: () => playDiplomaticNotificationSound(),
+            testSound: () => playAudioCue("notification"),
             enableDesktop,
             clear: () => {
                 for (const timer of toastTimersRef.current.values()) clearTimeout(timer);

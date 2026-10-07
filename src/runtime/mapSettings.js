@@ -79,6 +79,14 @@ export const MAP_SETTING_KEYS = {
     // (AI/streamedEvents.js). ON by default; off leaves the skip behind the
     // Timeline panel's spinner.
     liveSkipEvents: "ai_live_skip_events",
+    // The Web Audio host (runtime/audioManager.js). Mute silences every cue and
+    // the music bed; it is OFF by default so a fresh install hears the cues.
+    audioMuted: "audio_muted",
+    // The music bed is opt-in: cues ship on, music does not. An absent key means
+    // off, so this reads through getMapSetting like the other off-by-default keys.
+    audioMusic: "audio_music",
+    // Master level, 0..1, as a value setting; absent reads as "0.7" at the host.
+    audioVolume: "audio_volume",
 };
 
 // Families the label-font pickers suggest — Settings → Map and the game and
@@ -124,6 +132,8 @@ const SETTING_LABELS = {
     [MAP_SETTING_KEYS.chunkLongJumps]: "Generate long time skips in segments",
     [MAP_SETTING_KEYS.lookupFunctions]: "AI lookup functions",
     [MAP_SETTING_KEYS.liveSkipEvents]: "Show time skip events as they are written",
+    [MAP_SETTING_KEYS.audioMuted]: "Mute all audio",
+    [MAP_SETTING_KEYS.audioMusic]: "Music",
 };
 
 export function setMapSetting(key, value) {
@@ -151,6 +161,7 @@ const VALUE_SETTING_LABELS = {
     [MAP_SETTING_KEYS.basemapStyle]: "Basemap",
     [MAP_SETTING_KEYS.labelFont]: "Label font",
     [MAP_SETTING_KEYS.mapEraTheme]: "Map era",
+    [MAP_SETTING_KEYS.audioVolume]: "Audio volume",
 };
 
 export function setMapSettingValue(key, value) {
