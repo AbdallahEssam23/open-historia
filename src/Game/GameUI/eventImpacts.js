@@ -24,16 +24,24 @@
 // Kept free of React and the runtime so the card and its tests share one rule
 // (the same trade eventFocus.js makes).
 
+// The grouping of impact keys lives in the engine (engine/eventChronicle.js), so
+// a timeline card and a chronicle row can never disagree about what "regions"
+// counts. This file adds only the words and glyphs the card reads out.
+import { PLAYER_IMPACT_FAMILIES } from "../../engine/eventChronicle.js";
+
 // One row per kind of change, in the order the card reads them out. The glyphs
 // are the map's own family (LINK_GLYPHS in time.jsx), so a chip here and a link
 // chip there look like they belong to the same world.
-const IMPACT_FAMILIES = Object.freeze([
-    { key: "regions", glyph: "⌖", singular: "region", plural: "regions", impacts: ["regionTransfers", "regionControlOps", "regionClaims"] },
-    { key: "polities", glyph: "⚑", singular: "polity", plural: "polities", impacts: ["polityChanges"] },
-    { key: "forces", glyph: "⛊", singular: "formation", plural: "formations", impacts: ["unitOps"] },
-    { key: "structures", glyph: "▣", singular: "structure", plural: "structures", impacts: ["markerOps"] },
-    { key: "projects", glyph: "▤", singular: "project", plural: "projects", impacts: ["projectOps"] },
-]);
+const IMPACT_PRESENTATION = Object.freeze({
+    regions: { glyph: "⌖", singular: "region", plural: "regions" },
+    polities: { glyph: "⚑", singular: "polity", plural: "polities" },
+    forces: { glyph: "⛊", singular: "formation", plural: "formations" },
+    structures: { glyph: "▣", singular: "structure", plural: "structures" },
+    projects: { glyph: "▤", singular: "project", plural: "projects" },
+});
+const IMPACT_FAMILIES = Object.freeze(
+    PLAYER_IMPACT_FAMILIES.map((family) => Object.freeze({ ...family, ...IMPACT_PRESENTATION[family.key] })),
+);
 
 // { rows: [{key, glyph, count, label, text}], total }
 // `rows` holds only the kinds this event actually touched, so an event that

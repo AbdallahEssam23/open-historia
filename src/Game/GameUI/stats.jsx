@@ -46,6 +46,7 @@ import { onMemoryPressure } from "../../runtime/memoryPressure.js";
 import { UI_FONT_STACK } from "../../runtime/fontStacks.js";
 import { Chart, registerables } from "chart.js";
 import { polityMetricCatalog, rankPolities } from "../../engine/polityAnalytics.js";
+import { chronicleStats, chronicleTurnRows } from "../../engine/eventChronicle.js";
 
 // chart.js is already used by the advisor panel; registering here is idempotent
 // and keeps the deterministic World analytics view on the same renderer.
@@ -1185,6 +1186,88 @@ const WorldAnalyticsSection = ({ world, playerCountry, indexRows = INDEX_ROWS })
     );
 };
 
+// The read-only campaign chronicle (engine/eventChronicle.js): one row per
+// recorded turn, newest first, from world.simulationHistory. It writes nothing
+// and reads no other store; the receipt counts already ride on each turn entry.
+const CHRONICLE_IMPACT_ORDER = ["regions", "polities", "forces", "structures", "projects"];
+const CHRONICLE_IMPACT_GLYPH = { regions: "⌖", polities: "⚑", forces: "⛊", structures: "▣", projects: "▤" };
+const CHRONICLE_IMPACT_LABEL = { regions: "regions", polities: "polities", forces: "formations", structures: "structures", projects: "projects" };
+
+const chronicleRange = (fromDate, toDate) => {
+    const from = fromDate ? formatGameDateReadable(fromDate) : "";
+    const to = toDate ? formatGameDateReadable(toDate) : "";
+    if (!from && !to) return "Undated";
+    if (!from) return to;
+    if (!to || from === to) return from;
+    return `${from} to ${to}`;
+};
+
+const ChronicleSection = ({ world }) => {
+    const history = world?.simulationHistory;
+    const stats = useMemo(() => chronicleStats(history), [history]);
+    const rows = useMemo(() => chronicleTurnRows(history), [history]);
+
+    const metric = (label, value) => (
+        <div style={{ flex: "1 1 6rem", minWidth: 0 }}>
+            <div style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.6rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</div>
+            <div data-no-translate style={{ color: "#e7e7e9", fontSize: "0.95rem", fontWeight: 850 }}>{value}</div>
+        </div>
+    );
+
+    return (
+        <>
+            <div style={{ ...cardStyle, marginTop: "1rem" }}>
+                <div style={{ color: "rgba(255,255,255,0.86)", fontSize: "0.82rem", fontWeight: 850 }}>Campaign chronicle</div>
+                <div style={{ color: "rgba(255,255,255,0.34)", fontSize: "0.64rem", marginTop: "0.15rem" }}>
+                    What the ledger recorded, newest first. Read-only.
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem 1rem", marginTop: "0.55rem" }}>
+                    {metric("Rounds", stats.turns)}
+                    {metric("Events", stats.events)}
+                    {metric("Changes", stats.totalChanges)}
+                    {metric("Fallback turns", stats.fallbackTurns)}
+                    {metric("Span", chronicleRange(stats.firstDate, stats.lastDate))}
+                </div>
+            </div>
+
+            {!rows.length ? (
+                <p style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.76rem", marginTop: "1rem" }}>
+                    No turn has been recorded yet. Advance time and the campaign's record will appear here.
+                </p>
+            ) : (
+                <div style={{ ...cardStyle, marginTop: "0.6rem", padding: 0, overflow: "hidden" }}>
+                    {rows.map((row) => {
+                        const chips = CHRONICLE_IMPACT_ORDER.filter((key) => row[key] > 0);
+                        return (
+                            <div key={row.id} style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "0.5rem 0.65rem" }}>
+                                <div style={{ alignItems: "baseline", display: "flex", gap: "0.5rem", justifyContent: "space-between" }}>
+                                    <span data-no-translate style={{ color: "rgba(255,255,255,0.55)", fontSize: "0.66rem", fontWeight: 800 }}>{chronicleRange(row.fromDate, row.toDate)}</span>
+                                    <span style={{ color: row.fallback ? "#fca5a5" : "rgba(255,255,255,0.34)", fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase" }}>
+                                        {row.fallback ? "Fallback" : row.source}
+                                    </span>
+                                </div>
+                                <div style={{ color: row.fallback ? "rgba(255,255,255,0.62)" : "#e7e7e9", fontSize: "0.76rem", fontWeight: 700, marginTop: "0.2rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {row.title}
+                                </div>
+                                <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.3rem" }}>
+                                    <span style={{ color: "rgba(255,255,255,0.32)", fontSize: "0.62rem", fontWeight: 700 }}>
+                                        {row.eventCount === 1 ? "1 event" : `${row.eventCount} events`}
+                                    </span>
+                                    {chips.map((key) => (
+                                        <span key={key} data-no-translate style={{ backgroundColor: "rgba(255,255,255,0.06)", borderRadius: "999px", color: "rgba(255,255,255,0.7)", fontSize: "0.62rem", fontWeight: 800, padding: "0.05rem 0.4rem" }}>
+                                            {CHRONICLE_IMPACT_GLYPH[key]} {row[key]} {CHRONICLE_IMPACT_LABEL[key]}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </>
+    );
+};
+
 const AdvancedStatsModal = ({
     open,
     onClose,
@@ -2313,6 +2396,12 @@ const StatsPaneBody = ({ active }) => {
             onClick={() => setStatsView("world")}
             style={statsSubtabStyle(statsView === "world", touch)}
             >🌐 World</button>
+            <button
+            type="button"
+            aria-pressed={statsView === "chronicle"}
+            onClick={() => setStatsView("chronicle")}
+            style={statsSubtabStyle(statsView === "chronicle", touch)}
+            >📜 Chronicle</button>
             </div>
 
             {statsView === "economy" && statSheetDefinitionError && (
@@ -2354,6 +2443,16 @@ const StatsPaneBody = ({ active }) => {
                 ) : (
                     <p style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.76rem", marginTop: "1rem" }}>
                     Loading world statistics…
+                    </p>
+                )
+            )}
+
+            {statsView === "chronicle" && (
+                worldSnapshot ? (
+                    <ChronicleSection world={worldSnapshot} />
+                ) : (
+                    <p style={{ color: "rgba(255,255,255,0.42)", fontSize: "0.76rem", marginTop: "1rem" }}>
+                    Loading the campaign record…
                     </p>
                 )
             )}
