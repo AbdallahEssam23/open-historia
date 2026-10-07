@@ -1,9 +1,12 @@
 # Visual Regression: a Non-Blocking Screenshot Job
 
-> Status: designed. Wave 3, item 9 of
+> Status: delivered. Wave 3, item 9 of
 > `docs/specs/2026-10-07-grand-strategy-roadmap-design.md`, which lists it as
-> "Evaluate in CI as a scoped, non-blocking job". The owner has opted in, so
-> this spec scopes and builds it.
+> "Evaluate in CI as a scoped, non-blocking job". The owner opted in, so this
+> spec scoped and built it: `visual/views.mjs` (pure, covered by `npm test`),
+> Playwright config and spec, and the `continue-on-error`
+> `.github/workflows/visual-regression.yml`. Suite: 3361 tests, 0 failing;
+> `npm run build` succeeds; `@playwright/test` is a devDependency only.
 
 ## Problem
 
@@ -164,8 +167,8 @@ summarizeVisualRun <-- per-view results <----------------/
 
 ## TODO
 
-- [ ] Write `visual/views.mjs` + `visual/views.test.js` (TDD).
-- [ ] Write the Playwright config and spec.
-- [ ] Add the non-blocking workflow and npm scripts, update the lock.
-- [ ] Run `npm test` and `npm run build`; confirm the pure plan is covered and
+- [x] Write `visual/views.mjs` + `visual/views.test.js` (TDD).
+- [x] Write the Playwright config and spec.
+- [x] Add the non-blocking workflow and npm scripts, update the lock.
+- [x] Run `npm test` and `npm run build`; confirm the pure plan is covered and
       the build is untouched.

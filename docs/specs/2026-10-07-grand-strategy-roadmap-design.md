@@ -2,8 +2,8 @@
 
 > Status: triage and sequencing proposal, being delivered item by item. Every
 > claim about the repository below was verified against `HEAD 74d9871`; the
-> suite counter is refreshed as items land (`npm test` = 3355 tests, 3353 pass,
-> 0 fail, 2 todo after Wave 1 item 4 and Wave 2 items 5-7).
+> suite counter is refreshed as items land (`npm test` = 3361 tests, 3359 pass,
+> 0 fail, 2 todo after Wave 1 items 1-4, Wave 2 items 5-7 and Wave 3 item 9).
 
 ## Why this document exists
 
@@ -64,7 +64,7 @@ verdict of one of
 | PeerJS / WebRTC P2P multiplayer | Zero-cost multiplayer | Single-player; no authoritative server, no desync model | Reject for now; enormous scope, no auth, no determinism plan across peers |
 | RBush spatial index | Fast neighbor queries at scale | Current catalogs are small; adjacency is cheap at present scale | Evaluate when a profiler shows a real cost, not before |
 | `heatmap.js` / spatial heatmap | End-of-era conflict map | MapLibre GL can render heatmaps natively from a GeoJSON source | Build small on MapLibre; no dependency |
-| Playwright visual regression | Catch layout regressions | No visual tests; screenshot capture is manual (`docs/wiki`) | Evaluate in CI as a scoped, non-blocking job |
+| Playwright visual regression | Catch layout regressions | No visual tests; screenshot capture is manual (`docs/wiki`) | Done (Wave 3 item 9): scoped, non-blocking job in `visual/` + the workflow; baselines recorded on first run |
 | Sharp image pipeline | Smaller assets | Assets are committed and already sized; build is Vite | Evaluate; do not add a native build dependency pre-emptively |
 | Sentry crash reporting | Production telemetry | `telemetry.js` records to IndexedDB locally | Evaluate; external crash upload needs a privacy decision first |
 | Automerge / Yjs time-lapse | Delta-based history replay | `countryStatsHistory` and event ledgers already record history; ownership deltas exist in the event log | Build small: reuse existing deltas in a player-facing timeline; no CRDT |
@@ -143,12 +143,20 @@ in place. Record them as Done so future reviews stop re-proposing them.
 
 8. Desktop-only local narration model (never shipped in the mobile bundle).
 9. Visual regression job in CI, non-blocking.
+   Delivered: `visual/views.mjs` (pure plan and advisory policy, covered by
+   `npm test`) plus `visual/playwright.config.mjs` and `visual/visual.spec.mjs`
+   capturing the map, the heatmap overlay and the Stats panels against the web
+   build (no API key, no data directory), and
+   `.github/workflows/visual-regression.yml` with `continue-on-error` on the
+   capture step and the report uploaded as an artifact. `@playwright/test` is a
+   devDependency; nothing under `src/` imports it.
 10. Optional crash reporting, pending a privacy decision.
 
-None of the three is started: each needs a decision this document cannot make
-(an on-device model is disqualified by the gigabytes-scale bundle rule, and
-crash upload needs a privacy call), and each is "Evaluate", not "Build". They
-stay open until the owner opts in.
+Items 8 and 10 remain: each needs a decision this document cannot make (an
+on-device model is disqualified by the gigabytes-scale bundle rule, and crash
+upload needs a privacy call), and each is "Evaluate", not "Build". They stay
+open until the owner opts in. Item 9 is delivered as an advisory job; its
+baselines are recorded on first run, not invented here.
 
 ### Rejected
 
@@ -180,5 +188,9 @@ full, Yuka, PeerJS, Azgaar, Radix as a dependency.
 - [x] Decide the timeline replay scope (Wave 1 item 4): read-only, no replay.
 - [x] Deliver Wave 1 item 4: `src/engine/eventChronicle.js` plus the read-only
       Chronicle sub-tab in `stats.jsx`.
+- [x] Deliver Wave 3 item 9: the non-blocking visual-regression job in `visual/`
+      and `.github/workflows/visual-regression.yml`.
+- [x] Closeout readiness pass over Waves 1-3
+      (`docs/specs/2026-10-07-closeout-readiness.md`).
 - [x] Record the rejected proposals in `docs/architecture.md` so they are not
       re-proposed.
