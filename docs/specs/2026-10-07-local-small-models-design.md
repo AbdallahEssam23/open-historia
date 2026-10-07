@@ -1,10 +1,14 @@
 # Local Small Models for Narration and Diplomacy
 
-> Status: designed. Follows Wave 3, item 8 of
+> Status: delivered. Follows Wave 3, item 8 of
 > `docs/specs/2026-10-07-grand-strategy-roadmap-design.md` ("Desktop-only local
 > narration model"). The owner's decision here is the **local-runtime path**:
 > run the recommended small models through Ollama or LM Studio, which the game
 > already supports, rather than bundling an in-browser inference engine.
+> Delivered: `src/Game/AI/localModels.js` (pure catalog and endpoint-aware
+> suggestions) with datalist hints in Settings and the start prompt, and the
+> "Local small models" documentation. Suite: 3365 tests, 0 failing; `npm run
+> build` succeeds; no new dependency.
 
 ## Problem
 
@@ -133,7 +137,7 @@ connection.endpoint/                                            (hint only, no w
 
 ## TODO
 
-- [ ] Write `src/Game/AI/localModels.js` + `src/Game/AI/localModels.test.js` (TDD).
-- [ ] Wire the suggestions into the settings and the start prompt.
-- [ ] Document the setup in `docs/ai-overview.md` and `README.md`.
-- [ ] Run `npm test` and `npm run build`.
+- [x] Write `src/Game/AI/localModels.js` + `src/Game/AI/localModels.test.js` (TDD).
+- [x] Wire the suggestions into the settings and the start prompt.
+- [x] Document the setup in `docs/ai-overview.md` and `README.md`.
+- [x] Run `npm test` and `npm run build`.

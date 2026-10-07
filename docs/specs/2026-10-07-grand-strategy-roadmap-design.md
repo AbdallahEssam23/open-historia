@@ -2,8 +2,9 @@
 
 > Status: triage and sequencing proposal, being delivered item by item. Every
 > claim about the repository below was verified against `HEAD 74d9871`; the
-> suite counter is refreshed as items land (`npm test` = 3361 tests, 3359 pass,
-> 0 fail, 2 todo after Wave 1 items 1-4, Wave 2 items 5-7 and Wave 3 item 9).
+> suite counter is refreshed as items land (`npm test` = 3365 tests, 3363 pass,
+> 0 fail, 2 todo after Wave 1 items 1-4, Wave 2 items 5-7, Wave 3 item 9, and
+> the local small-model signposting for Wave 3 item 8).
 
 ## Why this document exists
 
@@ -60,7 +61,7 @@ verdict of one of
 | XState for diplomacy / event graph | Deterministic state machine | Deterministic pure engines already model intent, casus belli, settlement, personality, ticks | Reject as a dependency; if a statechart is needed, hand-write a small pure table |
 | ECharts analytics sheet | Deep economy charts | `chart.js` installed; `stats.jsx` already renders `AdvancedLineChart` over `countryStatsHistory` | Reject the swap; Build small any missing analytics views on `chart.js` |
 | Howler.js / Tone.js audio | Adaptive historical audio | No audio engine | Build small with the Web Audio API (no dependency); adaptive layers keyed off the tick state |
-| WebLLM / `transformers.js` local LLM | Zero-cost offline narration | Multi-provider cloud AI; no on-device model; mobile ships a single web bundle | Evaluate desktop only, opt-in; Reject for mobile |
+| WebLLM / `transformers.js` local LLM | Zero-cost offline narration | Multi-provider cloud AI; no on-device model; mobile ships a single web bundle | Decided: not bundled (weights cannot ride in any shipped bundle). The narration/diplomacy need is met by the local Ollama/LM Studio path (`src/Game/AI/localModels.js`, `docs/ai-overview.md`) |
 | PeerJS / WebRTC P2P multiplayer | Zero-cost multiplayer | Single-player; no authoritative server, no desync model | Reject for now; enormous scope, no auth, no determinism plan across peers |
 | RBush spatial index | Fast neighbor queries at scale | Current catalogs are small; adjacency is cheap at present scale | Evaluate when a profiler shows a real cost, not before |
 | `heatmap.js` / spatial heatmap | End-of-era conflict map | MapLibre GL can render heatmaps natively from a GeoJSON source | Build small on MapLibre; no dependency |
@@ -142,6 +143,12 @@ in place. Record them as Done so future reviews stop re-proposing them.
 ### Wave 3 - evaluate only, explicit opt-in
 
 8. Desktop-only local narration model (never shipped in the mobile bundle).
+   Delivered as the local-runtime path: `src/Game/AI/localModels.js` names the
+   recommended small models (Llama 3.2, Phi-3.5-mini, Qwen2.5) and the tasks
+   they suit, offers their tags as hints for a local `openai-compatible`
+   endpoint, and `docs/ai-overview.md` documents Ollama/LM Studio setup and
+   routing. The in-browser engines (WebLLM, transformers.js) stay out: their
+   weights cannot ride in any shipped bundle.
 9. Visual regression job in CI, non-blocking.
    Delivered: `visual/views.mjs` (pure plan and advisory policy, covered by
    `npm test`) plus `visual/playwright.config.mjs` and `visual/visual.spec.mjs`
@@ -152,11 +159,10 @@ in place. Record them as Done so future reviews stop re-proposing them.
    devDependency; nothing under `src/` imports it.
 10. Optional crash reporting, pending a privacy decision.
 
-Items 8 and 10 remain: each needs a decision this document cannot make (an
-on-device model is disqualified by the gigabytes-scale bundle rule, and crash
-upload needs a privacy call), and each is "Evaluate", not "Build". They stay
-open until the owner opts in. Item 9 is delivered as an advisory job; its
-baselines are recorded on first run, not invented here.
+Item 10 remains: it needs a privacy decision this document cannot make, and is
+"Evaluate", not "Build". It stays open until the owner opts in. Item 9 is
+delivered as an advisory job; its baselines are recorded on first run, not
+invented here.
 
 ### Rejected
 
@@ -190,6 +196,9 @@ full, Yuka, PeerJS, Azgaar, Radix as a dependency.
       Chronicle sub-tab in `stats.jsx`.
 - [x] Deliver Wave 3 item 9: the non-blocking visual-regression job in `visual/`
       and `.github/workflows/visual-regression.yml`.
+- [x] Deliver Wave 3 item 8 as the local-runtime path:
+      `docs/specs/2026-10-07-local-small-models-design.md`,
+      `src/Game/AI/localModels.js`.
 - [x] Closeout readiness pass over Waves 1-3
       (`docs/specs/2026-10-07-closeout-readiness.md`).
 - [x] Record the rejected proposals in `docs/architecture.md` so they are not

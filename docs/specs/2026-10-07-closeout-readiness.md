@@ -7,8 +7,9 @@
 
 ## What this pass checked
 
-1. Every build item in Waves 1 and 2, and the one opted-in Wave 3 item, has a
-   pure or runtime module, a guard test, and a spec document.
+1. Every build item in Waves 1 and 2, and the two opted-in Wave 3 items (the
+   visual job and the local small-model signposting), has a pure or runtime
+   module, a guard test, and a spec document.
 2. The architecture invariants held: `src/engine/**` stays import-free, no
    runtime dependency was added, and no `src/` file imports the tooling added for
    tests.
@@ -19,8 +20,8 @@
 
 | Check | Command | Result |
 |---|---|---|
-| Full suite | `npm test` | 3361 tests, 3359 pass, 0 fail, 2 todo |
-| Production build | `npm run build` | built in ~1m29s, no error |
+| Full suite | `npm test` | 3365 tests, 3363 pass, 0 fail, 2 todo |
+| Production build | `npm run build` | built in ~1m46s, no error |
 | Engine purity + item guards | `node --test src/engine/enginePurity.test.js ...` | 68 tests, 0 fail |
 | Visual plan | `node --test "visual/**/*.test.js"` | 6 tests, 0 fail |
 | Lint, changed files | `npx eslint visual/* vite.config.ts` | 0 errors |
@@ -57,7 +58,7 @@ documented first state, not a defect.
 | Item | Status |
 |---|---|
 | 9 visual regression | Delivered: `visual/views.mjs`, `visual/playwright.config.mjs`, `visual/visual.spec.mjs`, `.github/workflows/visual-regression.yml`; spec `2026-10-07-visual-regression-design.md` |
-| 8 local narration model | Open. Needs an explicit opt-in; the gigabytes-scale bundle rule disqualifies it for mobile. |
+| 8 local narration model | Delivered as the local-runtime path: `src/Game/AI/localModels.js` (pure catalog + endpoint-aware suggestions), hints in Settings and the start prompt, docs in `docs/ai-overview.md`; spec `2026-10-07-local-small-models-design.md`. In-browser engines (WebLLM, transformers.js) stay out for the bundle limits. |
 | 10 crash reporting | Open. Needs a privacy decision before any external upload. |
 
 ## Invariants held
@@ -68,7 +69,8 @@ documented first state, not a defect.
 - **No new runtime dependency.** `dependencies` is unchanged; Playwright is a
   `devDependency` and no `src/` file references it, so the shipped bundle is
   untouched. Its only config change is the `server.allowedHosts` entry the
-  project rule requires.
+  project rule requires. The local small-model work adds no dependency either:
+  it signposts the existing `openai-compatible` path.
 - **No edits to existing tests to make a change pass.** The only test edits are
   additive guards and the one `mapLayerOrder.test.js` expectation the heatmap
   layer necessarily extends.
@@ -87,6 +89,10 @@ documented first state, not a defect.
 3. **The seeded default scenario is the only campaign the visual job knows.**
    Beta-only surfaces (interactive events, group polls) remain uncovered, as the
    wiki's known-gaps list already records for manual capture.
+4. **Local small models are signposted, not auto-configured.** The player still
+   pulls the model in Ollama and routes the tasks; a one-click preset that
+   creates the Connection and the task picks is deferred (see the spec's open
+   questions).
 
 ## How to reproduce
 
