@@ -24,6 +24,28 @@ This page is the map of the codebase. Each subsystem has its own page; follow th
 
 The heavy map binaries (`regions.pmtiles` ~101 MB, `countries.pmtiles`, `cities.pmtiles`, plus editor seed geojson) are **never bundled** — see [Map assets & PMTiles](assets-and-data.md). They live in `public/assets/`, are gitignored, and are fetched from a GitHub "map-data" Release on first launch. A Vite plugin (`dropMapBinaries`, `vite.config.ts:43`) deletes them from every build output so Cloudflare Pages' 25 MiB/file limit is never hit.
 
+### Deliberate non-adoptions
+
+These libraries were proposed and declined; do not re-propose them without a
+concrete, measured need. The audit and its reasoning live in
+`docs/specs/2026-10-07-grand-strategy-roadmap-design.md`.
+
+| Declined | Why | What is used instead |
+|---|---|---|
+| `@turf/turf` (full bundle) | Duplicates the modular Turf packages already installed and inflates the shared bundle | Modular `@turf/*` packages |
+| i18next | The interface strings are extracted from source by the custom i18n pipeline; a generic library would not extract them the same way | `i18n.js`, `phraseBook.js`, `translator.js` |
+| Zod (full adoption) | The project salvages and repairs bad data rather than rejecting it | `gameplaySchemas.js`, `jsonSalvage.js`, `schemaSalvage.js` |
+| Dexie.js (IndexedDB) | Adds weight for no capability beyond the raw IndexedDB already in use | Raw IndexedDB |
+| XState | Deterministic pure engines already model the same state, and the dependency would replace a small tested table | Pure engine modules |
+| `seedrandom` | Combat already resolves deterministically from an FNV-1a hash | `src/engine/combat.js` |
+| ECharts | `chart.js` is already installed and wired in the stats panel | `chart.js` |
+| Howler / Tone.js | The Web Audio API covers the cues and music bed with no dependency | `src/runtime/audioManager.js` |
+| Yuka | The strategic planner is a small pure module | `src/engine` planner |
+| PeerJS / WebRTC | Multiplayer needs an authoritative server and a determinism plan; out of scope | Single-player |
+| Radix / Headless UI | Event windows already exist and are theme-styled | Existing event UI |
+| Comlink | Six workers already run without it | Raw `Worker` messaging |
+| Vitest | `node --test` runs the suite in CI | `node --test` |
+
 ---
 
 ## 2. The three build variants

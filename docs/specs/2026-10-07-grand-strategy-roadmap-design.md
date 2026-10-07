@@ -151,5 +151,5 @@ full, Yuka, PeerJS, Azgaar, Radix as a dependency.
 - [x] Write `docs/specs/2026-10-07-region-adjacency-api-design.md` for Wave 1 item 1.
 - [x] Write `docs/specs/2026-10-07-audio-manager-design.md` (Wave 1 item 2).
 - [x] Decide the timeline replay scope (Wave 1 item 4): read-only, no replay.
-- [ ] Record the rejected proposals in `docs/architecture.md` so they are not
+- [x] Record the rejected proposals in `docs/architecture.md` so they are not
       re-proposed.
