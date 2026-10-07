@@ -97,8 +97,12 @@ in place. Record them as Done so future reviews stop re-proposing them.
    `src/runtime/audioManager.js`, with an Audio section in Settings.
 3. **Analytics completion on `chart.js`.** Any missing polity analytics views
    reuse `AdvancedLineChart` and `countryStatsHistory`.
-4. **Timeline replay from existing deltas.** A player-facing "how the map moved"
-   playback built on the ownership deltas already in the event log.
+4. **Read-only history from event diffs.** SCOPE DECIDED: history is read-only,
+   not an interactive replay. The event log already carries formatted diffs
+   (`event.impacts`: `regionTransfers`, `regionControlOps`, `regionClaims`,
+   `polityChanges`, `unitOps`, `markerOps`, `projectOps`) and the Timeline and
+   Events panels already read them; no scrubber, no "replay the map" mode, and
+   no new state. If a view is missing it is a static reading of those diffs.
 
 ### Wave 2 - depth, still pure and cheap
 
@@ -132,7 +136,9 @@ full, Yuka, PeerJS, Azgaar, Radix as a dependency.
 
 1. Which Wave 1 item is first? The adjacency API is the highest leverage and the
    most reusable; the audio manager is the most visible to a player.
-2. Is a player-facing timeline replay in scope, or is history read-only for now?
+2. RESOLVED: history is read-only. No interactive timeline replay; the event
+   log's formatted diffs are the record, and any player-facing history reads
+   them rather than re-simulating or scrubbing the map.
 3. Does the owner want an on-device model attempt at all, even desktop-only?
 
 ## TODO
@@ -140,6 +146,6 @@ full, Yuka, PeerJS, Azgaar, Radix as a dependency.
 - [ ] Approve or reorder the waves above.
 - [x] Write `docs/specs/2026-10-07-region-adjacency-api-design.md` for Wave 1 item 1.
 - [x] Write `docs/specs/2026-10-07-audio-manager-design.md` (Wave 1 item 2).
-- [ ] Decide the timeline replay scope (Wave 1 item 4).
+- [x] Decide the timeline replay scope (Wave 1 item 4): read-only, no replay.
 - [ ] Record the rejected proposals in `docs/architecture.md` so they are not
       re-proposed.
