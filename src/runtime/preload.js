@@ -4,6 +4,7 @@ import {
   TERRAIN_TILE_TEMPLATE,
   buildTileUrl,
   esriTileTemplate,
+  isRasterBasemapId,
   loadCountryNames,
   readJson,
   selectedBasemapId,
@@ -141,10 +142,16 @@ const STARTUP_TASKS = [
       // No network at all: the map draws its bundled relief (World.jsx), and
       // every one of these requests would only fail.
       if (!isBrowserOnline()) return undefined;
+      // Only the photographed raster basemaps have ESRI textures to warm. A
+      // vector basemap (Parchment) streams its tiles from its own source, so
+      // warming an arbitrary ESRI service under it would be wasted requests.
+      const warmBasemapId = isRasterBasemapId(selectedBasemapId()) ? selectedBasemapId() : null;
       return warmRemoteResources(
         [
-          ...buildGlobalTextureUrls(esriTileTemplate(selectedBasemapId()), 2),
-          ...buildInitialViewportTextureUrls(esriTileTemplate(selectedBasemapId())),
+          ...(warmBasemapId ? [
+            ...buildGlobalTextureUrls(esriTileTemplate(warmBasemapId), 2),
+            ...buildInitialViewportTextureUrls(esriTileTemplate(warmBasemapId)),
+          ] : []),
           ...buildGlobalTextureUrls(TERRAIN_TILE_TEMPLATE, 2),
           ...buildInitialViewportTextureUrls(TERRAIN_TILE_TEMPLATE),
         ],

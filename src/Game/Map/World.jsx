@@ -5,6 +5,7 @@ import Map from "react-map-gl/maplibre";
 import { useCustomBackground } from "./useCustomBackground.js";
 import MapScene from "./MapScene.jsx";
 import { loadNatGeoDarkStyle } from "./natGeoDarkStyle.js";
+import { buildParchmentStyle, isParchmentBasemap } from "./parchmentStyle.js";
 
 import { recordMapFreeze, recordMapTrace } from "../../runtime/mapPerfTrace.js";
 import { reportFrameDelta, resetQualitySamples } from "../../runtime/adaptiveQuality.js";
@@ -256,6 +257,32 @@ const WORLD_IMAGE_COORDS_GLOBE = [
   [-180, -89.9],
 ];
 
+// The DEM source and its hillshade layer are shared by every non-custom
+// basemap, raster or vector: the hillshade renders the lit relief, and the same
+// source backs the MapLibre `terrain` property that deforms the mesh (see the
+// `terrain` memo in World()). Vector basemaps get it too, so enabling 3D never
+// points at a "terrain-source" that the active style never defined.
+const addTerrainCoverage = (style, terrainEnabled) => {
+  if (!terrainEnabled) return style;
+  style.sources["terrain-source"] = {
+    type: "raster-dem",
+    tiles: [TERRAIN_TILE_TEMPLATE],
+    encoding: "terrarium",
+    maxzoom: 5,
+    tileSize: 256,
+  };
+  style.layers.push({
+    id: "hills",
+    type: "hillshade",
+    source: "terrain-source",
+    paint: {
+      "hillshade-exaggeration": 0.1,
+      "hillshade-shadow-color": "#000",
+    },
+  });
+  return style;
+};
+
 const buildWorldStyle = (basemapId, customBg, backgroundDeclared, isGlobe, terrainEnabled, offline = false) => {
   // A custom uploaded map replaces the ESRI basemap entirely — no satellite or
   // terrain tiles load at all (saves those requests), the uploaded map is the
@@ -326,6 +353,13 @@ const buildWorldStyle = (basemapId, customBg, backgroundDeclared, isGlobe, terra
       ],
       sky: { "atmosphere-blend": 0 },
     };
+  }
+  // Parchment is the drawn historical basemap: an OpenMapTiles vector source
+  // painted as aged paper (Map/parchmentStyle.js). It needs the network like any
+  // other remote basemap, so the offline branch above has already claimed the
+  // no-network case and this only runs online.
+  if (isParchmentBasemap(basemapId)) {
+    return addTerrainCoverage(buildParchmentStyle(), terrainEnabled);
   }
   // The scenario's basemap is the basemap, at every zoom. Atlas Relief and the
   // physically-dark Ocean variant are composed looks of their own (ETOPO global
@@ -437,27 +471,7 @@ const buildWorldStyle = (basemapId, customBg, backgroundDeclared, isGlobe, terra
   // This is the same raster-dem source used for the MapLibre `terrain` property
   // on <Map> below (see the `terrain` memo) — the hillshade layer here is what
   // renders the lit relief; the `terrain` property is what deforms the mesh.
-  if (terrainEnabled) {
-    style.sources["terrain-source"] = {
-      type: "raster-dem",
-      tiles: [TERRAIN_TILE_TEMPLATE],
-      encoding: "terrarium",
-      maxzoom: 5,
-      tileSize: 256,
-    };
-
-    style.layers.push({
-      id: "hills",
-      type: "hillshade",
-      source: "terrain-source",
-      paint: {
-        "hillshade-exaggeration": 0.1,
-        "hillshade-shadow-color": "#000",
-      },
-    });
-  }
-
-  return style;
+  return addTerrainCoverage(style, terrainEnabled);
 };
 
 function World({ mapRef, projection, terrainEnabled, onInitialIdle }) {

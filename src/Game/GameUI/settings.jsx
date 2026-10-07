@@ -87,7 +87,7 @@ import { describeStartupPerf, lastStartupPerf } from "../../runtime/startupPerf.
 import { buildGameZipBlob, formatZipSize, saveGameZipToDisk } from "../../runtime/gameZip.js";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { usePresenceLeaving } from "./presence.jsx";
-import { ESRI_BASEMAPS, isBuiltinBasemapId } from "../../runtime/assets.js";
+import { BUILTIN_BASEMAP_CHOICES, isBuiltinBasemapId } from "../../runtime/assets.js";
 
 const baseStyle = {
     position: "fixed",
@@ -1991,7 +1991,7 @@ const SettingsWorkspace = ({
                         <label style={labelStyle} htmlFor="game-basemap-style">Basemap</label>
                         <select id="game-basemap-style" data-no-translate value={basemapStyle} onChange={(event) => updateBasemapStyle(event.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
                             <option value="" style={{ color: "black" }}>Scenario default</option>
-                            {ESRI_BASEMAPS.map((basemap) => <option key={basemap.id} value={basemap.id} style={{ color: "black" }}>{basemap.label}</option>)}
+                            {BUILTIN_BASEMAP_CHOICES.map((basemap) => <option key={basemap.id} value={basemap.id} style={{ color: "black" }}>{basemap.label}</option>)}
                         </select>
                         <div style={helperStyle}>Scenario default uses the map chosen by the scenario author. Overrides apply immediately.</div>
                     </div>
