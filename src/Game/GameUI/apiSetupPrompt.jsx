@@ -14,6 +14,7 @@ import {
   getRecentModels,
   providerSetupRequirement,
 } from "../AI/providerConfig.js";
+import { localModelSuggestions } from "../AI/localModels.js";
 import { useBrowserOnline } from "../../runtime/networkStatus.js";
 
 // Shown when a game starts and the selected AI provider has nothing to call
@@ -132,6 +133,11 @@ export const ApiSetupPrompt = ({ providerLabel = "the selected provider", missin
   const selfHosted = providerSetupRequirement(provider) === "endpoint";
   const meta = getProviderMeta(provider);
   const recentModels = useMemo(() => getRecentModels(provider), [provider]);
+  // Ollama/LM Studio tags, offered only for a local self-hosted endpoint.
+  const modelSuggestions = useMemo(
+    () => [...new Set([...localModelSuggestions(provider, endpoint), ...recentModels])],
+    [provider, endpoint, recentModels],
+  );
   const canSave = selfHosted ? endpoint.trim().length > 0 : apiKey.trim().length > 0;
   const isMobile = useIsMobile();
   const isTouch = useTouchPrimary();
@@ -336,12 +342,12 @@ export const ApiSetupPrompt = ({ providerLabel = "the selected provider", missin
               placeholder={MODEL_PLACEHOLDERS[provider] || "Model id"}
               autoComplete="off"
               spellCheck={false}
-              list={recentModels.length ? `${modelListId}-models` : undefined}
+              list={modelSuggestions.length ? `${modelListId}-models` : undefined}
               style={inputStyle}
             />
-            {recentModels.length > 0 && (
+            {modelSuggestions.length > 0 && (
               <datalist id={`${modelListId}-models`}>
-                {recentModels.map((entry) => <option key={entry} value={entry} />)}
+                {modelSuggestions.map((entry) => <option key={entry} value={entry} />)}
               </datalist>
             )}
             <div style={helperStyle}>Leave blank for the default. You can add more models and backup providers later under the game menu, Settings, AI.</div>

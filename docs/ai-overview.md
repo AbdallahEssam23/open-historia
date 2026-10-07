@@ -146,7 +146,31 @@ Ported from the abdulrahman-2005 fork. Every AI call names its task — the prom
 
 ### Connection templates and recent models
 
-Settings → AI → Connections offers three templates (`CONNECTION_TEMPLATES`: Groq, OpenRouter, Local Ollama) — the old stock profiles — so a gateway key is one click and a paste away. `resolveModel` records the model each call actually ran with (`saveRecentModel`, ten per provider under `ai_recent_models_<provider>`), and every model field offers those, plus the Connection's suggested model, as datalist suggestions (`getRecentModels`).
+Settings → AI → Connections offers three templates (`CONNECTION_TEMPLATES`: Groq, OpenRouter, Local Ollama) — the old stock profiles — so a gateway key is one click and a paste away. `resolveModel` records the model each call actually ran with (`saveRecentModel`, ten per provider under `ai_recent_models_<provider>`), and every model field offers those, plus the Connection's suggested model, as datalist suggestions (`getRecentModels`); a local Ollama/LM Studio Connection also offers the small-model tags below (`localModelSuggestions`).
+
+### Local small models
+
+A player can run the narration and diplomacy models on their own machine, through the same `openai-compatible` Connection that reaches Ollama, LM Studio and vLLM: no key, no cloud call, and no extra dependency. `localModels.js` names the recommended small models and the tasks they suit, and offers their tags as datalist hints in the Model field of Settings → AI and of the start-of-game prompt, **only** when the Connection's endpoint is local (`localhost`, `127.0.0.1`, `::1` or `*.local`; an empty endpoint counts, since that provider's default is `http://localhost:11434/v1`).
+
+| Model | Ollama tag | Size | Suits |
+|---|---|---|---|
+| Llama 3.2 1B | `llama3.2:1b` | 1B | Short picks and one-line replies |
+| Llama 3.2 3B | `llama3.2:3b` | 3B | Diplomacy letters and narration |
+| Phi-3.5 mini | `phi3.5` | 3.8B | The strongest reasoning here, still local |
+| Qwen2.5 1.5B | `qwen2.5:1.5b` | 1.5B | Light and multilingual |
+
+Setup is two commands, then one setting:
+
+```
+ollama pull llama3.2:3b
+ollama serve
+```
+
+Add a Connection with provider **OpenAI Compatible** and endpoint `http://localhost:11434/v1` (the **Local Ollama** template fills it in), and type the tag in the Model field. For a hosted page the server must allow the site's origin (`OLLAMA_ORIGINS=https://your-host`); the desktop app needs no such step.
+
+Then route the tasks the small model is good at - **Leader chat** (`diplomacy`), **Idle diplomacy**, **Next speaker** and **Advisor chat** - to that Connection under Settings → Advanced → **Per-task models** (`LOCAL_SLM_TASK_KEYS`). A time skip wants the biggest model available, so `jumpForward`, `turnReview` and the directors are deliberately not in that list: leave them on a hosted model, and let the Fallback list reach the local one only for the text tasks.
+
+The in-browser inference engines (WebLLM, transformers.js) were evaluated for this and left out: their weights are hundreds of megabytes to gigabytes and cannot ride in any shipped bundle (Cloudflare's 25 MiB/file limit, the "map binaries are never bundled" rule, and the Android app's single web bundle). See `docs/specs/2026-10-07-local-small-models-design.md`.
 
 ### Prompt caching: the static prefix
 

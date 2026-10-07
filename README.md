@@ -68,7 +68,9 @@ the host).
 
 Local AI (Ollama, LM Studio) needs one extra step in the browser: the server has to allow
 the site's origin, e.g. start Ollama with `OLLAMA_ORIGINS=https://your-host`. The desktop
-app below needs no such setup.
+app below needs no such setup. See
+[Local small models](docs/ai-overview.md#local-small-models) for the recommended tags
+(Llama 3.2, Phi-3.5 mini, Qwen2.5) and which tasks to route to them.
 
 ### Desktop (offline, single-player)
 

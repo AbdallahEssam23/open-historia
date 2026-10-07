@@ -37,6 +37,7 @@ import {
     updateEntry,
 } from "../AI/providerConfig.js";
 import { formatResetTime } from "../AI/fallbackRunner.js";
+import { localModelSuggestions } from "../AI/localModels.js";
 import { REVIEW_SECTIONS, announceRequestBudgetChange, describeJumpCost, requestDay, requestSettings } from "../AI/requestBudget.js";
 import {
     isRatingEnabled,
@@ -732,7 +733,11 @@ const EntryEditor = ({ entry, connections, entries }) => {
     const connection = connections.find((candidate) => candidate.id === entry.connectionId) ?? null;
     const provider = connection?.provider ?? DEFAULT_PROVIDER;
     const sharedBy = entries.filter((other) => other.connectionId === entry.connectionId).length;
-    const suggestions = [...new Set([connection?.suggestedModel, ...getRecentModels(provider)].filter(Boolean))];
+    const suggestions = [...new Set([
+        connection?.suggestedModel,
+        ...localModelSuggestions(provider, connection?.endpoint),
+        ...getRecentModels(provider),
+    ].filter(Boolean))];
     const set = (field) => (value) => updateEntry(entry.id, { [field]: value });
     const touch = useTouchPrimary();
     return (
