@@ -113,6 +113,12 @@ in place. Record them as Done so future reviews stop re-proposing them.
 5. **GOAP-lite strategic planner** as a pure `src/engine` module beside
    `strategicIntent.js`: goal selection plus a scored action sequence, fully
    deterministic, unit-tested headless. No Yuka.
+   Delivered: `src/engine/strategicPlanner.js` scores economic-expansion,
+   military-insurance and political-bloc goals from compact state and the
+   personality profile, expands the winner into a prerequisite-first bounded
+   action chain, and bridges a plan to the economy clock so
+   `balanceHarness.js` can run it; `strategicPlanner.test.js` includes that
+   harness integration.
 6. **Headless balance harness** driving the existing pure tick engines under
    `node --test`, reporting snowballing and collapse.
    Delivered (economy scope): `src/engine/balanceHarness.js` composes the pure

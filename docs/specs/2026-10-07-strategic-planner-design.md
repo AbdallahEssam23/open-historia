@@ -1,7 +1,9 @@
 # GOAP-Lite Strategic Planner: Goals, Chains and a Scored Sequence
 
-> Status: approved design, ready to implement. Wave 2, item 5 of
-> `docs/specs/2026-10-07-grand-strategy-roadmap-design.md`.
+> Status: delivered. Wave 2, item 5 of
+> `docs/specs/2026-10-07-grand-strategy-roadmap-design.md`. Implemented as
+> `src/engine/strategicPlanner.js` with its tests, including the balance-harness
+> integration.
 
 ## Problem
 
@@ -105,13 +107,16 @@ determinism, never a specific magnitude.
 
 ### Actions and the chain
 
-Each action is data, not a function:
+Each action is static data in the frozen catalog:
 
 ```
-{ id, goal, label, requires: [actionId], available: (state, menu) => boolean,
-  effects: { stateField: delta }, economy: { posture?, research?, trade? },
-  cost, reason: (state) => string }
+{ id, goal, label, requires: [actionId], cost,
+  economy: { posture?, research?, trade? } }
 ```
+
+Availability and the human-readable reason are separate pure predicates keyed by
+action id (`actionAvailable`, `actionReason`), so the table stays inert data and
+the two behaviours are read in one place each.
 
 The declared order of `STRATEGIC_ACTIONS` is the canonical order; the planner
 never re-sorts the catalog, so the same goal always yields the same sequence.
@@ -145,9 +150,8 @@ economy clock. It folds the plan's steps into the exact shapes
 `advanceEconomy` already takes:
 
 - `posture`: `{ [polity]: "partial" | "total" }` from mobilization actions,
-- `researchEffects`: `{ [polity]: { economy, pools } }` summed from invest
-  actions, capped by `MAX_RESEARCH_EFFECT_POINTS` via the existing
-  `foldResearchEffect`,
+- `researchEffects`: `{ [polity]: { economy, pools } }` summed from investment
+  actions, capped by the existing `MAX_RESEARCH_EFFECT_POINTS`,
 - `trade`: `{ [polity]: { gdp, stability } }` from bloc actions, a positive
   vector in the same shape `composeMultipliers` merges.
 
@@ -228,7 +232,7 @@ between calls.
 
 ## TODO
 
-- [ ] Implement `STRATEGIC_GOALS`, `STRATEGIC_ACTIONS`, `scoreGoals`,
+- [x] Implement `STRATEGIC_GOALS`, `STRATEGIC_ACTIONS`, `scoreGoals`,
       `derivePlan`, `planEconomyInputs`, `describePlan` (TDD).
-- [ ] Add the goal, chain, bridge and harness-integration tests.
-- [ ] Run `npm test`, `npm run build` and `enginePurity.test.js`.
+- [x] Add the goal, chain, bridge and harness-integration tests.
+- [x] Run `npm test`, `npm run build` and `enginePurity.test.js`.
