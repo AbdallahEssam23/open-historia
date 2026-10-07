@@ -1,8 +1,9 @@
 # Grand-Strategy Roadmap: Triage of an External Proposal
 
-> Status: triage and sequencing proposal. No implementation. Every claim about
-> the repository below was verified against `HEAD 74d9871` with the full suite
-> green (`npm test` = 3238 tests, 3236 pass, 0 fail, 2 todo).
+> Status: triage and sequencing proposal, being delivered item by item. Every
+> claim about the repository below was verified against `HEAD 74d9871`; the
+> suite counter is refreshed as items land (`npm test` = 3355 tests, 3353 pass,
+> 0 fail, 2 todo after Wave 1 item 4 and Wave 2 items 5-7).
 
 ## Why this document exists
 
@@ -72,7 +73,7 @@ verdict of one of
 | Azgaar procedural world generation | Random worlds mode | Authored scenarios and a full map editor | Reject/defer: separate product-scale feature |
 | Radix UI / Headless UI event popups | Immersive event windows | Event UI exists and is theme-styled | Reject as a dependency; style in place |
 | Piper TTS letters | Historical voice | None | Evaluate later; large per-language assets, off by default |
-| `stats.js` performance budgeting | Hold 60 FPS adaptively | No FPS governor | Build small with the Performance API; add a quality ladder when a real device shows the need |
+| `stats.js` performance budgeting | Hold 60 FPS adaptively | Adaptive quality ladder and frame-time instrumentation already ship: `runtime/adaptiveQuality.js` (p90 frame time, downgrade/upgrade hysteresis, consumed by `GlobeEffects.jsx`) plus the rAF sampler and freeze trace in `World.jsx` / `runtime/mapPerfTrace.js` | Done; no `stats.js` dependency. Add an on-screen HUD only if a device shows the need |
 
 ## Sequencing
 
@@ -107,6 +108,12 @@ in place. Record them as Done so future reviews stop re-proposing them.
    `polityChanges`, `unitOps`, `markerOps`, `projectOps`) and the Timeline and
    Events panels already read them; no scrubber, no "replay the map" mode, and
    no new state. If a view is missing it is a static reading of those diffs.
+   Delivered: `src/engine/eventChronicle.js` aggregates the turn ledger
+   (`world.simulationHistory` and each turn's application receipt) into a
+   deterministic, bounded rollup and per-turn rows, and a read-only Chronicle
+   sub-tab in `stats.jsx` renders it. The Events panel's family grouping is now
+   the engine's own `PLAYER_IMPACT_FAMILIES`, so the card and the chronicle
+   cannot disagree.
 
 ### Wave 2 - depth, still pure and cheap
 
@@ -138,6 +145,11 @@ in place. Record them as Done so future reviews stop re-proposing them.
 9. Visual regression job in CI, non-blocking.
 10. Optional crash reporting, pending a privacy decision.
 
+None of the three is started: each needs a decision this document cannot make
+(an on-device model is disqualified by the gigabytes-scale bundle rule, and
+crash upload needs a privacy call), and each is "Evaluate", not "Build". They
+stay open until the owner opts in.
+
 ### Rejected
 
 i18next, Zod full adoption, Dexie, XState, ECharts, seedrandom, `@turf/turf`
@@ -166,5 +178,7 @@ full, Yuka, PeerJS, Azgaar, Radix as a dependency.
 - [x] Write `docs/specs/2026-10-07-region-adjacency-api-design.md` for Wave 1 item 1.
 - [x] Write `docs/specs/2026-10-07-audio-manager-design.md` (Wave 1 item 2).
 - [x] Decide the timeline replay scope (Wave 1 item 4): read-only, no replay.
+- [x] Deliver Wave 1 item 4: `src/engine/eventChronicle.js` plus the read-only
+      Chronicle sub-tab in `stats.jsx`.
 - [x] Record the rejected proposals in `docs/architecture.md` so they are not
       re-proposed.

@@ -1,9 +1,11 @@
 # Event Chronicle: a Read-Only History of What Actually Changed
 
-> Status: approved for implementation. Wave 1, item 4 of
+> Status: delivered. Wave 1, item 4 of
 > `docs/specs/2026-10-07-grand-strategy-roadmap-design.md`. The scope there is
 > decided: history is read-only, there is no interactive replay, and any missing
-> view is "a static reading of those diffs". This spec builds that missing view.
+> view is "a static reading of those diffs". This spec builds that missing view:
+> `src/engine/eventChronicle.js` (pure) backed by a Chronicle sub-tab in
+> `stats.jsx`. Suite: 3355 tests, 0 failing; `npm run build` succeeds.
 
 ## Problem
 
@@ -139,7 +141,7 @@ world.simulationHistory ----\
 
 ## TODO
 
-- [ ] Implement `eventChronicle.js` + tests (TDD).
-- [ ] Lift `PLAYER_IMPACT_FAMILIES` into the engine and re-point `eventImpacts.js`.
-- [ ] Add the Chronicle sub-tab to `stats.jsx`.
-- [ ] Run `npm test`, `npm run build` and `enginePurity.test.js`.
+- [x] Implement `eventChronicle.js` + tests (TDD).
+- [x] Lift `PLAYER_IMPACT_FAMILIES` into the engine and re-point `eventImpacts.js`.
+- [x] Add the Chronicle sub-tab to `stats.jsx`.
+- [x] Run `npm test`, `npm run build` and `enginePurity.test.js`.
