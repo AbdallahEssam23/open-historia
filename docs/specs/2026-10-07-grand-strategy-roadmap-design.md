@@ -88,9 +88,13 @@ in place. Record them as Done so future reviews stop re-proposing them.
    callable from `src/engine/**` (pure) and by the turn. This is the seed of
    every sane expansion and war-proximity rule and it removes the current
    duplication between the AI lookup tools and any future caller.
+   Delivered: `src/engine/regionAdjacency.js` + `src/runtime/regionAdjacency.js`,
+   with the war-declaration reach gate on top.
 2. **Audio manager on the Web Audio API.** A small `src/runtime/audioManager.js`
    with a mute/volume setting, paper/UI clicks, war-stamp cues, and a state-driven
    music bed. No Howler.
+   Delivered: `src/engine/audioCues.js` + `src/engine/warMood.js` and
+   `src/runtime/audioManager.js`, with an Audio section in Settings.
 3. **Analytics completion on `chart.js`.** Any missing polity analytics views
    reuse `AdvancedLineChart` and `countryStatsHistory`.
 4. **Timeline replay from existing deltas.** A player-facing "how the map moved"
@@ -134,8 +138,8 @@ full, Yuka, PeerJS, Azgaar, Radix as a dependency.
 ## TODO
 
 - [ ] Approve or reorder the waves above.
-- [ ] Write `docs/specs/<date>-adjacency-api-design.md` for Wave 1 item 1.
-- [ ] Write the audio manager spec (Wave 1 item 2).
+- [x] Write `docs/specs/2026-10-07-region-adjacency-api-design.md` for Wave 1 item 1.
+- [x] Write `docs/specs/2026-10-07-audio-manager-design.md` (Wave 1 item 2).
 - [ ] Decide the timeline replay scope (Wave 1 item 4).
 - [ ] Record the rejected proposals in `docs/architecture.md` so they are not
       re-proposed.
