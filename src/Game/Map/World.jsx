@@ -6,6 +6,8 @@ import { useCustomBackground } from "./useCustomBackground.js";
 import MapScene from "./MapScene.jsx";
 import { loadNatGeoDarkStyle } from "./natGeoDarkStyle.js";
 import { buildParchmentStyle, isParchmentBasemap } from "./parchmentStyle.js";
+import { buildModernTacticalStyle, isModernTacticalBasemap } from "./modernTacticalStyle.js";
+import { useScenarioEra } from "./useScenarioEra.js";
 
 import { recordMapFreeze, recordMapTrace } from "../../runtime/mapPerfTrace.js";
 import { reportFrameDelta, resetQualitySamples } from "../../runtime/adaptiveQuality.js";
@@ -21,6 +23,7 @@ import {
 } from "../../runtime/assets.js";
 import { configureMapRuntime, ensureBasemapProtocol } from "./mapLibreSetup.js";
 import { MAP_SETTING_KEYS, useMapSettingValue } from "../../runtime/mapSettings.js";
+import { basemapIdForEraTheme, eraThemeForYear, isEraThemeOverride } from "../../runtime/mapEraTheme.js";
 import { useBrowserOnline } from "../../runtime/networkStatus.js";
 import { markMapIdle } from "../../runtime/mapReadiness.js";
 
@@ -361,6 +364,12 @@ const buildWorldStyle = (basemapId, customBg, backgroundDeclared, isGlobe, terra
   if (isParchmentBasemap(basemapId)) {
     return addTerrainCoverage(buildParchmentStyle(), terrainEnabled);
   }
+  // Modern Tactical is the second drawn basemap: the same free vector source as
+  // Parchment, painted as a dark instrument panel. The era engine picks between
+  // the two by the scenario's year (see mapEraTheme.js).
+  if (isModernTacticalBasemap(basemapId)) {
+    return addTerrainCoverage(buildModernTacticalStyle(), terrainEnabled);
+  }
   // The scenario's basemap is the basemap, at every zoom. Atlas Relief and the
   // physically-dark Ocean variant are composed looks of their own (ETOPO global
   // relief fading into label-free World Terrain Base); other raster ids render
@@ -558,13 +567,28 @@ function World({ mapRef, projection, terrainEnabled, onInitialIdle }) {
   // stray value left in localStorage by an older build changes nothing.
   const basemapOverride = useMapSettingValue(MAP_SETTING_KEYS.basemapStyle);
   const validBasemapOverride = isBuiltinBasemapId(basemapOverride) ? basemapOverride : "";
-  const useScenarioBackground = !validBasemapOverride;
+  // The era engine (mapEraTheme.js): the year of the scenario being played
+  // decides the drawn basemap, and the player can lock it in Settings → Map.
+  // The resolution order is a specific basemap pick, then the era lock, then the
+  // scenario author's basemap, then the era chosen from the year, then the
+  // neutral default — expressed through the already-tested resolveBasemapId as
+  // override / scenario / fallback, so an authored scenario still wins over the
+  // automatic choice.
+  const scenarioEraYear = useScenarioEra();
+  const eraOverride = useMapSettingValue(MAP_SETTING_KEYS.mapEraTheme);
+  const eraLockBasemap = isEraThemeOverride(eraOverride) ? basemapIdForEraTheme(eraOverride) : "";
+  const eraAutoBasemap = basemapIdForEraTheme(eraThemeForYear(scenarioEraYear));
+  // A custom uploaded background is replaced by an explicit basemap choice only
+  // when that choice is real; the era lock counts as one, the automatic theme
+  // does not, so a scenario background still shows under Auto.
+  const manualBasemapChoice = validBasemapOverride || eraLockBasemap;
+  const useScenarioBackground = !manualBasemapChoice;
   const effectiveCustomBg = useScenarioBackground ? customBg : null;
   const effectiveBgDeclared = useScenarioBackground ? bgDeclared : false;
   const effectiveBasemap = resolveBasemapId({
-    overrideId: validBasemapOverride,
+    overrideId: manualBasemapChoice,
     scenarioId: worldBasemap,
-    fallbackId: DEFAULT_BASEMAP_ID,
+    fallbackId: eraAutoBasemap || DEFAULT_BASEMAP_ID,
   });
   // Snapshot this during render, before a changed map key can unmount the old
   // MapScene/PTR effect during commit. Reading it later inside the effect is too

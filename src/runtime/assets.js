@@ -112,11 +112,13 @@ export const ESRI_BASEMAPS = [
 export const DEFAULT_BASEMAP_ID = "ocean";
 // Vector basemaps are drawn, not photographed; they live outside ESRI_BASEMAPS
 // because that registry carries an ArcGIS `service` and `maxZoom` per entry.
-// Parchment (Map/parchmentStyle.js) is the only one today, and it is addressed
-// here so the selection/override/resolve logic is source-agnostic.
+// Parchment and Modern Tactical (Map/*Style.js) are addressed here so the
+// selection/override/resolve logic stays source-agnostic.
 export const PARCHMENT_BASEMAP_ID = "parchment";
+export const MODERN_BASEMAP_ID = "modern-tactical";
 export const VECTOR_BASEMAPS = [
   { id: PARCHMENT_BASEMAP_ID, label: "Parchment (historical)" },
+  { id: MODERN_BASEMAP_ID, label: "Modern Tactical" },
 ];
 // The pickers' choice list, in presentation order.
 export const BUILTIN_BASEMAP_CHOICES = [...VECTOR_BASEMAPS, ...ESRI_BASEMAPS];
@@ -124,8 +126,9 @@ export const BUILTIN_BASEMAP_CHOICES = [...VECTOR_BASEMAPS, ...ESRI_BASEMAPS];
 const BASEMAP_STORAGE_KEY = "map_basemap_style";
 
 export const isRasterBasemapId = (id) => ESRI_BASEMAPS.some((basemap) => basemap.id === id);
+export const isVectorBasemapId = (id) => VECTOR_BASEMAPS.some((basemap) => basemap.id === id);
 export const isBuiltinBasemapId = (id) =>
-  id === PARCHMENT_BASEMAP_ID || isRasterBasemapId(id);
+  isVectorBasemapId(id) || isRasterBasemapId(id);
 export const resolveBasemapId = ({ overrideId = "", scenarioId = "", fallbackId = DEFAULT_BASEMAP_ID } = {}) => {
   if (isBuiltinBasemapId(overrideId)) return overrideId;
   if (isBuiltinBasemapId(scenarioId)) return scenarioId;

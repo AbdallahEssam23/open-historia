@@ -18,26 +18,31 @@
 // markers are drawn on top by the game and must stay the loudest thing on the
 // map. Parchment is the paper they are inked onto.
 import { PARCHMENT_BASEMAP_ID } from "../../runtime/assets.js";
+import {
+  OPENMAPTILES_SOURCE_ID,
+  VECTOR_BASEMAP_ATTRIBUTION,
+  vectorBasemapSource,
+  vectorGlyphsUrl,
+} from "../../runtime/vectorBasemapSource.js";
+import {
+  GLYPH_BOLD,
+  GLYPH_ITALIC,
+  GLYPH_REGULAR,
+  PLACE_NAME_EXPRESSION,
+  ROAD_CLASS_MAJOR,
+  ROAD_CLASS_MINOR,
+  classIn,
+  fillLayer,
+  lineLayer,
+  symbolLayer,
+} from "./vectorStyleKit.js";
 
-export const PARCHMENT_SOURCE_ID = "openmaptiles";
-
-export const DEFAULT_PARCHMENT_SOURCE_URL = "https://tiles.openfreemap.org/planet";
-export const DEFAULT_PARCHMENT_GLYPHS_URL =
-  "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
-export const PARCHMENT_ATTRIBUTION =
-  '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> ' +
-  '<a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
-  'Data <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>';
-
-const envValue = (value, fallback) =>
-  (typeof value === "string" && value.trim() ? value.trim() : fallback);
-
-// import.meta.env is undefined under `node --test`, hence the optional chain.
-export const parchmentSourceUrl = () =>
-  envValue(import.meta.env?.VITE_OH_PARCHMENT_SOURCE_URL, DEFAULT_PARCHMENT_SOURCE_URL);
-
-export const parchmentGlyphsUrl = () =>
-  envValue(import.meta.env?.VITE_OH_PARCHMENT_GLYPHS_URL, DEFAULT_PARCHMENT_GLYPHS_URL);
+// The tiles and their source id come from the shared free-vector module; the
+// names below are kept for the style's own callers and tests.
+export const PARCHMENT_SOURCE_ID = OPENMAPTILES_SOURCE_ID;
+export const PARCHMENT_ATTRIBUTION = VECTOR_BASEMAP_ATTRIBUTION;
+export const parchmentSourceUrl = () => vectorBasemapSource().url;
+export const parchmentGlyphsUrl = vectorGlyphsUrl;
 
 export const isParchmentBasemap = (id) => id === PARCHMENT_BASEMAP_ID;
 
@@ -67,47 +72,13 @@ export const PARCHMENT_PALETTE = Object.freeze({
 });
 
 const P = PARCHMENT_PALETTE;
-const glyph = ["Noto Sans Regular"];
-const glyphBold = ["Noto Sans Bold"];
-const glyphItalic = ["Noto Sans Italic"];
-
-// OpenMapTiles stores the display name under `name`, with localized variants
-// when the extract carries them. Prefer English then the latin transliteration
-// so a place reads the same way regardless of the player's locale.
-const placeName = ["coalesce", ["get", "name:en"], ["get", "name:latin"], ["get", "name"]];
-
-const fill = (id, sourceLayer, paint, extra = {}) => ({
-  id,
-  type: "fill",
-  source: PARCHMENT_SOURCE_ID,
-  "source-layer": sourceLayer,
-  paint,
-  ...extra,
-});
-
-const line = (id, sourceLayer, paint, extra = {}) => ({
-  id,
-  type: "line",
-  source: PARCHMENT_SOURCE_ID,
-  "source-layer": sourceLayer,
-  paint,
-  ...extra,
-});
-
-const symbol = (id, sourceLayer, layout, paint, extra = {}) => ({
-  id,
-  type: "symbol",
-  source: PARCHMENT_SOURCE_ID,
-  "source-layer": sourceLayer,
-  layout,
-  paint,
-  ...extra,
-});
-
-const ROAD_CLASS_MAJOR = ["motorway", "trunk", "primary", "secondary", "tertiary"];
-const ROAD_CLASS_MINOR = ["minor", "service", "track", "path"];
-
-const classIn = (classes) => ["match", ["get", "class"], classes, true, false];
+const glyph = GLYPH_REGULAR;
+const glyphBold = GLYPH_BOLD;
+const glyphItalic = GLYPH_ITALIC;
+const placeName = PLACE_NAME_EXPRESSION;
+const fill = fillLayer;
+const line = lineLayer;
+const symbol = symbolLayer;
 
 const parchmentLayers = () => [
   // The paper itself. No source: it is the colour that shows through wherever
@@ -390,11 +361,7 @@ export const buildParchmentStyle = () => ({
   name: "Parchment",
   glyphs: parchmentGlyphsUrl(),
   sources: {
-    [PARCHMENT_SOURCE_ID]: {
-      type: "vector",
-      url: parchmentSourceUrl(),
-      attribution: PARCHMENT_ATTRIBUTION,
-    },
+    [PARCHMENT_SOURCE_ID]: vectorBasemapSource(),
   },
   layers: parchmentLayers(),
   sky: { "atmosphere-blend": 0 },

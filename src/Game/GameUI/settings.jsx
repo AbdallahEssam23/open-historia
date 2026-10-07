@@ -88,6 +88,7 @@ import { buildGameZipBlob, formatZipSize, saveGameZipToDisk } from "../../runtim
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { usePresenceLeaving } from "./presence.jsx";
 import { BUILTIN_BASEMAP_CHOICES, isBuiltinBasemapId } from "../../runtime/assets.js";
+import { ERA_THEME_CHOICES, isEraThemeOverride } from "../../runtime/mapEraTheme.js";
 
 const baseStyle = {
     position: "fixed",
@@ -1882,6 +1883,8 @@ const SettingsWorkspace = ({
     updateMapSetting,
     basemapStyle,
     updateBasemapStyle,
+    eraTheme,
+    updateEraTheme,
     labelFont,
     updateLabelFont,
     telemetryOn,
@@ -1994,6 +1997,17 @@ const SettingsWorkspace = ({
                             {BUILTIN_BASEMAP_CHOICES.map((basemap) => <option key={basemap.id} value={basemap.id} style={{ color: "black" }}>{basemap.label}</option>)}
                         </select>
                         <div style={helperStyle}>Scenario default uses the map chosen by the scenario author. Overrides apply immediately.</div>
+                    </div>
+                    {/* The era engine: the drawn base map follows the scenario's
+                        year (before 1900 → Parchment, 1900+ → Modern Tactical)
+                        unless the player locks one here. Auto is the default, so
+                        a fresh install feels the setting change with the era. */}
+                    <div style={fieldGroupStyle}>
+                        <label style={labelStyle} htmlFor="game-map-era">Map era</label>
+                        <select id="game-map-era" data-no-translate value={eraTheme} onChange={(event) => updateEraTheme(event.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+                            {ERA_THEME_CHOICES.map((choice) => <option key={choice.value || "auto"} value={choice.value} style={{ color: "black" }}>{choice.label}</option>)}
+                        </select>
+                        <div style={helperStyle}>Auto picks Parchment for scenarios before 1900 and Modern Tactical for 1900 and later. Locking a theme overrides the scenario author's basemap.</div>
                     </div>
                     {/* Labels rasterize from the player's LOCAL fonts (the style
                         has no glyph server), so any installed family works - the
@@ -2255,6 +2269,9 @@ const SettingsMenu = ({
     // scenario's own), read live so the picker follows a change made elsewhere.
     const storedBasemapStyle = useMapSettingValue(MAP_SETTING_KEYS.basemapStyle);
     const basemapStyle = isBuiltinBasemapId(storedBasemapStyle) ? storedBasemapStyle : "";
+    // The era lock: a theme name, or empty for "let the year decide".
+    const storedEraTheme = useMapSettingValue(MAP_SETTING_KEYS.mapEraTheme);
+    const eraTheme = isEraThemeOverride(storedEraTheme) ? storedEraTheme : "";
 
     const [mapSettings, setMapSettingsState] = useState(() => ({
         hideCountryLabels: getMapSetting(MAP_SETTING_KEYS.hideCountryLabels),
@@ -2278,6 +2295,7 @@ const SettingsMenu = ({
         setMapSettingsState((current) => ({ ...current, [stateKey]: value }));
     };
     const updateBasemapStyle = (value) => setMapSettingValue(MAP_SETTING_KEYS.basemapStyle, value);
+    const updateEraTheme = (value) => setMapSettingValue(MAP_SETTING_KEYS.mapEraTheme, value);
     const labelFont = useMapSettingValue(MAP_SETTING_KEYS.labelFont);
     // The field shows the keystrokes; the setting stores them trimmed. Storing
     // on every keystroke through setMapSettingValue's trim and echoing the
@@ -2352,6 +2370,8 @@ const SettingsMenu = ({
             updateMapSetting={updateMapSetting}
             basemapStyle={basemapStyle}
             updateBasemapStyle={updateBasemapStyle}
+            eraTheme={eraTheme}
+            updateEraTheme={updateEraTheme}
             labelFont={labelFontShown}
             updateLabelFont={updateLabelFont}
             telemetryOn={telemetryOn}

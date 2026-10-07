@@ -16,6 +16,10 @@ export const MAP_SETTING_KEYS = {
     // Empty/unset means "use the scenario author's basemap". A built-in ESRI
     // basemap id here is a local, reversible player override for this browser.
     basemapStyle: "map_basemap_style",
+    // Empty/unset means "let the era decide" (mapEraTheme.js): a scenario before
+    // 1900 opens on Parchment, 1900 and later on Modern Tactical. A theme name
+    // here is a local, reversible player lock on this browser.
+    mapEraTheme: "map_era_theme",
     // Empty/unset means "use the scenario author's label font" (world.labelFont,
     // itself defaulting to Georgia). A family name here is a local, reversible
     // player override, the same shape as basemapStyle above. It exists in
@@ -146,6 +150,7 @@ export function getMapSettingValue(key, fallback = "") {
 const VALUE_SETTING_LABELS = {
     [MAP_SETTING_KEYS.basemapStyle]: "Basemap",
     [MAP_SETTING_KEYS.labelFont]: "Label font",
+    [MAP_SETTING_KEYS.mapEraTheme]: "Map era",
 };
 
 export function setMapSettingValue(key, value) {
