@@ -1,7 +1,9 @@
 # Analytics Completion: A World View Over Polity Sheets
 
-> Status: design for review before implementation. Wave 1, item 3 of
-> `docs/specs/2026-10-07-grand-strategy-roadmap-design.md`.
+> Status: delivered. Wave 1, item 3 of
+> `docs/specs/2026-10-07-grand-strategy-roadmap-design.md`. Implemented as
+> `src/engine/polityAnalytics.js` and the World sub-tab in
+> `src/Game/GameUI/stats.jsx`.
 
 ## Problem
 
@@ -174,6 +176,6 @@ The view is a leaf: it reads the world snapshot and renders. It writes nothing.
 
 ## TODO
 
-- [ ] Implement `polityAnalytics.js` + tests (TDD).
-- [ ] Add the World sub-tab and the two chart.js components to `stats.jsx`.
-- [ ] Run `npm test` and `npm run build`.
+- [x] Implement `polityAnalytics.js` + tests (TDD).
+- [x] Add the World sub-tab and the two chart.js components to `stats.jsx`.
+- [x] Run `npm test` and `npm run build`.

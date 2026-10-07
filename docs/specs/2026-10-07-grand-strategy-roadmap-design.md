@@ -97,6 +97,10 @@ in place. Record them as Done so future reviews stop re-proposing them.
    `src/runtime/audioManager.js`, with an Audio section in Settings.
 3. **Analytics completion on `chart.js`.** Any missing polity analytics views
    reuse `AdvancedLineChart` and `countryStatsHistory`.
+   Delivered: `src/engine/polityAnalytics.js` (pure ranking core) plus a World
+   sub-tab in `stats.jsx` with ranked bar and share doughnut views over
+   `world.countryStats`; `AdvancedLineChart` over `countryStatsHistory` stays
+   the single-polity view.
 4. **Read-only history from event diffs.** SCOPE DECIDED: history is read-only,
    not an interactive replay. The event log already carries formatted diffs
    (`event.impacts`: `regionTransfers`, `regionControlOps`, `regionClaims`,
