@@ -66,3 +66,9 @@ electron/channel.json
 
 # Relocatable wiki preview (scripts/build-wiki-preview.mjs) — a build output, like dist-site.
 dist-wiki-preview/
+
+# Playwright visual-regression output. The baselines (visual/visual.spec.mjs-snapshots/)
+# and the plan (visual/views.mjs) are committed; the report and the per-run
+# actual/expected/diff PNGs are not.
+visual-report/
+test-results/

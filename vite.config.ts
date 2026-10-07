@@ -243,6 +243,9 @@ export default defineConfig(({ mode }) => ({
   // Proxy API calls to the Express server during `npm run dev` so the map editor's
   // save/load (and the game's runtime endpoints) work with hot-reload too.
   server: {
+    // The online preview is reached through a proxy host; allow the platform's
+    // wildcard so a dev server started here answers for it.
+    allowedHosts: ['.monkeycode-ai.live'],
     proxy: {
       '/api': 'http://localhost:3000',
     },

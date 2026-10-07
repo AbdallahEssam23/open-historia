@@ -21,7 +21,9 @@
     "preview": "vite preview",
     "preview:web": "vite preview --outDir dist-web",
     "preview:site": "vite preview --outDir dist-site",
-    "test": "node --test \"server/**/*.test.js\" \"src/**/*.test.js\"",
+    "test": "node --test \"server/**/*.test.js\" \"src/**/*.test.js\" \"visual/**/*.test.js\"",
+    "test:visual": "playwright test --config visual/playwright.config.mjs",
+    "test:visual:update": "playwright test --config visual/playwright.config.mjs --update-snapshots",
     "electron": "electron .",
     "dist:win": "node scripts/stamp-channel.mjs stable && npm run build && electron-builder --win",
     "dist:mac": "node scripts/stamp-channel.mjs stable && npm run build && electron-builder --mac",
@@ -72,6 +74,7 @@
     "write-file-atomic": "^7.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "eslint": "^9.39.3",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",

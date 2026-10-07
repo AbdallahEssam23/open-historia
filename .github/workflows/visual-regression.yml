@@ -1,0 +1,54 @@
+# Screenshots the map, the heatmap overlay and the Stats panels and reports pixel
+# diffs. Deliberately non-blocking: the map pulls imagery and flags from the
+# network, so a diff is a page someone reads, not a wall in front of a push. The
+# step carries continue-on-error, and the HTML report plus the actual/expected/
+# diff PNGs upload as an artifact on every run, red or green.
+#
+# The baselines are committed under visual/visual.spec.mjs-snapshots/. Until an
+# owner runs `npm run test:visual:update` on a machine with a browser and commits
+# the output, every view is a missing snapshot and the run is a report of that.
+name: Visual Regression
+
+on:
+  pull_request:
+    branches:
+      - beta
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install the Chromium used by the runner
+        run: npx playwright install --with-deps chromium
+
+      # Non-blocking by design: see the header. The report below is the output.
+      - name: Capture and compare the visual views
+        id: visual
+        continue-on-error: true
+        run: npm run test:visual
+
+      - name: Upload the visual report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression
+          path: |
+            visual-report/
+            test-results/visual/
+          if-no-files-found: ignore
+          retention-days: 14

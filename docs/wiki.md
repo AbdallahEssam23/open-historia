@@ -156,6 +156,14 @@ Playwright's Chromium against `node server/server.js` and a `npm run build` in `
 Chromium needs `--use-angle=swiftshader --enable-unsafe-swiftshader` to give MapLibre a WebGL
 context.
 
+**There is now a committed, non-blocking job.** `.github/workflows/visual-regression.yml` runs
+`npm run test:visual` (Playwright, config in `visual/`). It drives the web build, which needs no
+API key and no data directory, and screenshots the map, the heatmap overlay and the Stats panels
+against baselines under `visual/visual.spec.mjs-snapshots/`. It uploads an HTML report and the
+actual/expected/diff PNGs as the `visual-regression` artifact and never blocks a PR: the step is
+`continue-on-error`. To adopt a change deliberately, run `npm run test:visual:update` on a machine
+with `npx playwright install chromium` and commit the new baselines.
+
 **Never against the real data directory.** Copy `server/data/` somewhere scratch and launch with
 `OH_DATA_DIR` pointed at the copy. A capture run against a live library can destroy save data.
 Clear `ELECTRON_RUN_AS_NODE` first or the app exits instantly.
