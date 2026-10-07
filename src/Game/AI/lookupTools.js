@@ -14,6 +14,7 @@
 // caller builds (lookupContext), so it runs in node tests and in the harness.
 
 import { foldRegionKey, matchRegionName, stripRegionAffixes, editDistance } from "./regionMatch.js";
+import { buildRegionAdjacency, geometryBounds } from "../../engine/regionAdjacency.js";
 import {
   SIMULATION_AUDIENCE,
   audienceIncludes,
@@ -259,27 +260,6 @@ export const LOOKUP_DIRECTIVE = [
 
 const STOCK_REGION_ID = /^[A-Z]{3}\.\d+(?:_\d+)?$/;
 
-const bboxOf = (geometry) => {
-  if (!geometry) return null;
-  let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
-  const visit = (coords) => {
-    if (!Array.isArray(coords)) return;
-    if (typeof coords[0] === "number") {
-      const x = coords[0]; const y = coords[1];
-      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
-      return;
-    }
-    for (const entry of coords) visit(entry);
-  };
-  visit(geometry.coordinates);
-  return Number.isFinite(minX) ? [minX, minY, maxX, maxY] : null;
-};
-
-const ADJACENCY_GAP_DEGREES = 0.05;
-const bboxesTouch = (a, b) =>
-  a && b && a[0] <= b[2] + ADJACENCY_GAP_DEGREES && b[0] <= a[2] + ADJACENCY_GAP_DEGREES
-  && a[1] <= b[3] + ADJACENCY_GAP_DEGREES && b[1] <= a[3] + ADJACENCY_GAP_DEGREES;
-
 const pointInRing = ([x, y], ring) => {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
@@ -340,7 +320,7 @@ export const buildLookupContext = ({ regions = [], world = {}, cities = [], even
       sovereign: clean(sovereignty[id]) || "",
       aliases: array(region.aliases).map(clean).filter(Boolean),
       geometry: region.geometry ?? null,
-      bbox: bboxOf(region.geometry ?? null),
+      bbox: geometryBounds(region.geometry ?? null),
       adjacencies: array(region.adjacencies).map(clean).filter(Boolean),
       stock: STOCK_REGION_ID.test(id),
     };
@@ -368,32 +348,12 @@ export const buildLookupContext = ({ regions = [], world = {}, cities = [], even
   }
   const resolveOwner = (token) => ownerByFold.get(foldRegionKey(token)) ?? "";
 
-  // Neighbours: the map author's declared adjacencies when the catalog carries
-  // them (either direction counts), else bounding-box adjacency from geometry —
-  // cheap, and an over-approximation that only ever adds a diagonal neighbour,
-  // never drops a real one. Computed on demand per region and cached.
-  const declaredAdjacency = new Map();
-  for (const row of rows) {
-    for (const other of row.adjacencies) {
-      if (!byId.has(other) || other === row.id) continue;
-      if (!declaredAdjacency.has(row.id)) declaredAdjacency.set(row.id, new Set());
-      if (!declaredAdjacency.has(other)) declaredAdjacency.set(other, new Set());
-      declaredAdjacency.get(row.id).add(other);
-      declaredAdjacency.get(other).add(row.id);
-    }
-  }
-  const neighbourCache = new Map();
-  const neighboursOf = (row) => {
-    if (neighbourCache.has(row.id)) return neighbourCache.get(row.id);
-    const declared = declaredAdjacency.get(row.id);
-    const found = declared
-      ? [...declared].map((id) => byId.get(id)).filter(Boolean)
-      : row.bbox
-        ? rows.filter((other) => other !== row && bboxesTouch(row.bbox, other.bbox))
-        : [];
-    neighbourCache.set(row.id, found);
-    return found;
-  };
+  // Neighbours come from the shared pure graph (engine/regionAdjacency.js): the
+  // map author's declared adjacencies when the catalog carries them, else the
+  // bounding-box over-approximation. The graph works in ids; this layer maps them
+  // back to the rows the lookups hand the model.
+  const adjacency = buildRegionAdjacency(rows);
+  const neighboursOf = (row) => adjacency.neighborsOf(row.id).map((id) => byId.get(id)).filter(Boolean);
 
   const cityRows = array(cities).map((city) => ({
     name: clean(city.name ?? city.city),
