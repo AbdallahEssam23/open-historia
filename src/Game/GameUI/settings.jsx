@@ -1887,6 +1887,7 @@ const SettingsWorkspace = ({
     updateBasemapStyle,
     eraTheme,
     updateEraTheme,
+    heatmapMode,
     labelFont,
     updateLabelFont,
     audioVolume,
@@ -2034,6 +2035,16 @@ const SettingsWorkspace = ({
                         <div style={helperStyle}>Empty uses the font the scenario author chose. Any font installed on this computer works; overrides apply immediately.</div>
                     </div>
                     <Toggle label="Hide country labels" enabled={mapSettings.hideCountryLabels} onToggle={() => updateMapSetting("hideCountryLabels", MAP_SETTING_KEYS.hideCountryLabels, !mapSettings.hideCountryLabels)} />
+                    <Toggle label="Strategic heatmap" enabled={mapSettings.heatmap} onToggle={() => updateMapSetting("heatmap", MAP_SETTING_KEYS.heatmap, !mapSettings.heatmap)} />
+                    <div style={fieldGroupStyle}>
+                        <label style={labelStyle} htmlFor="game-heatmap-mode">Heatmap mode</label>
+                        <select id="game-heatmap-mode" data-no-translate value={heatmapMode} onChange={(event) => setMapSettingValue(MAP_SETTING_KEYS.heatmapMode, event.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+                            <option value="tension" style={{ color: "black" }}>Tension</option>
+                            <option value="wealth" style={{ color: "black" }}>Wealth</option>
+                            <option value="strategy" style={{ color: "black" }}>Strategy</option>
+                        </select>
+                        <div style={helperStyle}>Tension shows where wars are burning, wealth each power's GDP, strategy where each power's plans point. Takes effect only while the heatmap is on.</div>
+                    </div>
                 </SettingsSection>
                 <SettingsSection title="3D map" description="Globe and terrain rendering are presentation features; they do not change world state.">
                     <ExperimentalPill />
@@ -2311,9 +2322,12 @@ const SettingsMenu = ({
     // The era lock: a theme name, or empty for "let the year decide".
     const storedEraTheme = useMapSettingValue(MAP_SETTING_KEYS.mapEraTheme);
     const eraTheme = isEraThemeOverride(storedEraTheme) ? storedEraTheme : "";
+    // The heatmap's mode is a value setting; absent reads as "tension".
+    const heatmapMode = useMapSettingValue(MAP_SETTING_KEYS.heatmapMode, "tension") || "tension";
 
     const [mapSettings, setMapSettingsState] = useState(() => ({
         hideCountryLabels: getMapSetting(MAP_SETTING_KEYS.hideCountryLabels),
+        heatmap: getMapSetting(MAP_SETTING_KEYS.heatmap),
         disableIdleRotation: getMapSetting(MAP_SETTING_KEYS.disableIdleRotation),
         disableEventCamera: getMapSetting(MAP_SETTING_KEYS.disableEventCamera),
         // Not getMapSetting: this one ships ON, and an absent key must read as
@@ -2417,6 +2431,7 @@ const SettingsMenu = ({
             updateBasemapStyle={updateBasemapStyle}
             eraTheme={eraTheme}
             updateEraTheme={updateEraTheme}
+            heatmapMode={heatmapMode}
             labelFont={labelFontShown}
             updateLabelFont={updateLabelFont}
             audioVolume={audioVolume}

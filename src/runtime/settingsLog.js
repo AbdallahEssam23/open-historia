@@ -64,6 +64,8 @@ registerSettingsSnapshot("Map", () => [
     ["3D Globe", onOff(storedBoolean("Globe", false))],
     ["3D Terrain", onOff(storedBoolean("Terrain", true))],
     ["Hide country labels", onOff(getMapSetting(MAP_SETTING_KEYS.hideCountryLabels))],
+    ["Strategic heatmap", onOff(getMapSetting(MAP_SETTING_KEYS.heatmap))],
+    ["Heatmap mode", getMapSettingValue(MAP_SETTING_KEYS.heatmapMode, "tension")],
     ["Disable idle globe rotation", onOff(getMapSetting(MAP_SETTING_KEYS.disableIdleRotation))],
     ["Disable camera movement during events", onOff(getMapSetting(MAP_SETTING_KEYS.disableEventCamera))],
 ]);

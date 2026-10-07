@@ -30,6 +30,12 @@ export const MAP_SETTING_KEYS = {
     hideCountryLabels: "map_hide_country_labels",
     disableIdleRotation: "map_disable_idle_rotation",
     disableEventCamera: "map_disable_event_camera",
+    // The strategic heatmap overlay (Game/Map/HeatmapLayer.jsx). Off by default:
+    // the map looks like it always did until the player asks for a gradient.
+    heatmap: "map_heatmap",
+    // Which quantity that overlay draws; absent reads as "tension" at the
+    // consumer, the mode that answers "where is the war".
+    heatmapMode: "map_heatmap_mode",
     // Not a map setting, but the same localStorage-toggle mechanism: when ON,
     // an AI task gives up when the model goes quiet — 5 minutes part-way through
     // an answer, 15 with no answer at all — and falls back to canned events. Off
@@ -127,6 +133,7 @@ const SETTING_LABELS = {
     [MAP_SETTING_KEYS.hideCountryLabels]: "Hide country labels",
     [MAP_SETTING_KEYS.disableIdleRotation]: "Disable idle globe rotation",
     [MAP_SETTING_KEYS.disableEventCamera]: "Disable camera movement during events",
+    [MAP_SETTING_KEYS.heatmap]: "Strategic heatmap",
     [MAP_SETTING_KEYS.limitAiGeneration]: "Limit AI generation",
     [MAP_SETTING_KEYS.batchBackgroundTasks]: "Batch background AI tasks",
     [MAP_SETTING_KEYS.chunkLongJumps]: "Generate long time skips in segments",
@@ -162,6 +169,7 @@ const VALUE_SETTING_LABELS = {
     [MAP_SETTING_KEYS.labelFont]: "Label font",
     [MAP_SETTING_KEYS.mapEraTheme]: "Map era",
     [MAP_SETTING_KEYS.audioVolume]: "Audio volume",
+    [MAP_SETTING_KEYS.heatmapMode]: "Heatmap mode",
 };
 
 export function setMapSettingValue(key, value) {

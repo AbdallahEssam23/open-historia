@@ -30,6 +30,16 @@ test("sovereign polity boundaries remain above political fills", () => {
   assert.ok(index("polity-boundaries") > index("regions-fill"));
 });
 
+test("the strategic heatmap tints the political body without burying readable content", () => {
+  assert.ok(index("conflict-heatmap") > index("regions-fill"));
+  assert.ok(index("conflict-heatmap") > index("custom-regions-disputed-vnext"));
+  assert.ok(index("conflict-heatmap") > index("polity-boundaries"));
+  assert.ok(index("conflict-heatmap") < index("units-heading"));
+  assert.ok(index("conflict-heatmap") < index("country-curved-labels"));
+  assert.ok(index("conflict-heatmap") < index("cities-shapes"));
+  assert.ok(index("conflict-heatmap") < index("units-fill"));
+});
+
 test("late political fills are deterministically moved underneath existing object layers", () => {
   let order = [
     "basemap",

@@ -29,6 +29,10 @@ export const MAP_LAYER_ORDER = [
   "polity-boundaries-shadow",
   "polity-boundaries",
 
+  // The strategic heatmap tints the political body without burying anything:
+  // above every fill and frontier, below the draped lines, labels and objects.
+  "conflict-heatmap",
+
   // Draped standing-order lines belong above map cartography but below symbols.
   "units-heading",
   "units-station",

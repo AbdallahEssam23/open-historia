@@ -4,6 +4,7 @@ import { useMap } from "react-map-gl/maplibre";
 import Nations from "./Nations";
 import Cities from "./Cities";
 import MarkersLayer from "./MarkersLayer.jsx";
+import HeatmapLayer from "./HeatmapLayer.jsx";
 import Units from "./Units";
 import GlobeEffects from "./GlobeEffects.jsx";
 import RegionPopup from "../Selection/Regions";
@@ -146,6 +147,7 @@ const MapScene = ({ isGlobe = false }) => {
     <>
       {fillProbeEnabled && <MapFillProbe />}
       <Nations isGlobe={isGlobe} />
+      <HeatmapLayer />
       <Cities />
       <MarkersLayer />
       <Units />
