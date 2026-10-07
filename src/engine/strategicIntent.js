@@ -65,6 +65,11 @@ export const deriveIntentMenu = ({ actor = {}, targets = [], regions = [], wars 
     if (seenTargets.has(targetKey)) continue;
     if (target?.atWar === true) continue;
     seenTargets.add(targetKey);
+    // Geography is a hard gate when the caller classifies reach: a war across
+    // the map with no shared border, no ally's front and no sea route is the
+    // arbitrary jump this refuses. An unclassified target (no reach key) is left
+    // legal, so a world with no adjacency data is unchanged.
+    if (target?.reach === "unreachable") continue;
     const reasons = [];
     if (target?.holdsActorClaim === true) reasons.push("standing claim");
     if (target?.breachedActor === true) reasons.push("recorded breach");
@@ -74,6 +79,7 @@ export const deriveIntentMenu = ({ actor = {}, targets = [], regions = [], wars 
       justified: reasons.length > 0,
       reasons,
       goals: WAR_GOALS,
+      ...(target?.reach ? { reach: target.reach } : {}),
     });
     if (declareWar.length >= MAX_DECLARATIONS) break;
   }

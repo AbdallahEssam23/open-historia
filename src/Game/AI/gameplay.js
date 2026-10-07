@@ -633,7 +633,9 @@ warUpdates is one string, one record per line, fields separated by ~ (never insi
 // The id/owner list the strategic menu reads: the primed scenario catalog's
 // regions with the world's own ownership already folded in. A claim can only
 // name a region here, so the catalog's absence yields an empty list and the
-// menu simply offers no claims.
+// menu simply offers no claims. Each row also carries the geography the menu
+// needs to know whether a war can reach a target: the declared adjacencies, the
+// bounding box, and the coastal flag.
 const buildStrategicRegionOptions = (world) => {
   const catalog = getPrimedScenarioRegionCatalog() ?? [];
   const overrides = world?.regionOwnershipOverrides ?? {};
@@ -645,7 +647,13 @@ const buildStrategicRegionOptions = (world) => {
         || toCountryName(normalizeString(region?.country))
         || toCountryName(normalizeString(region?.countryCode))
         || "";
-      return { regionId, owner };
+      return {
+        regionId,
+        owner,
+        adjacencies: normalizeArray(region?.adjacencies).map((value) => normalizeString(value)).filter(Boolean),
+        bounds: Array.isArray(region?.bounds) ? region.bounds : null,
+        type: normalizeString(region?.type),
+      };
     })
     .filter((region) => region.regionId && region.owner);
 };
@@ -662,7 +670,7 @@ const buildStrategicDirective = (report, playerName) => {
     const options = [];
     for (const entry of normalizeArray(menu.declareWar)) {
       options.push(
-        `declare_war -> ${entry.target} (${entry.justified ? `justified: ${entry.reasons.join(", ") || "cause on record"}` : "no recorded cause: unjust"}); warId ${entry.warId}`,
+        `declare_war -> ${entry.target} (${entry.justified ? `justified: ${entry.reasons.join(", ") || "cause on record"}` : "no recorded cause: unjust"}${entry.reach ? `; reach: ${entry.reach}` : ""}); warId ${entry.warId}`,
       );
     }
     for (const entry of normalizeArray(menu.pressClaim)) {

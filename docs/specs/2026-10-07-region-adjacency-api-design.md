@@ -97,6 +97,30 @@ legacy code both fold onto the name the units use. `polityId` is matched after
 the same resolution, case-insensitively, so a caller may pass a name, an alias or
 a legacy code. An unknown polity returns empty lists, not an error.
 
+### War-declaration gate (delivered with this increment)
+
+The graph is wired into the strategic menu so a power cannot declare a war the
+map cannot reach:
+
+- `src/Game/AI/gameplay.js` `buildStrategicRegionOptions` now carries each
+  region's `adjacencies`, `bounds` and `type` (coastal) from the primed catalog.
+- `src/runtime/opponentContext.js` classifies each target's `reach`:
+  `contiguous` (a shared land border), `coalition` (the target borders a
+  co-belligerent on the actor's side of an active war), `overseas` (both the
+  actor and the target hold coast, so a sea route exists), else `unreachable`.
+  Geography gates only when the catalog actually carries some (a declared
+  adjacency anywhere, or a coastal flag); a scenario with none leaves every
+  target unclassified and the menu unchanged.
+- `src/engine/strategicIntent.js` `deriveIntentMenu` refuses a target whose
+  `reach` is `unreachable` and passes a known `reach` through to the menu entry.
+  An unclassified target (no `reach` key) stays legal, so `deriveIntentMenu` is
+  inert without geography.
+
+This blocks the arbitrary jump - a war across the map with no shared border, no
+ally's front and no sea route - while keeping the existing legal cases. The menu
+directive prints the `reach` beside a declaration so the model reads why it is
+legal.
+
 ## Data flow
 
 ```
@@ -142,5 +166,5 @@ getContiguousNeighbors   lookupTools.buildLookupContext (rows mapped from ids)
 
 - Have `frontLines.js`, `supplyAttrition.js` and `reinforcement.js` take the
   shared graph instead of their own `adjacencies` lists.
-- Use `getContiguousNeighbors` to gate war declarations on real proximity and to
-  seed expansion scoring.
+- Use `getContiguousNeighbors` to seed expansion scoring and reinforcement
+  reach, beyond the declaration gate shipped here.

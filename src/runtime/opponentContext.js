@@ -9,6 +9,7 @@
 // function of. It never imports the Game/AI layer.
 
 import { derivePersonality } from "../engine/opponentPersonality.js";
+import { buildRegionAdjacency } from "../engine/regionAdjacency.js";
 import { deriveIntentMenu } from "../engine/strategicIntent.js";
 import { resolveCountryTags } from "./countryTags.js";
 import { normalizeWorldState } from "./gameState.js";
@@ -212,7 +213,68 @@ const claimedRegionIds = (world, polity) => {
 
 // The compact menu inputs for one actor, from the normalized world and a region
 // option list the caller assembled from the scenario catalog. `regions` carries
-// only an id and its owner; everything else is read from the world.
+// an id, its owner, and — when the catalog knows them — the region's declared
+// adjacencies, bounding box and coastal flag; everything else is read from the
+// world.
+const REGION_COASTAL_TYPE = "coastal";
+
+// How a power can legally carry a war to a target. `contiguous` shares a land
+// border; `coalition` reaches across a co-belligerent's front; `overseas` needs
+// both sides to hold coast (a sea route); anything else is `unreachable`. The
+// pure law in engine/strategicIntent.js refuses `unreachable` and leaves an
+// unclassified target (no geography at all) legal.
+const reachClassifier = (world, selfKey, regionRows) => {
+  const graph = buildRegionAdjacency(regionRows);
+  const ownerById = new Map(regionRows.map((row) => [row.id, keyLower(row.owner)]));
+  const ownerKeyOf = (id) => ownerById.get(id) ?? "";
+  const coastalById = new Map(regionRows.map((row) => [row.id, row.coastal === true]));
+
+  const regionsByOwner = new Map();
+  for (const row of regionRows) {
+    if (!regionsByOwner.has(row.owner)) regionsByOwner.set(row.owner, []);
+    regionsByOwner.get(row.owner).push(row.id);
+  }
+  const actorRegions = regionsByOwner.get(selfKey) ?? [];
+
+  // The polities on the actor's own side of an active war: a target that borders
+  // one of them can be reached over their land.
+  const coBelligerents = new Set();
+  for (const war of asList(world?.wars)) {
+    if (keyLower(war?.status) !== "active") continue;
+    const sideA = asList(war?.sideA).map(canonical);
+    const sideB = asList(war?.sideB).map(canonical);
+    const onA = sideA.some((name) => keyLower(name) === selfKey);
+    const onB = sideB.some((name) => keyLower(name) === selfKey);
+    if (!onA && !onB) continue;
+    for (const name of [...sideA, ...sideB]) {
+      const other = keyLower(name);
+      if (other && other !== selfKey) coBelligerents.add(other);
+    }
+  }
+  // Geography only gates when the catalog actually carries some: a scenario that
+  // declares no adjacency and no coast keeps every target legal, exactly as it
+  // was before this classifier existed.
+  const hasGeography = regionRows.some((row) => row.adjacencies.length > 0) || regionRows.some((row) => row.coastal === true);
+  const actorCoastal = actorRegions.some((id) => coastalById.get(id) === true);
+  return (targetKey) => {
+    if (!hasGeography || actorRegions.length === 0) return undefined;
+    const targetRegions = regionsByOwner.get(targetKey) ?? [];
+    if (targetRegions.length === 0) return undefined;
+    const contiguous = actorRegions.some((id) =>
+      graph.neighborsOf(id).some((neighbour) => ownerKeyOf(neighbour) === targetKey));
+    if (contiguous) return "contiguous";
+    if (coBelligerents.size > 0) {
+      for (const regionId of targetRegions) {
+        if (graph.neighborsOf(regionId).some((neighbour) => coBelligerents.has(ownerKeyOf(neighbour)))) {
+          return "coalition";
+        }
+      }
+    }
+    if (actorCoastal && targetRegions.some((id) => coastalById.get(id) === true)) return "overseas";
+    return "unreachable";
+  };
+};
+
 const menuInputsFromNormalized = (world, polity, regions, { playerPolity = "" } = {}) => {
   const selfKey = keyLower(polity);
   const enemies = enemiesOf(world, polity);
@@ -239,6 +301,16 @@ const menuInputsFromNormalized = (world, polity, regions, { playerPolity = "" } 
     actorRegions.filter((region) => region.claimedByActor).map((region) => keyLower(region.owner)),
   );
 
+  const reachFor = reachClassifier(world, selfKey, asList(regions)
+    .map((region) => ({
+      id: asName(region?.regionId ?? region?.id),
+      owner: keyLower(canonical(region?.owner ?? region?.country)),
+      adjacencies: asList(region?.adjacencies).map(asName).filter(Boolean),
+      bbox: Array.isArray(region?.bounds) && region.bounds.length === 4 ? region.bounds : null,
+      coastal: keyLower(region?.type) === REGION_COASTAL_TYPE,
+    }))
+    .filter((region) => region.id && region.owner));
+
   const targets = inPlay
     .filter((name) => keyLower(name) !== selfKey)
     .map((name) => ({
@@ -249,6 +321,7 @@ const menuInputsFromNormalized = (world, polity, regions, { playerPolity = "" } 
         keyLower(agreement?.status) === "breached"
         && keyLower(agreement?.breachedBy) === keyLower(name)
         && asList(agreement?.parties).some((party) => keyLower(party) === selfKey)),
+      reach: reachFor(keyLower(name)),
     }));
 
   return {

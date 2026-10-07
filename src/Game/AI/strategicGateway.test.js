@@ -101,6 +101,27 @@ test("a target outside the menu is refused", () => {
   assert.equal(outcome.rejected[0].reason, "not a legal target this turn");
 });
 
+test("a declaration the map cannot reach is refused, not narrated", () => {
+  // The catalog now carries geography: Ruritania holds a coastal region, so a sea
+  // route exists, but Syldavia holds only a landlocked region with no declared
+  // border. No land border, no ally's front, no enemy coast: unreachable.
+  const regions = [
+    { regionId: "r2", owner: "Ruritania", adjacencies: [], type: "coastal" },
+    { regionId: "r1", owner: "Syldavia", adjacencies: [], type: "land" },
+  ];
+  const events = [declarationEvent()];
+  const outcome = applyStrategicIntents({
+    world: world(),
+    regions,
+    warUpdates: [],
+    events,
+    intents: "declare_war~Ruritania~Syldavia~annex~~",
+  });
+  assert.equal(outcome.accepted.declareWar.length, 0, "the war is not accepted");
+  assert.equal(outcome.warUpdates.length, 0, "no start record is written");
+  assert.equal(outcome.rejected[0].reason, "not a legal target this turn");
+});
+
 test("a declaration with no event carrying its warId is refused", () => {
   const outcome = apply({ intents: "declare_war~Ruritania~Syldavia~annex~~", events: [{ id: "e1", date: "1900-03-01", title: "A quiet month" }] });
   assert.equal(outcome.accepted.declareWar.length, 0);

@@ -69,6 +69,40 @@ test("a standing claim or a recorded breach makes a declaration justified", () =
   assert.deepEqual(byTarget.Nowhere.goals, WAR_GOALS);
 });
 
+test("a target with no reach facts is legal, so the gate is inert without geography", () => {
+  const menu = deriveIntentMenu({
+    actor: { polity: "Ruritania" },
+    targets: [{ polity: "Syldavia", holdsActorClaim: true }, { polity: "Faraway" }],
+  });
+  assert.deepEqual(menu.declareWar.map((entry) => entry.target), ["Syldavia", "Faraway"]);
+  assert.equal("reach" in menu.declareWar[1], false, "an unclassified target carries no reach key");
+});
+
+test("an unreachable target is not offered, and a reachable one says how it is reached", () => {
+  const menu = deriveIntentMenu({
+    actor: { polity: "Ruritania" },
+    targets: [
+      { polity: "Syldavia", reach: "contiguous" },
+      { polity: "Borduria", reach: "coalition" },
+      { polity: "Oversea", reach: "overseas" },
+      { polity: "Antipodes", reach: "unreachable" },
+    ],
+  });
+  assert.deepEqual(menu.declareWar.map((entry) => entry.target), ["Syldavia", "Borduria", "Oversea"]);
+  const byTarget = Object.fromEntries(menu.declareWar.map((entry) => [entry.target, entry]));
+  assert.equal(byTarget.Syldavia.reach, "contiguous");
+  assert.equal(byTarget.Borduria.reach, "coalition");
+  assert.equal(byTarget.Oversea.reach, "overseas");
+});
+
+test("an unreachable target is still refused when a claim would otherwise justify it", () => {
+  const menu = deriveIntentMenu({
+    actor: { polity: "Ruritania" },
+    targets: [{ polity: "Antipodes", holdsActorClaim: true, reach: "unreachable" }],
+  });
+  assert.deepEqual(menu.declareWar, []);
+});
+
 test("declarations are capped", () => {
   const names = Array.from({ length: MAX_DECLARATIONS + 4 }, (_, index) => `P${index}`);
   const menu = deriveIntentMenu({ actor: { polity: "Ruritania" }, targets: targets(names) });
