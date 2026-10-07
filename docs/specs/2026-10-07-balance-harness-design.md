@@ -1,9 +1,9 @@
 # Headless Balance Harness: Economy-Only Scenario Runner
 
-> Status: approved design, ready to implement. Wave 2, item 6 of
+> Status: delivered. Wave 2, item 6 of
 > `docs/specs/2026-10-07-grand-strategy-roadmap-design.md`. Scope agreed with
 > the owner: **economy only**. No combat, no settlements, no supply, no regions
-> or units.
+> or units. Implemented as `src/engine/balanceHarness.js` with its tests.
 
 ## Problem
 
@@ -49,8 +49,9 @@ Import-free except for existing engine modules (`economyTick.js`,
 clock, no entropy, no browser global.
 
 ```
-BALANCE_THRESHOLDS = { snowballTopShareDelta, collapseStabilityFloor,
-                       collapseGdpDropFraction, debtCeiling }
+BALANCE_THRESHOLDS = { snowballTopShareDelta, snowballGrowthRatio,
+                       collapseStabilityFloor, collapseGdpDropFraction,
+                       debtCeiling }
 
 concentrationOf(values) -> { total, count, topShare, hhi }
 
@@ -86,8 +87,12 @@ and a `collapsed` flag.
 `BALANCE_THRESHOLDS` is a frozen table so the readings are explainable and
 tunable without touching the loop:
 
-- A scenario **snowballs** when the last sample's `topShare` exceeds the first
-  sample's by at least `snowballTopShareDelta`.
+- A scenario **snowballs** when either the last sample's `topShare` exceeds the
+  first sample's by at least `snowballTopShareDelta`, or the fastest growing
+  polity's growth multiple exceeds the slowest's by at least
+  `snowballGrowthRatio`. The economy's drags and reversion keep raw share drift
+  modest, so the growth-ratio reading is the more sensitive of the two; the
+  report exposes the ratio as `growthRatio`.
 - A polity **collapses** when its minimum stability reaches
   `collapseStabilityFloor`, its maximum debt reaches `debtCeiling`, or its GDP
   falls below `1 - collapseGdpDropFraction` of its starting value.
@@ -158,7 +163,7 @@ between calls, so re-running a scenario is exact.
 
 ## TODO
 
-- [ ] Implement `concentrationOf`, `runBalanceScenario`, `BALANCE_THRESHOLDS`
+- [x] Implement `concentrationOf`, `runBalanceScenario`, `BALANCE_THRESHOLDS`
       (TDD).
-- [ ] Write the balanced, snowball and collapse scenario tests.
-- [ ] Run `npm test`, `npm run build` and `enginePurity.test.js`.
+- [x] Write the balanced, snowball and collapse scenario tests.
+- [x] Run `npm test`, `npm run build` and `enginePurity.test.js`.

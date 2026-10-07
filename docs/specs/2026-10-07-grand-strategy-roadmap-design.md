@@ -115,6 +115,10 @@ in place. Record them as Done so future reviews stop re-proposing them.
    deterministic, unit-tested headless. No Yuka.
 6. **Headless balance harness** driving the existing pure tick engines under
    `node --test`, reporting snowballing and collapse.
+   Delivered (economy scope): `src/engine/balanceHarness.js` composes the pure
+   `advanceEconomy` clock over many polities and months and reports concentration
+   drift and per-polity collapse; `src/engine/balanceHarness.test.js` pins the
+   balanced, snowball and debt-crisis cases.
 7. **Native heatmap layer** for the end-of-era conflict map.
 
 ### Wave 3 - evaluate only, explicit opt-in
